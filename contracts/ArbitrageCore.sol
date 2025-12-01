@@ -17,7 +17,7 @@ contract ArbitrageCore is Ownable, ReentrancyGuard {
     address public platForm;//利润转账地址(项目方钱包地址)
     address public spotArbImp;// 实现套利(实现IArbitrage.sol)
 
-    uint256 public constant PROFIT_SHARE_FEE = 100;//平台收取利润的10%作为服务费
+    uint256 public constant PROFIT_SHARE_FEE = 1000;//平台收取利润的10%作为服务费
 
     event ArbitrageExcuted(
         address indexed user,
@@ -63,7 +63,7 @@ contract ArbitrageCore is Ownable, ReentrancyGuard {
         require(params.swapPath.length >= 2, "swapPath Invaild");
         require(params.swapPath[0] == tokenIn, "tokenIn not match");
         //
-        require(swapPath[swapPath.length -1] == tokenIn, "tokenIn not match");
+        require(swapPath[swapPath.length -1] == tokenIn, "tokenOut not match");//in和out应该相同
         require(params.dexes.length == swapPath.length -1, "Dex count not match ");
         
         //授权
@@ -71,7 +71,7 @@ contract ArbitrageCore is Ownable, ReentrancyGuard {
         //授权给套利策略合约
         IERC20(params.tokenIn).approve(spotArbImp, params.amountIn);
         //套利前余额
-        uint256 balanceBefore = IERC20(tokenOut).balanceof(address(this));
+        uint256 balanceBefore = IERC20(tokenOut).balanceOf(address(this));
         
         //调度套利
         uint256 amountOut = IArbitrage(spotArbImp).excuteArbitrage(
@@ -82,7 +82,7 @@ contract ArbitrageCore is Ownable, ReentrancyGuard {
             params.dexes
         );
         //套利后余额
-        uint256 balanceAfter = IERC20(tokenOut).balanceof(address(this));
+        uint256 balanceAfter = IERC20(tokenOut).balanceOf(address(this));
         //利润计算
         require(balanceAfter - balanceBefore >= 0, "no profit")
         profit = balanceAfter - balanceBefore;
