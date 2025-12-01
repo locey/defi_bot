@@ -59,42 +59,43 @@ contract ArbitrageCore is Ownable, ReentrancyGuard {
         ArbitrageParams calldata params
     ) external noReentrant returns(uint256 profit){
         require(msg.sender == platForm || msg.sender == owner(), "No right ");
-        require(amountIn > 0, "amountIn must > 0");
-        require(swapPath.length >= 2, "swapPath Invaild");
-        require(swapPath[0] == tokenIn, "tokenIn not match");
+        require(params.amountIn > 0, "amountIn must > 0");
+        require(params.swapPath.length >= 2, "swapPath Invaild");
+        require(params.swapPath[0] == tokenIn, "tokenIn not match");
         //
         require(swapPath[swapPath.length -1] == tokenIn, "tokenIn not match");
-        require(dexes.length == swapPath.length -1, "Dex count not match ");
+        require(params.dexes.length == swapPath.length -1, "Dex count not match ");
         
         //授权
-        IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn);
+        IERC20(params.tokenIn).transferFrom(msg.sender, address(this), params.amountIn);
         //授权给套利策略合约
-        IERC20(tokenIn).approve(spotArbImp, amountIn);
+        IERC20(params.tokenIn).approve(spotArbImp, params.amountIn);
         //套利前余额
         uint256 balanceBefore = IERC20(tokenOut).balanceof(address(this));
         
         //调度套利
         uint256 amountOut = IArbitrage(spotArbImp).excuteArbitrage(
-            tokenIn,
-            tokenOut,
-            amountIn,
-            swapPath,
-            dexes
-        )
+            params.tokenIn,
+            params.tokenOut,
+            params.amountIn,
+            params.swapPath,
+            params.dexes
+        );
         //套利后余额
         uint256 balanceAfter = IERC20(tokenOut).balanceof(address(this));
         //利润计算
-        require(balanceAfter - balanceBefore > 0, "no profit")
+        require(balanceAfter - balanceBefore >= 0, "no profit")
         profit = balanceAfter - balanceBefore;
 
         uint256 platFormShare = profit * PROFIT_SHARE_FEE / 10000;//平台分成
         uint256 customerShare = profit - platFormShare;//用户获利
 
-        IERC20(tokenOut).transferFrom(platForm, platFormShare);
-        IERC20(tokenOut).transferFrom(msg.sender, customerShare);
+        require(IERC20(params.tokenOut).transfer(platForm, platFormShare),"PlatForm transfer failed");
+        require(IERC20(params.tokenOut).transfer(msg.sender, customerShare),"customer transfer failed");
 
-        emit ArbitrageExcuted(msg.sender, tokenIn, tokenOut, amountIn, profit);
+        emit ArbitrageExcuted(msg.sender, params.tokenIn, params.tokenOut, params.amountIn, profit);
 
+        return profit;
     }
 
 
