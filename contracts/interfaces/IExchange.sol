@@ -6,15 +6,18 @@ pragma solidity ^0.8.20;
  */
 interface IExchange {
     
-function routerArbCheck(
+    // 单路由验证是否可获利
+    function routerArbCheck(
         address router,
         uint amountIn,
         address[] calldata path) 
     external view returns (
         bool profitable,
         uint finalAmount,
-        int profit);
+        int profit
+    );
     
+    // 多路由验证是否可获利
     function multiRouterArbCheck(
         uint amountIn,
         address[] calldata path,
@@ -25,6 +28,7 @@ function routerArbCheck(
         int profit
     );
 
+    // 单路由单路径交易
     function swapV2(
         address router, 
         address token0, 
@@ -33,6 +37,7 @@ function routerArbCheck(
         address platForm) 
     external returns(uint amountOut);
 
+    // 单路由多路径交易
     function swapV2Multi(
         address router,
         address[][] memory paths,
