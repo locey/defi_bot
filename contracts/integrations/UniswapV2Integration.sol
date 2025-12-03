@@ -1,10 +1,22 @@
 // SPDX-License-Identifier: MIT
-pragam solidity ^0.8.20;
+pragma solidity ^0.8.20;
 
-import "./interfaces/IUniswapV2Router02.sol";
-import "./interfaces/IExchange.sol";
+import './interfaces/IExchange.sol';
+import './interfaces/IUniswapV2Router02.sol';
 
-contract UniswapV2Integration {
+/**
+* IUniswapV2Router02支持uniswap和sushuiswap
+*/
+contract UniswapV2Integration is IExchange {
+
+    address public immutable platForm;
+    uint public slipageTolerance;
+
+    constructor(address _platForm, uint _slipageTolerance) {
+        require(_platForm != address(0), "Invalid platForm");
+        platForm = _platForm;
+        slipageTolerance = _slipageTolerance;
+    }
 
     /**
      * 单路由验证路径是否可获利
@@ -48,7 +60,6 @@ contract UniswapV2Integration {
 
         // 利润（signed integer）
         int profitAmount = int(finalOut) - int(amountIn);
-
         return (isProfit, finalOut, profitAmount);
     }   
 
@@ -119,26 +130,39 @@ contract UniswapV2Integration {
      *      token0：代币地址0
      *      token1：代币地址1
      *      amountIn：交易数量
-     *      platForm：转账地址
      */
     function swapV2(
         address router, 
         address token0, 
         address token1, 
-        uint amountIn,
-        address platForm) 
+        uint amountIn) 
     external returns(uint amountOut) {
         require(amountIn > 0, "amountIn must be greater than zero");
         IUniswapV2Router02 swapRouter = IUniswapV2Router02(router);
         address[] memory path = _getSwapPath(router, token0, token1);
-        uint256[] memory amounts;
-        swapRouter.swapExactTokensForTokens(
+
+        // getAmountsOut：根据输入数量和路径，计算理论上能兑换到的各步代币数量
+        uint256[] memory expectedAmounts = swapRouter.getAmountsOut(amountIn, path);
+        // 预期最终输出的目标代币数量（数组最后一个元素）
+        uint expectedOut = expectedAmounts[expectedAmounts.length - 1];
+        require(expectedOut > 0, "Expected output is zero (invalid path/liquidity)");
+
+        // 计算 amountOutMin（最小接收数量 = 预期输出 * (1 - 滑点容忍度/10000)）
+        // 滑点容忍度用「万分比」避免浮点数：500 = 500/10000 = 5%，100 = 1%
+        uint amountOutMin = expectedOut * (10000 - slipageTolerance) / 10000;
+        // 防止极端情况下 amountOutMin 为 0（比如滑点设为 10000，虽已校验，但双重保险）
+        require(amountOutMin > 0, "amountOutMin is zero");
+        uint256[] memory amounts = swapRouter.swapExactTokensForTokens(
             amountIn, 
-            0, 
+            amountOutMin, 
             path, 
             platForm, 
-            block.timestamp + 30);
-        return amounts[amounts.length-1];
+            block.timestamp + 30
+        );
+        // 最终兑换到的目标代币数量
+        amountOut = amounts[amounts.length - 1]; 
+        emit SwapV2(router, token0, token1, amountIn, amountOut, expectedOut, slipageTolerance);
+        return amountOut;
     }
 
     /**
@@ -149,37 +173,52 @@ contract UniswapV2Integration {
      *          path[0]:[USDT,DAI]
      *          path[1]:[DAI,WETH] 
      *      amountIn：交易数量
-     *      platForm：转账地址
      */
     function swapV2Multi(
         address router,
-        address[][] memory paths,
-        uint amountIn,
-        address platForm) 
-    external returns (uint amountOut) {
+        address[][] calldata paths,
+        uint amountIn
+    ) external returns (uint amountOut) {
 
         IUniswapV2Router02 swapRouter = IUniswapV2Router02(router);
         uint currentAmount = amountIn;
-        uint length = paths.length;
-        for (uint i = 0; i < length; i++) {
-            address[] memory path = paths[i];
+        uint pathCount = paths.length;
 
-            require(path.length >= 2, "Invalid path");
+        address[] memory currentPath;
+        uint256[] memory expectedAmounts;
+        uint expectedOut;
+        uint amountOutMin;
+        uint[] memory swapResult;
 
-            uint[] memory result = swapRouter.swapExactTokensForTokens(
+        for (uint i = 0; i < pathCount; i++) {
+            currentPath = paths[i];
+
+            require(currentPath.length >= 2, "Invalid path");
+            
+            expectedAmounts = swapRouter.getAmountsOut(currentAmount, currentPath);
+            require(expectedAmounts[expectedAmounts.length - 1] > 0, "Expected output is zero");
+            expectedOut = expectedAmounts[expectedAmounts.length - 1];
+
+            //滑点计算保留原逻辑
+            amountOutMin = expectedOut * (10000 - slipageTolerance) / 10000;
+            require(amountOutMin > 0, "amountOutMin is zero");
+
+            swapResult = swapRouter.swapExactTokensForTokens(
                 currentAmount,
-                0,
-                path,
+                amountOutMin,
+                currentPath,
                 platForm,
                 block.timestamp + 30
             );
+            currentAmount = swapResult[swapResult.length - 1];
 
-            currentAmount = result[result.length - 1];
+            // 利润校验,确保无亏损
+            require(currentAmount >= amountIn, "No profit");
         }
 
+        emit SwapV2Multi(router, paths, amountIn, currentAmount);
         return currentAmount;
     }
-
 
     /**
      * Get the swap path

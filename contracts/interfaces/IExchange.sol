@@ -2,11 +2,12 @@
 pragma solidity ^0.8.20;
 
 /**
- * 接口抽象
+ * swap实现业务合约
  */
 interface IExchange {
-    
-    // 单路由验证是否可获利
+    event SwapV2(address indexed router, address indexed token0, address indexed token1, uint amountIn, uint amountOut, uint expectedOut, uint256 slipageTolerance);
+    event SwapV2Multi(address indexed router, address[][] paths, uint amountIn, uint amountOut);
+
     function routerArbCheck(
         address router,
         uint amountIn,
@@ -14,10 +15,8 @@ interface IExchange {
     external view returns (
         bool profitable,
         uint finalAmount,
-        int profit
-    );
+        int profit);
     
-    // 多路由验证是否可获利
     function multiRouterArbCheck(
         uint amountIn,
         address[] calldata path,
@@ -28,20 +27,16 @@ interface IExchange {
         int profit
     );
 
-    // 单路由单路径交易
     function swapV2(
         address router, 
         address token0, 
         address token1, 
-        uint amountIn,
-        address platForm) 
+        uint amountIn) 
     external returns(uint amountOut);
 
-    // 单路由多路径交易
     function swapV2Multi(
         address router,
-        address[][] memory paths,
-        uint amountIn,
-        address platForm) 
+        address[][] calldata paths,
+        uint amountIn) 
     external returns (uint amountOut);
 }
