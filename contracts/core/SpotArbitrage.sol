@@ -8,6 +8,6 @@ contract SpotArbitrage {
     *
     *
     *
-    *
+    *本合约被ArbitrageCore调用
     */
 }
