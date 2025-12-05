@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -27,8 +27,8 @@ contract ArbitrageVault is ERC20, ReentrancyGuard, Ownable {
     
     // 费用设置
     uint256 public depositFee = 0;            // 存款费（basis points）
-    uint256 public withdrawFee = 0;           // 提款费（basis points）
-    uint256 public performanceFee = 2000;     // 业绩费20%（从利润中收取）
+    uint256 public withdrawFee = 1;           // 提款费（basis points） 暂定0.01%
+    uint256 public performanceFee = 1000;     // 业绩费20%（从利润中收取）
     
     // 统计数据
     uint256 public totalProfitGenerated;      // 总产生利润
