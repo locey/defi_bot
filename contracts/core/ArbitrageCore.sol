@@ -1,36 +1,69 @@
 // SPDX-License-Identifier: MIT
-pragam solidity ^0.8.20;
+pragma solidity ^0.8.20;
 
 import "./interface/IArbitrage.sol";
 import "./interface/IArbitrageVault.sol";
 import "./interface/ISpotArbitrage.sol";
 import "./interface/IFlashLoan.sol";
+import "./interface/IConfigManager.sol";
 
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-contract ArbitrageCore is Ownable, ReentrancyGuard {
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+
+contract ArbitrageCore is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     /**
     *套利调度核心合约
     *调用套利策略执行
     *验证获利
     *分润：暂定平台收取100（即10%），后续应将此值放置在router中进行管理，以便管理员随时调整
     */
+    using SafeERC20Upgradeable for IERC20;
+
+    constructor () {
+        _disableInitializers();
+    }
+
+    function initialize(
+        address _spotArbitrage,
+        address _flashLoanArbitrage,
+        address _platFormWallet,
+        address _configManager,
+        address _backCaller
+    ){
+
+    } public initializer {
+        __Owner_init();
+        __ReentrancyGuard_init();
+        __UUPSUpgradeable_init();
+
+        require(_spotArbitrage != address(0), "Invalid spot Arbitrage");
+        require(_flashLoanArbitrage != address(0), "Invalid flashLoan Arbitrage");
+        require(_platFormWallet != address(0), "Invalid platForm Wallet");
+        require(_configManager != address(0), "Invalid config Manager");
+        require(_backCaller != address(0), "Invalid backend Caller");
+
+        spotArbitrage = ISpotArbitrage(_spotArbitrage);
+        flashLoanArbitrage = IFlashLoan(_flashLoanArbitrage);
+        platForm = _platFormWallet;
+        configManager = IConfigManager(_configManager);
+        backCaller = _backCaller;
+
+
+    }
 
     ISpotArbitrage public spotArbitrage;
     IFlashLoan public flashLoanArbitrage;
-    address public platForm;//利润转账地址(项目方钱包地址)
-    address public spotArbImp;// 实现套利(实现IArbitrage.sol)
-    address public backCaller;//后端
-
-    uint256 public constant PROFIT_SHARE_FEE = 1000;//平台收取利润的10%作为服务费
-
+    IConfigManager public configManager;    //参数管理   平台收取利润的10%作为服务费等
+    address public platFormWallet;          //利润转账地址(项目方钱包地址)
+    address public spotArbImp;              // 实现套利(实现IArbitrage.sol)
+    address public backCaller;              //后端
 
 
     //金库地址
     mapping(address => IArbitrageVault) public vaults;
-    address[] public supportAssets;
 
     //事件：金库资产套利
     event VaultArbitrageExcuted(
@@ -38,11 +71,13 @@ contract ArbitrageCore is Ownable, ReentrancyGuard {
         address indexed asset,
         uint256 amountIn,
         uint256 profit,
+        uint256 platFormFee,//平台服务费
+        uint256 netProfitToVault,//转入金库的净收益（刨除平台服务费）
         uint256 timestamp
     );
 
     //事件：闪电贷套利
-    event FlashLoanArgitrageExcuted(
+    event FlashLoanArbitrageExcuted(
         address indexed initiator,
         address indexed asset,
         address tokenIn,
@@ -58,26 +93,16 @@ contract ArbitrageCore is Ownable, ReentrancyGuard {
         _;
     }
 
-    constructor(address _spotArbitrage, address _flashLoanArbitrage){
-        require(_spotArbitrage != address(0), "Invalid spot arbitrage");
-        spotArbitrage = ISpotArbitrage(_spotArbitrage)
-        require(_flashLoanArbitrage != address(0), "Invalid flashLoan arbitrage");
-        flashLoanArbitrage = IFlashLoan(_flashLoanArbitrage);
-
-        backCaller = msg.sender;
-
-    }
-
     //金库函数：添加金库
     function addVault(
         address asset,
         address vault
     ) external onlyOwner {
         require(asset != address(0), "Invalid asset");
-        require(vault != address(0), "Invalid vault")
-        require(address(vault[asset]) == address(0), "vault already exists" )
+        require(vault != address(0), "Invalid vault");
+        require(address(vaults[asset]) == address(0), "vault already exists" );
 
-        vault[asset] = IArbitrageVault(vault);
+        vaults[asset] = IArbitrageVault(vault);
         supportAssets.push(asset);
 
         emit VaultAdd(asset, vault);
@@ -91,7 +116,7 @@ contract ArbitrageCore is Ownable, ReentrancyGuard {
         uint256 totalAssets,
         uint256 availableAssets
     ) {
-        IArbitrageVault vault = vault[asset];
+        IArbitrageVault vault = vaults[asset];
         require(address(vault) != address(0), "vault not exists");
 
         return (
@@ -113,57 +138,35 @@ contract ArbitrageCore is Ownable, ReentrancyGuard {
     *自有资金套利&闪电贷套利，两种套利模式对象不同，前者取自金库，可多人打包进行，后者针对用户，闪电贷不可跨用户
     *
     */
-    function excutedSpotArbitrage(
-        ArbitrageParams calldata params
-    ) external noReentrant returns(uint256 profit){
-        require(msg.sender == platForm || msg.sender == owner(), "No right ");
-        require(params.amountIn > 0, "amountIn must > 0");
-        require(params.swapPath.length >= 2, "swapPath Invalid");
-        require(params.swapPath[0] == tokenIn, "tokenIn not match");
-        //
-        require(swapPath[swapPath.length -1] == tokenIn, "tokenOut not match");//in和out应该相同
-        require(params.dexes.length == swapPath.length -1, "Dex count not match ");
-        
-        //授权
-        IERC20(params.tokenIn).transferFrom(msg.sender, address(this), params.amountIn);
-        //授权给套利策略合约
-        IERC20(params.tokenIn).approve(spotArbImp, params.amountIn);
-        //套利前余额
-        uint256 balanceBefore = IERC20(tokenOut).balanceOf(address(this));
-        
-        //调度套利
-        uint256 amountOut = IArbitrage(spotArbImp).excuteArbitrage(
-            params.tokenIn,
-            params.tokenOut,
-            params.amountIn,
-            params.swapPath,
-            params.dexes
-        );
-        //套利后余额
-        uint256 balanceAfter = IERC20(tokenOut).balanceOf(address(this));
-        //利润计算
-        require(balanceAfter - balanceBefore >= 0, "no profit")
-        profit = balanceAfter - balanceBefore;
+    enum StrategyTypes {
+        OWN_FUNDS, 
+        FLASH_LOAN
+    }
+    
 
-        uint256 platFormShare = profit * PROFIT_SHARE_FEE / 10000;//平台分成
-        uint256 customerShare = profit - platFormShare;//用户获利
-
-        require(IERC20(params.tokenOut).transfer(platForm, platFormShare),"PlatForm transfer failed");
-        require(IERC20(params.tokenOut).transfer(msg.sender, customerShare),"customer transfer failed");
-
-        emit ArbitrageExcuted(msg.sender, params.tokenIn, params.tokenOut, params.amountIn, profit);
-
-        return profit;
+    function excuteStrategy(
+        StrategyTypes strategyTypes,
+        bytes memory params
+    ) external onlybackCaller nonReentrant {
+        if (strategyTypes == StrategyTypes.OWN_FUNDS ) {
+            _excutedVaultArbitrag(params);
+        } else if (strategyTypes == StrategyTypes.FLASH_LOAN) {
+            _excutedFlashLoanArbitrag(params);
+        }
     }
 
 
-    function excutedVaultArbitrage(
-        address asset,
-        uint256 amountIn,
-        address[] swapPath,
-        address[] dexes,
-        uint256 minProfit
-    ) external noReentrant, onlybackCaller returns (uint256 profit) {
+    function _excutedVaultArbitrage(
+        bytes memory params
+    ) private {
+        (
+            address asset,
+            uint256 amountIn,
+            address[] memory swapPath,
+            address[] memory dexes,
+            uint256 minProfit
+        ) = abi.decode(params,(address, uint256, address[], address[], uint256));
+
         //参数验证
         require(amountIn > 0, "amountIn > 0");
         require(swapPath.length >= 3, "swapPath need 3 at least");
@@ -172,7 +175,7 @@ contract ArbitrageCore is Ownable, ReentrancyGuard {
         require(asset == swapPath[swapPath.length - 1], "tokenIn = tokenOut");
 
         //获取vault,查询可用资金
-        IArbitrageVault vault = vault[asset];
+        IArbitrageVault vault = vaults[asset];
         require(address(vault) != address(0), "vault not exists");
 
         uint256 availableVault = vault.getAvailableForArbitrage();
@@ -182,7 +185,7 @@ contract ArbitrageCore is Ownable, ReentrancyGuard {
         vault.approveForArbitrage(amountIn);
 
         //资金转入本合约
-        IERC20(asset).transferFrom(address(vault), address(this), amountIn);
+        IERC20(asset).safeTransferFrom(address(vault), address(this), amountIn);
 
         //记录套利前余额
         uint256 balanceBefore = IERC20(asset).balanceOf(address(this));
@@ -203,11 +206,16 @@ contract ArbitrageCore is Ownable, ReentrancyGuard {
         uint256 actProfit = balanceAfter - balanceBefore;
         require(actProfit > minProfit, "Profit below minimum");
 
-        //将资金返回vault
-        IERC20(asset).transfer(address(vault), actProfit + amountIn);
+        uint256 seviceFee = configManager.profitShareFee();//服务费取值自参数管理合约的配置
+        uint256 platFormFee = actProfit * seviceFee / 10000;
+        uint256 netProfitToVault = actProfit - platFormFee;
+
+        //将净利润返回vault
+        IERC20(asset).safeTransfer(address(vault), amountIn + netProfitToVault);
+        IERC20(asset).safeTransfer(platFormWallet, platFormFee);
 
         //通知金库记录盈利
-        vault.recordProfit(actProfit);
+        vault.recordProfit(netProfitToVault);
 
         //事件触发VaultArbitrageExcuted
         emit VaultArbitrageExcuted(
@@ -215,18 +223,22 @@ contract ArbitrageCore is Ownable, ReentrancyGuard {
             asset,
             amountIn,
             actProfit,
+            platFormFee,
+            netProfitToVault,
             block.timestamp
         );
-
-        return actProfit;
     }
 
     //闪电贷套利
-    function excutedFlashLoanArbitrage() external noReentrant onlybackCaller returns (uint256 profit){
+    function _excutedFlashLoanArbitrage() private {
+        revert("Flash Loan not implemented yet");
         //验证
 
         //调用闪电贷套利执行
 
-        //事件触发FlashLoanArgitrageExcuted
+        //事件触发FlashLoanArbitrageExcuted
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner{}
+
 }

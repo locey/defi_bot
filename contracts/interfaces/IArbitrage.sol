@@ -16,13 +16,13 @@ interface IArbitrage {
     **/
     struct ArbitrageParams {
         address tokenIn;
-        address tokenOut;
+        //address tokenOut;
         uint256 amountIn;
         address[] swapPath;
         address[] dexes;
         uint256 minProfit;
-        bool isFlashLoan;
-        uint8 flashLoanPlatForm;
+        //bool isFlashLoan;
+        //uint8 flashLoanPlatForm;
     }
 
     function excuteArbitrage (

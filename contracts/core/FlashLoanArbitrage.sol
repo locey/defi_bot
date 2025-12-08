@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragam solidity ^0.8.20;
+pragma solidity ^0.8.20;
 
 import "./interfaces/IFlashLoan.sol";
 import "./router/FlashLoanRouter.sol";
@@ -47,7 +47,7 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
         uint256 profit;
         uint256 timestamp;
     }
-
+ 
     ExcutionRecord[] public excutedHistory; 
 
     //定义事件，进行记录等
