@@ -19,7 +19,7 @@ import {
   AlertCircle,
   Loader2,
 } from "lucide-react";
-import { ArbitrageStats } from "../../hooks/useArbitrageStats";
+import { ArbitrageStats } from "@/lib/hooks/useArbitrageStats";
 
 interface DepositWithdrawModalProps {
   stats: ArbitrageStats;
@@ -31,6 +31,7 @@ interface DepositWithdrawModalProps {
   onOpenWithdrawChange?: (open: boolean) => void;
   showDeposit?: boolean;
   showWithdraw?: boolean;
+  walletBalanceEth?: number;
 }
 
 export function DepositWithdrawModal({
@@ -43,6 +44,7 @@ export function DepositWithdrawModal({
   onOpenWithdrawChange,
   showDeposit = true,
   showWithdraw = true,
+  walletBalanceEth,
 }: DepositWithdrawModalProps) {
   const [internalDepositOpen, setInternalDepositOpen] = useState(false);
   const [internalWithdrawOpen, setInternalWithdrawOpen] = useState(false);
@@ -58,14 +60,14 @@ export function DepositWithdrawModal({
     if (!amount || amount <= 0) return;
 
     setIsLoading(true);
-    // 模拟交易
-    setTimeout(() => {
-      onDeposit(amount);
+    try {
+      await onDeposit(amount);
       setDepositAmount("");
       if (onOpenDepositChange) onOpenDepositChange(false);
       setInternalDepositOpen(false);
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   const handleWithdraw = async () => {
@@ -73,14 +75,14 @@ export function DepositWithdrawModal({
     if (!amount || amount <= 0 || amount > stats.currentBalance) return;
 
     setIsLoading(true);
-    // 模拟交易
-    setTimeout(() => {
-      onWithdraw(amount);
+    try {
+      await onWithdraw(amount);
       setWithdrawAmount("");
       if (onOpenWithdrawChange) onOpenWithdrawChange(false);
       setInternalWithdrawOpen(false);
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -116,8 +118,8 @@ export function DepositWithdrawModal({
               <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">
                 钱包余额
               </p>
-              <p className="text-lg font-bold text-white font-mono">10.5 ETH</p>
-              <p className="text-xs text-slate-500 mt-1">≈ $23,100</p>
+              <p className="text-lg font-bold text-white font-mono">{walletBalanceEth !== undefined ? formatEth(walletBalanceEth) : "-"} ETH</p>
+              <p className="text-xs text-slate-500 mt-1">≈ ${walletBalanceEth !== undefined ? formatUsd(walletBalanceEth) : "-"}</p>
             </div>
 
             {/* 输入框 */}

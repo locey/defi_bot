@@ -3,7 +3,7 @@
 import React, { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp } from "lucide-react";
-import { ArbitrageStats, DailyRevenuePoint } from "../../hooks/useArbitrageStats";
+import { ArbitrageStats, DailyRevenuePoint } from "@/lib/hooks/useArbitrageStats";
 
 interface ArbitrageRevenueChartProps {
   stats: ArbitrageStats;

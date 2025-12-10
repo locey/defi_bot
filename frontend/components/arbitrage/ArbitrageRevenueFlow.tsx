@@ -14,7 +14,7 @@ import {
   Clock,
   AlertCircle,
 } from "lucide-react";
-import { RevenueFlow } from "../../hooks/useArbitrageStats";
+import { RevenueFlow } from "@/lib/hooks/useArbitrageStats";
 
 interface ArbitrageRevenueFlowProps {
   flows: RevenueFlow[];

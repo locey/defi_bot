@@ -11,7 +11,7 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ArbitrageStats } from "../../hooks/useArbitrageStats";
+import { ArbitrageStats } from "@/lib/hooks/useArbitrageStats";
 
 interface ArbitrageInvestmentCardProps {
   stats: ArbitrageStats;
