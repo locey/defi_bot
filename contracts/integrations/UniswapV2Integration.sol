@@ -1,20 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import './interfaces/IExchange.sol';
-import './interfaces/IUniswapV2Router02.sol';
+import '../interfaces/IUniswapV2Integration.sol';
+import '../interfaces/IUniswapV2Router02.sol';
+
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
 * IUniswapV2Router02支持uniswap和sushuiswap
 */
-contract UniswapV2Integration is IExchange {
+contract UniswapV2Integration is IUniswapV2Integration {
+    
+    using SafeERC20 for IERC20;
 
-    address public immutable platForm;
     uint public slipageTolerance;
 
-    constructor(address _platForm, uint _slipageTolerance) {
-        require(_platForm != address(0), "Invalid platForm");
-        platForm = _platForm;
+    constructor(uint _slipageTolerance) {
         slipageTolerance = _slipageTolerance;
     }
 
@@ -32,8 +33,8 @@ contract UniswapV2Integration is IExchange {
     function routerArbCheck(
         address router,
         uint amountIn,
-        address[] calldata path) 
-    external view returns (
+        address[] calldata path
+    ) external view returns (
         bool profitable,
         uint finalAmount,
         int profit
@@ -63,65 +64,6 @@ contract UniswapV2Integration is IExchange {
         return (isProfit, finalOut, profitAmount);
     }   
 
-    /**
-     * 多路由验证路径是否可获利
-     * 请求参数：
-     *      amountIn：交易数量
-     *      path：交易路径
-     *           [A, B, C, A]
-     *      routers：路由
-     *           每跳的 router，如 [uni, sushi, uni]
-     * 返回参数：
-     *      profitable: 是否可获利
-     *      finalAmount：返回数量
-     *      profit：利润（负数表示亏损）
-     */
-    function multiRouterArbCheck(
-        uint amountIn,
-        address[] calldata path,
-        address[] calldata routers
-    ) external view returns(
-        bool profitable,
-        uint finalAmount,
-        int profit
-    ) {
-        require(path.length >= 2, "Invalid path");
-        require(path[0] == path[path.length - 1], "Must return to start");
-        require(routers.length == path.length - 1, "Router count mismatch");
-
-        uint256 currentAmount = amountIn;
-
-        for (uint i = 0; i < routers.length; i++) {
-            address router = routers[i];
-            address from = path[i];
-            address to = path[i + 1];
-
-            address[] memory stepPath;
-            stepPath[0] = from;
-            stepPath[1] = to;
-
-            IUniswapV2Router02 swapRouter = IUniswapV2Router02(router);
-
-            uint256[] memory amounts;
-            try swapRouter.getAmountsOut(currentAmount, stepPath) returns (uint256[] memory result) {
-                amounts = result;
-            } catch {
-                // 任意跳失败 = 套利不成立
-                return (false, 0, -1);
-            }
-
-            currentAmount = amounts[1];
-        }
-
-        uint finalOut = currentAmount;
-
-        bool isProfit = finalOut > amountIn;
-        int profitAmount = int(finalOut) - int(amountIn);
-
-        return (isProfit, finalOut, profitAmount);
-    }
-
-
 
     /** 
      * 单路由单路径
@@ -132,38 +74,58 @@ contract UniswapV2Integration is IExchange {
      *      amountIn：交易数量
      */
     function swapV2(
-        address router, 
-        address token0, 
-        address token1, 
-        uint amountIn) 
-    external returns(uint amountOut) {
-        require(amountIn > 0, "amountIn must be greater than zero");
+        address router,
+        address token0,
+        address token1,
+        uint256 amountIn,
+        uint256 minProfit
+    ) external {
+
+        require(amountIn > 0, "amountIn must be > 0");
+
         IUniswapV2Router02 swapRouter = IUniswapV2Router02(router);
+
         address[] memory path = _getSwapPath(router, token0, token1);
+        require(path.length >= 2, "invalid path");
+        require(path[0] == token0, "path start mismatch");
+        require(path[path.length - 1] == token1, "path end mismatch");
 
-        // getAmountsOut：根据输入数量和路径，计算理论上能兑换到的各步代币数量
+        // ===== 余额校验 =====
+        uint256 startBalance = IERC20(token0).balanceOf(address(this));
+        require(startBalance >= amountIn, "insufficient balance");
+
+        // ===== 授权校验 =====
+        uint256 allowance = IERC20(token0).allowance(address(this), router);
+        if (allowance < amountIn) {
+            IERC20(token0).approve(router, 0);
+            IERC20(token0).approve(router, amountIn);
+        }
+
+        // ===== 获取预期输出 =====
         uint256[] memory expectedAmounts = swapRouter.getAmountsOut(amountIn, path);
-        // 预期最终输出的目标代币数量（数组最后一个元素）
-        uint expectedOut = expectedAmounts[expectedAmounts.length - 1];
-        require(expectedOut > 0, "Expected output is zero (invalid path/liquidity)");
+        uint256 expectedOut = expectedAmounts[expectedAmounts.length - 1];
+        require(expectedOut > 0, "zero expectedOut");
 
-        // 计算 amountOutMin（最小接收数量 = 预期输出 * (1 - 滑点容忍度/10000)）
-        // 滑点容忍度用「万分比」避免浮点数：500 = 500/10000 = 5%，100 = 1%
-        uint amountOutMin = expectedOut * (10000 - slipageTolerance) / 10000;
-        // 防止极端情况下 amountOutMin 为 0（比如滑点设为 10000，虽已校验，但双重保险）
-        require(amountOutMin > 0, "amountOutMin is zero");
+        // ===== 滑点保护 =====
+        uint256 amountOutMin = expectedOut * (10000 - slipageTolerance) / 10000;
+        require(amountOutMin > 0, "slippage too high");
+
+        // ===== 执行 swap =====
         uint256[] memory amounts = swapRouter.swapExactTokensForTokens(
-            amountIn, 
-            amountOutMin, 
-            path, 
-            platForm, 
-            block.timestamp + 30
+            amountIn,
+            amountOutMin,
+            path,
+            address(this),
+            block.timestamp + 60
         );
-        // 最终兑换到的目标代币数量
-        amountOut = amounts[amounts.length - 1]; 
-        emit SwapV2(router, token0, token1, amountIn, amountOut, expectedOut, slipageTolerance);
-        return amountOut;
+
+        uint256 endBalance = amounts[amounts.length - 1];
+        uint256 profit = endBalance - startBalance;
+        require(profit >= minProfit, "profit < minProfit");
+
+        emit SwapV2(router, token0, token1, amountIn, endBalance, expectedOut, slipageTolerance);
     }
+
 
     /**
      * 单路由多路径
@@ -177,48 +139,53 @@ contract UniswapV2Integration is IExchange {
     function swapV2Multi(
         address router,
         address[][] calldata paths,
-        uint amountIn
-    ) external returns (uint amountOut) {
+        uint256 amountIn,
+        uint256 minProfit
+    ) external {
+
+        require(paths.length > 0, "empty paths");
+        require(amountIn > 0, "zero amount");
+
+        // 获取初始余额
+        address tokenA = paths[0][0];
+        uint256 startBalance = IERC20(tokenA).balanceOf(address(this));
+        require(startBalance >= amountIn, "insufficient balance");
 
         IUniswapV2Router02 swapRouter = IUniswapV2Router02(router);
-        uint currentAmount = amountIn;
-        uint pathCount = paths.length;
 
-        address[] memory currentPath;
-        uint256[] memory expectedAmounts;
-        uint expectedOut;
-        uint amountOutMin;
-        uint[] memory swapResult;
+        uint256 startAmount = amountIn;
+        uint256 currentAmount = amountIn;
 
-        for (uint i = 0; i < pathCount; i++) {
-            currentPath = paths[i];
+        for (uint256 i = 0; i < paths.length; i++) {
+            address[] calldata path = paths[i];
+            require(path.length >= 2, "invalid path");
 
-            require(currentPath.length >= 2, "Invalid path");
-            
-            expectedAmounts = swapRouter.getAmountsOut(currentAmount, currentPath);
-            require(expectedAmounts[expectedAmounts.length - 1] > 0, "Expected output is zero");
-            expectedOut = expectedAmounts[expectedAmounts.length - 1];
+            uint256[] memory amountsOut = swapRouter.getAmountsOut(currentAmount, path);
+            uint256 expectedOut = amountsOut[amountsOut.length - 1];
+            require(expectedOut > 0, "zero expected out");
 
-            //滑点计算保留原逻辑
-            amountOutMin = expectedOut * (10000 - slipageTolerance) / 10000;
-            require(amountOutMin > 0, "amountOutMin is zero");
+            // 滑点保护
+            uint256 amountOutMin = expectedOut * (10000 - slipageTolerance) / 10000;
+            require(amountOutMin > 0, "slippage too high");
 
-            swapResult = swapRouter.swapExactTokensForTokens(
+            uint256[] memory result = swapRouter.swapExactTokensForTokens(
                 currentAmount,
                 amountOutMin,
-                currentPath,
-                platForm,
-                block.timestamp + 30
+                path,
+                address(this),
+                block.timestamp
             );
-            currentAmount = swapResult[swapResult.length - 1];
 
-            // 利润校验,确保无亏损
-            require(currentAmount >= amountIn, "No profit");
+            currentAmount = result[result.length - 1];
         }
 
-        emit SwapV2Multi(router, paths, amountIn, currentAmount);
-        return currentAmount;
+        // 只在最终校验利润
+        uint256 profit = currentAmount - startBalance;
+        require(profit >= minProfit, "profit < minProfit");
+
+        emit SwapV2Multi(router, paths, startAmount, currentAmount);
     }
+
 
     /**
      * Get the swap path
@@ -228,5 +195,14 @@ contract UniswapV2Integration is IExchange {
         path = new address[](2);
         path[0] = token0 == address(0) ? IUniswap.WETH() : token0;
         path[1] = token1 == address(0) ? IUniswap.WETH() : token1;
+    }
+
+    /**
+     * 动态配置滑点
+     * 请求参数：
+     *      _slipageTolerance：滑点容忍度
+     */
+    function setSlipageTolerance(uint _slipageTolerance) public {
+        slipageTolerance = _slipageTolerance;
     }
 }

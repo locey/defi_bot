@@ -11,5 +11,9 @@
   "description": "",
   "devDependencies": {
     "hardhat": "^3.0.16"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.4.0",
+    "@openzeppelin/contracts-upgradeable": "^5.4.0"
   }
 }
