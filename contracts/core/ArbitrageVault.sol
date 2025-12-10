@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import "../interfaces/IConfigManager.sol";
+import "../interfaces/IArbitrageVault.sol";
+
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
@@ -17,7 +20,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
  * - 套利利润自动反映在份额价值上
  * - 用户赎回时获得本金 + 收益
  */
-contract ArbitrageVault is ERC20, ReentrancyGuard, Ownable {
+contract ArbitrageVault is IArbitrageVault, ERC20, ReentrancyGuard, Ownable {
     using SafeERC20 for IERC20;
 
     // ========== 状态变量 ==========
@@ -25,10 +28,11 @@ contract ArbitrageVault is ERC20, ReentrancyGuard, Ownable {
     IERC20 public immutable asset;           // 底层资产（如WETH）
     address public arbitrageCore;             // 套利调度合约
     
-    // 费用设置
-    uint256 public depositFee = 0;            // 存款费（basis points）
-    uint256 public withdrawFee = 1;           // 提款费（basis points） 暂定0.01%
-    uint256 public performanceFee = 1000;     // 业绩费20%（从利润中收取）
+    // 费用设置  改为可插拔，在接口合约中配置
+    uint256 public constant DEFAULT_DEPOSITFEE = 0;            // 存款费（basis points）
+    uint256 public constant DEFAULT_WITHDRAWFEE = 1;           // 提款费（basis points） 暂定0.01%
+    uint256 public constant DEFAULT_PERFORMANCEFEE = 1000;     // 业绩费10%（从利润中收取）
+    IConfigManager public configManager;
     
     // 统计数据
     uint256 public totalProfitGenerated;      // 总产生利润
@@ -89,21 +93,56 @@ contract ArbitrageVault is ERC20, ReentrancyGuard, Ownable {
      */
     constructor(
         address _asset,
+        address _configManager,
         string memory _name,
         string memory _symbol
     ) ERC20(_name, _symbol) {
         require(_asset != address(0), "Invalid asset");
+        require(_configManager != address(0), "Invalid config Manager");
         asset = IERC20(_asset);
         maxTotalAssets = type(uint256).max;
         minDepositAmount = 0;
+        configManager = _configManager;
     }
     
+
+    //可插拔关键 支持替换配置
+    function setConfigManager(address _newConfigManager) external onlyOwner {
+        require(_newConfigManager != address(0), "Invalid new config Manager");
+        configManager = _newConfigManager;
+    }
+
+    function getDepositFee() public view returns(uint256) {
+        try configManager.getDepositFee(address(this)) {
+            return configManager.getDepositFee(address(this));
+        } catch {
+            return DEFAULT_DEPOSITFEE;
+        }
+    }
+
+    function getWithDrawFee() external onlyOwner {
+        try configManager.getWithDrawFee(address(this)) {
+            return configManager.getWithDrawFee(address(this));
+        } catch {
+            return DEFAULT_WITHDRAWFEE;
+        }
+    }
+
+    function getPlatFormFee() external onlyOwner {
+        try configManager.getPlatFormFee(address(this)) {
+            return configManager.getPlatFormFee(address(this));
+        } catch {
+            return DEFAULT_PERFORMANCEFEE;
+        }
+    }
+
+
     // ========== ERC4626 核心函数 ==========
     
     /**
      * @dev 返回金库管理的底层资产地址
      */
-    function assetAddress() public view returns (address) {
+    function assetAddress() public view override returns (address) {
         return address(asset);
     }
     
@@ -113,7 +152,7 @@ contract ArbitrageVault is ERC20, ReentrancyGuard, Ownable {
      * 这是ERC4626的核心函数！
      * 份额价值 = totalAssets() / totalSupply()
      */
-    function totalAssets() public view returns (uint256) {
+    function totalAssets() public view override returns (uint256) {
         return asset.balanceOf(address(this));
     }
     
@@ -189,6 +228,7 @@ contract ArbitrageVault is ERC20, ReentrancyGuard, Ownable {
         );
         
         // 计算份额（扣除存款费后）
+        uint256 depositFee = getDepositFee();
         uint256 fee = (assets * depositFee) / 10000;
         uint256 assetsAfterFee = assets - fee;
         shares = convertToShares(assetsAfterFee);
@@ -238,6 +278,7 @@ contract ArbitrageVault is ERC20, ReentrancyGuard, Ownable {
         assets = convertToAssets(shares);
         
         // 扣除提款费
+        uint256 withdrawFee = getWithDrawFee();
         uint256 fee = (assets * withdrawFee) / 10000;
         uint256 assetsAfterFee = assets - fee;
         
@@ -283,7 +324,7 @@ contract ArbitrageVault is ERC20, ReentrancyGuard, Ownable {
      * 
      * 注意：可以设置保留比例，不把全部资金用于套利
      */
-    function getAvailableForArbitrage() public view returns (uint256) {
+    function getAvailableForArbitrage() public view override returns (uint256) {
         uint256 total = totalAssets();
         // 保留10%作为流动性，90%可用于套利
         return (total * 9000) / 10000;
@@ -294,7 +335,7 @@ contract ArbitrageVault is ERC20, ReentrancyGuard, Ownable {
      * 
      * @param amount 授权金额
      */
-    function approveForArbitrage(uint256 amount) external onlyArbitrageCore {
+    function approveForArbitrage(uint256 amount) external onlyArbitrageCore override {
         require(amount <= getAvailableForArbitrage(), "Exceeds available");
         asset.approve(arbitrageCore, amount);
     }
@@ -307,7 +348,7 @@ contract ArbitrageVault is ERC20, ReentrancyGuard, Ownable {
      * 
      * @param profit 本次套利利润
      */
-    function recordProfit(uint256 profit) external onlyArbitrageCore {
+    function recordProfit(uint256 profit) external onlyArbitrageCore override {
         // 收取业绩费
         uint256 fee = (profit * performanceFee) / 10000;
         
@@ -326,7 +367,7 @@ contract ArbitrageVault is ERC20, ReentrancyGuard, Ownable {
     /**
      * @dev 记录套利亏损（理论上不应该发生，有minProfit保护）
      */
-    function recordLoss(uint256 loss) external onlyArbitrageCore {
+    function recordLoss(uint256 loss) external onlyArbitrageCore override {
         emit ArbitrageLoss(loss, block.timestamp);
     }
     

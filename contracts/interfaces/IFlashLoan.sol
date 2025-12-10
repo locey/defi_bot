@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragam solidity ^0.8.20;
+pragma solidity ^0.8.20;
 
 // 引入 Aave V2 的闪电贷接口（平台提供）利息0.09%      v3的利息0.05%
 interface IFlashLoanSimpleReceiver {

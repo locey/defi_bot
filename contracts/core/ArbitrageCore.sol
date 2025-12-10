@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "./interface/IArbitrage.sol";
-import "./interface/IArbitrageVault.sol";
-import "./interface/ISpotArbitrage.sol";
-import "./interface/IFlashLoan.sol";
-import "./interface/IConfigManager.sol";
+import "../interfaces/IArbitrage.sol";
+import "../interfaces/IArbitrageVault.sol";
+import "../interfaces/ISpotArbitrage.sol";
+import "../interfaces/IFlashLoan.sol";
+import "../interfaces/IConfigManager.sol";
 
 
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
@@ -20,7 +20,8 @@ contract ArbitrageCore is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUp
     *验证获利
     *分润：暂定平台收取100（即10%），后续应将此值放置在router中进行管理，以便管理员随时调整
     */
-    using SafeERC20Upgradeable for IERC20;
+
+    IERC20Upgradeable public immutable IERC20;
 
     constructor () {
         _disableInitializers();
@@ -32,9 +33,7 @@ contract ArbitrageCore is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUp
         address _platFormWallet,
         address _configManager,
         address _backCaller
-    ){
-
-    } public initializer {
+    ) public initializer {
         __Owner_init();
         __ReentrancyGuard_init();
         __UUPSUpgradeable_init();
@@ -138,6 +137,7 @@ contract ArbitrageCore is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUp
     *自有资金套利&闪电贷套利，两种套利模式对象不同，前者取自金库，可多人打包进行，后者针对用户，闪电贷不可跨用户
     *
     */
+    //枚举套利方案：自有资产（金库），闪电贷
     enum StrategyTypes {
         OWN_FUNDS, 
         FLASH_LOAN
@@ -198,7 +198,7 @@ contract ArbitrageCore is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUp
             amountIn,
             swapPath,
             dexes
-        )
+        );
         //记录套路后余额
         uint256 balanceAfter = IERC20(asset).balanceOf(address(this));
         

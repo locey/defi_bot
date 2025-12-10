@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
-pragam solidity ^0.8.20;
+pragma solidity ^0.8.20;
 
-
-interface IArbitrage {
     /**
     *套利核心方法
     *参数包含：
@@ -14,19 +12,13 @@ interface IArbitrage {
     * profit  实际利润
     *
     **/
-    struct ArbitrageParams {
-        address tokenIn;
-        //address tokenOut;
-        uint256 amountIn;
-        address[] swapPath;
-        address[] dexes;
-        uint256 minProfit;
-        //bool isFlashLoan;
-        //uint8 flashLoanPlatForm;
-    }
-
-    function excuteArbitrage (
-        ArbitrageParams calldata params
-    ) external returns(uint256 profit);
-
+struct ArbitrageParams {
+    address tokenIn;
+    //address tokenOut;
+    uint256 amountIn;
+    address[] swapPath;
+    address[] dexes;
+    uint256 minProfit;
+    //bool isFlashLoan;
+    //uint8 flashLoanPlatForm;
 }
