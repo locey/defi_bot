@@ -96,7 +96,7 @@ contract ArbitrageVault is IArbitrageVault, ERC20, ReentrancyGuard, Ownable {
         address _configManager,
         string memory _name,
         string memory _symbol
-    ) ERC20(_name, _symbol) {
+    ) ERC20(_name, _symbol) onlyOwner {
         require(_asset != address(0), "Invalid asset");
         require(_configManager != address(0), "Invalid config Manager");
         asset = IERC20(_asset);
@@ -196,6 +196,7 @@ contract ArbitrageVault is IArbitrageVault, ERC20, ReentrancyGuard, Ownable {
      * @dev 预览存款将获得的份额
      */
     function previewDeposit(uint256 assets) public view returns (uint256) {
+        uint256 depositFee = getDepositFee();
         uint256 fee = (assets * depositFee) / 10000;
         return convertToShares(assets - fee);
     }
@@ -205,6 +206,7 @@ contract ArbitrageVault is IArbitrageVault, ERC20, ReentrancyGuard, Ownable {
      */
     function previewRedeem(uint256 shares) public view returns (uint256) {
         uint256 assets = convertToAssets(shares);
+        uint256 withdrawFee = getWithDrawFee();
         uint256 fee = (assets * withdrawFee) / 10000;
         return assets - fee;
     }
