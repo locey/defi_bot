@@ -36,7 +36,7 @@ contract ConfigManage is IConfigManager, Initializable, OwnableUpgradeable, UUPS
         address _sushiSwapRouter,
         address _arbitrageVault
     ) public initializer {
-        __Owner_init();
+        __Ownable_init(msg.sender);
         __UUPSUpgradeable_init();
 
         require(_lendingPool != address(0), "Invalid lending pool");
@@ -58,7 +58,11 @@ contract ConfigManage is IConfigManager, Initializable, OwnableUpgradeable, UUPS
 
     //管理员可对平台分成进行配置
     function setProfitShareFee(uint256 feeBps) external onlyOwner {
-        require();
+        require(feeBps < 10000, "feeBps too high");
         _profitShareFee = feeBps;
+    }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner{
+        require(newImplementation != address(0), "New implementation is zero address");
     }
 }
