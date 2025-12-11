@@ -84,7 +84,7 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
     }
 
     //初始化构造函数
-    constructor {}
+    constructor ()
 
     //核心函数：实施闪电贷，并调用内部函数_initFlashLoan发起闪电贷
 
