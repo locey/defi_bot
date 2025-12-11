@@ -145,7 +145,7 @@ contract ArbitrageCore is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUp
 
     function executeStrategy(
         StrategyTypes strategyTypes,
-        bytes memory params
+        IArbitrage.ArbitrageParams calldata params
     ) external onlybackCaller nonReentrant {
         if (strategyTypes == StrategyTypes.OWN_FUNDS ) {
             _executedVaultArbitrag(params);
@@ -156,7 +156,7 @@ contract ArbitrageCore is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUp
 
 
     function _executedVaultArbitrage(
-        bytes memory params
+        IArbitrage.ArbitrageParams calldata params
     ) private {
         (
             address asset,

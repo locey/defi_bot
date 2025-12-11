@@ -24,11 +24,13 @@ contract ArbitrageVault is IArbitrageVault, ERC20, ReentrancyGuard, Ownable {
     using SafeERC20 for IERC20;
 
     // ========== 状态变量 ==========
-    
     IERC20 public immutable asset;           // 底层资产（如WETH）
     address public arbitrageCore;             // 套利调度合约
     
     // 费用设置  改为可插拔，在接口合约中配置
+    uint256 public depositFee;
+    uint256 public withdrawFee;
+    uint256 public performanceFee;
     uint256 public constant DEFAULT_DEPOSITFEE = 0;            // 存款费（basis points）
     uint256 public constant DEFAULT_WITHDRAWFEE = 1;           // 提款费（basis points） 暂定0.01%
     uint256 public constant DEFAULT_PERFORMANCEFEE = 1000;     // 业绩费10%（从利润中收取）
@@ -44,6 +46,13 @@ contract ArbitrageVault is IArbitrageVault, ERC20, ReentrancyGuard, Ownable {
     uint256 public minDepositAmount;          // 最小存款金额
     bool public paused;                       // 暂停状态
     
+    //用户地址=>存款记录数组
+    mapping(address => IArbitrageVault.DepositRecord[]) public userDeposits;
+    //用户存入本金总计
+    mapping(address => uint256) public userTotalDeposited;
+    //用户提现总计
+    mapping(address => uint256) public userTotalWithdraw;
+
     // ========== 事件 ==========
     
     event Deposit(
@@ -96,41 +105,41 @@ contract ArbitrageVault is IArbitrageVault, ERC20, ReentrancyGuard, Ownable {
         address _configManager,
         string memory _name,
         string memory _symbol
-    ) ERC20(_name, _symbol) onlyOwner {
+    ) ERC20(_name, _symbol) Ownable(msg.sender) ReentrancyGuard() {
         require(_asset != address(0), "Invalid asset");
         require(_configManager != address(0), "Invalid config Manager");
         asset = IERC20(_asset);
         maxTotalAssets = type(uint256).max;
         minDepositAmount = 0;
-        configManager = _configManager;
+        configManager = IConfigManager(_configManager);
     }
     
 
     //可插拔关键 支持替换配置
     function setConfigManager(address _newConfigManager) external onlyOwner {
         require(_newConfigManager != address(0), "Invalid new config Manager");
-        configManager = _newConfigManager;
+        configManager = IConfigManager(_newConfigManager);
     }
 
     function getDepositFee() public view returns(uint256) {
-        try configManager.getDepositFee(address(this)) {
-            return configManager.getDepositFee(address(this));
+        try configManager.getDepositFee(address(this)) returns(uint256 fee) {
+            return fee;
         } catch {
             return DEFAULT_DEPOSITFEE;
         }
     }
 
-    function getWithDrawFee() external onlyOwner {
-        try configManager.getWithDrawFee(address(this)) {
-            return configManager.getWithDrawFee(address(this));
+    function getWithDrawFee() public view returns(uint256) {
+        try configManager.getWithDrawFee(address(this)) returns(uint256 fee) {
+            return fee;
         } catch {
             return DEFAULT_WITHDRAWFEE;
         }
     }
 
-    function getPlatFormFee() external onlyOwner {
-        try configManager.getPlatFormFee(address(this)) {
-            return configManager.getPlatFormFee(address(this));
+    function getPlatFormFee() public view returns(uint256) {
+        try configManager.getPlatFormFee(address(this)) returns(uint256 fee) {
+            return fee;
         } catch {
             return DEFAULT_PERFORMANCEFEE;
         }
@@ -196,8 +205,8 @@ contract ArbitrageVault is IArbitrageVault, ERC20, ReentrancyGuard, Ownable {
      * @dev 预览存款将获得的份额
      */
     function previewDeposit(uint256 assets) public view returns (uint256) {
-        uint256 depositFee = getDepositFee();
-        uint256 fee = (assets * depositFee) / 10000;
+        uint256 dePositFee = getDepositFee();
+        uint256 fee = (assets * dePositFee) / 10000;
         return convertToShares(assets - fee);
     }
     
@@ -206,8 +215,8 @@ contract ArbitrageVault is IArbitrageVault, ERC20, ReentrancyGuard, Ownable {
      */
     function previewRedeem(uint256 shares) public view returns (uint256) {
         uint256 assets = convertToAssets(shares);
-        uint256 withdrawFee = getWithDrawFee();
-        uint256 fee = (assets * withdrawFee) / 10000;
+        uint256 withDrawFee = getWithDrawFee();
+        uint256 fee = (assets * withDrawFee) / 10000;
         return assets - fee;
     }
     
@@ -230,15 +239,26 @@ contract ArbitrageVault is IArbitrageVault, ERC20, ReentrancyGuard, Ownable {
         );
         
         // 计算份额（扣除存款费后）
-        uint256 depositFee = getDepositFee();
-        uint256 fee = (assets * depositFee) / 10000;
+        uint256 dePositFee = getDepositFee();
+        uint256 fee = (assets * dePositFee) / 10000;
         uint256 assetsAfterFee = assets - fee;
         shares = convertToShares(assetsAfterFee);
+        
+        //记录用户存金
+        userDeposits[receiver].push(IArbitrageVault.DepositRecord({
+            amount: assets,
+            shares: shares,
+            sharesPrice: sharePrice(),
+            timestamp: block.timestamp
+        }));
+
+        userTotalDeposited[receiver] += assets;
         
         require(shares > 0, "Zero shares");
         
         // 转入资产
         asset.safeTransferFrom(msg.sender, address(this), assets);
+
         
         // 铸造份额代币给接收者
         _mint(receiver, shares);
@@ -280,8 +300,8 @@ contract ArbitrageVault is IArbitrageVault, ERC20, ReentrancyGuard, Ownable {
         assets = convertToAssets(shares);
         
         // 扣除提款费
-        uint256 withdrawFee = getWithDrawFee();
-        uint256 fee = (assets * withdrawFee) / 10000;
+        uint256 withDrawFee = getWithDrawFee();
+        uint256 fee = (assets * withDrawFee) / 10000;
         uint256 assetsAfterFee = assets - fee;
         
         require(assetsAfterFee > 0, "Zero assets");
@@ -290,6 +310,9 @@ contract ArbitrageVault is IArbitrageVault, ERC20, ReentrancyGuard, Ownable {
             "Insufficient vault balance"
         );
         
+        //记录用户提现
+        userTotalWithdraw[owner] += assetsAfterFee;
+
         // 销毁份额代币
         _burn(owner, shares);
         
@@ -352,7 +375,8 @@ contract ArbitrageVault is IArbitrageVault, ERC20, ReentrancyGuard, Ownable {
      */
     function recordProfit(uint256 profit) external onlyArbitrageCore override {
         // 收取业绩费
-        uint256 fee = (profit * performanceFee) / 10000;
+        uint256 perFormanceFee = getPlatFormFee();
+        uint256 fee = (profit * perFormanceFee) / 10000;
         
         totalProfitGenerated += profit;
         totalFeesCollected += fee;
@@ -374,6 +398,13 @@ contract ArbitrageVault is IArbitrageVault, ERC20, ReentrancyGuard, Ownable {
     }
     
     // ========== 查询函数 ==========
+
+     /**
+     * @dev 1211新增：获取用户本金
+     */
+    function getUserBalance(address user) public view returns (uint256) {
+        return userTotalDeposited[user];
+    }
     
     /**
      * @dev 获取用户的份额余额

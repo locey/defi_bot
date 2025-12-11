@@ -17,13 +17,17 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
  */
 contract ConfigManage is IConfigManager, Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
+    uint16 public version;
     uint256 private _profitShareFee;
+    
 
     address lendingPool;
     address uniswapV2Router;
     address uniswapV3Router;
     address sushiSwapRouter;
     address arbitrageVault;
+
+    event Upgrade(address indexed implemetation, uint256 version);
     
     constructor() {
         _disableInitializers();
@@ -49,6 +53,7 @@ contract ConfigManage is IConfigManager, Initializable, OwnableUpgradeable, UUPS
         uniswapV3Router = _uniswapV3Router;
         sushiSwapRouter = _sushiSwapRouter;
         arbitrageVault = _arbitrageVault;
+        version = 1;
     }
 
     //ArbitrageCore合约用到平台分成
@@ -64,5 +69,7 @@ contract ConfigManage is IConfigManager, Initializable, OwnableUpgradeable, UUPS
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner{
         require(newImplementation != address(0), "New implementation is zero address");
+        version ++;
+        emit Upgrade(newImplementation, version);
     }
 }

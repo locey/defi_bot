@@ -1,7 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+
+
 interface IArbitrageVault {
+
+    struct DepositRecord {
+        uint256 amount;
+        uint256 shares;
+        uint256 sharesPrice;
+        uint256 timestamp;
+    }
     
     //查询金库总资产
     function totalAssets() external view returns (uint256);

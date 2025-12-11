@@ -12,13 +12,17 @@ pragma solidity ^0.8.20;
     * profit  实际利润
     *
     **/
-struct ArbitrageParams {
-    address tokenIn;
-    //address tokenOut;
-    uint256 amountIn;
-    address[] swapPath;
-    address[] dexes;
-    uint256 minProfit;
-    //bool isFlashLoan;
-    //uint8 flashLoanPlatForm;
+interface IArbitrage {
+    struct ArbitrageParams {
+        address tokenIn;
+        //address tokenOut;
+        uint256 amountIn;
+        address[] swapPath;
+        address[] dexes;
+        uint256 minProfit;
+        //bool isFlashLoan;
+        //uint8 flashLoanPlatForm;
+    }
+
 }
+
