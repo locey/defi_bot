@@ -6,14 +6,6 @@ pragma solidity ^0.8.20;
  */
 interface IDoubleRouterIntegration {
     
-    event DoubleRouterSwap(
-        address indexed sender, 
-        address indexed routerA, 
-        address indexed routerB, 
-        uint256 amountIn, 
-        uint256 profit
-    );
-
     function doubleRouterArbCheck(
         uint amountIn,
         address[] calldata path,
@@ -32,4 +24,13 @@ interface IDoubleRouterIntegration {
         address[] calldata pathB,
         uint256 minProfit
     ) external;
+
+    function doubleRouterSwap2(
+        address spot,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        address[] calldata swapPath,
+        address[] calldata dexes
+    ) external returns(uint256 amountOut);
 }

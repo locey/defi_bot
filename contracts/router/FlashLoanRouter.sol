@@ -5,7 +5,7 @@ import "../interface/IFlashLoan.sol";
 import "../core/ConfigManage.sol";
 
 contract FlashLoanRouter {
-    enum LendingPlatForm {Aave_V2, Aave_V3, DYDX, UNISWAP_V3};
+    enum LendingPlatForm {Aave_V2, Aave_V3, DYDX, UNISWAP_V3}
 
     struct PlatFormConfig {
         address lendingPool;// LendingPool 地址
@@ -20,10 +20,10 @@ contract FlashLoanRouter {
     //初始化构造Aave_V2等平台的地址配置
     constructor () {
         admin =msg.sender;
-
+        configManage = ConfigManage(_configManage);
         platFormConfigs[LendingPlatForm.Aave_V2] = PlatFormConfig({
             // lendingPool: 0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7,
-            lendingPool: ConfigManage.lendingPool,
+            lendingPool: configManage.lendingPool(),
             referralCode: 0,
             maxLoanRatio: 5000 //此处设置最多借出借款池的50%
         });
@@ -60,7 +60,7 @@ contract FlashLoanRouter {
         bytes calldata params
     )external {
         //1.校验平台配置
-        PlatFormConfig memory config = platFormConfigs[platform]
+        PlatFormConfig memory config = platFormConfigs[platform];
         require(config.lendingPool != address(0), "platform not invalid");
 
         //2.校验借款额度

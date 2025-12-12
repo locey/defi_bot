@@ -19,17 +19,21 @@ contract ConfigManage is IConfigManager, Initializable, OwnableUpgradeable, UUPS
 
     uint16 public version;
     uint256 private _profitShareFee;
+<<<<<<< HEAD
     
     // 可配置的费用参数
     uint256 public depositFee = 0;              // 存款费（basis points）
     uint256 public withdrawFee = 1;             // 提款费（basis points） 暂定0.01%
     uint256 public performanceFee = 1000;       // 业绩费（basis points） 暂定10%
+=======
+    uint256 public slippageTolerance;
+>>>>>>> 6e80ebe961988869b2c2bab869e1470458b50572
 
-    address lendingPool;
-    address uniswapV2Router;
-    address uniswapV3Router;
-    address sushiSwapRouter;
-    address arbitrageVault;
+    address public lendingPool;
+    address public uniswapV2Router;
+    address public uniswapV3Router;
+    address public sushiSwapRouter;
+    address public arbitrageVault;
 
     event Upgrade(address indexed implemetation, uint256 version);
     event DepositFeeUpdated(uint256 newFee);
@@ -61,6 +65,8 @@ contract ConfigManage is IConfigManager, Initializable, OwnableUpgradeable, UUPS
         sushiSwapRouter = _sushiSwapRouter;
         arbitrageVault = _arbitrageVault;
         version = 1;
+        // 默认滑点500（5%）
+        slippageTolerance = 500;
     }
 
     //ArbitrageCore合约用到平台分成
@@ -139,9 +145,20 @@ contract ConfigManage is IConfigManager, Initializable, OwnableUpgradeable, UUPS
         return performanceFee;
     }
 
+    /**
+     * 动态配置滑点
+     * 请求参数：
+     *      _slipageTolerance：滑点容忍度
+     */
+    function setSlipageTolerance(uint _slippageTolerance) external onlyOwner{
+        slippageTolerance = _slippageTolerance;
+    }
+
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner{
         require(newImplementation != address(0), "New implementation is zero address");
         version ++;
         emit Upgrade(newImplementation, version);
     }
+
+    
 }
