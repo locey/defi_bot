@@ -1,4 +1,6 @@
-// Aave LendingPool 的核心接口（用于调用借款函数）
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+// 引入 Aave V2 的闪电贷接口（平台提供）利息0.09%      v3的利息0.05%
 interface ILendingPool {
     function flashLoanSimple(
         address receiver,   // 借款接收者
