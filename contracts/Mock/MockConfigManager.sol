@@ -15,7 +15,7 @@ contract MockConfigManager is IConfigManager, OwnableUpgradeable, UUPSUpgradeabl
     }
 
     function initialize() public initializer {
-        __Ownable_init_(msg.sender);
+        __Ownable_init(msg.sender);
         __UUPSUpgradeable_init();
     }
 
@@ -29,19 +29,19 @@ contract MockConfigManager is IConfigManager, OwnableUpgradeable, UUPSUpgradeabl
         return _platShareFee;
     }
 
-    function getDepositFee(address vault) external view returns(uint256){
+    function getDepositFee(address /* vault */) external view returns(uint256){
         return depositFee;
     } //金库合约 获取存入手续费
 
-    function getWithDrawFee(address vault) external view returns(uint256){
+    function getWithDrawFee(address /* vault */) external view returns(uint256){
         return withDrawFee;
     } //金库合约 获取提现手续费
     
-    function getPlatFormFee(address vault) external view returns(uint256){
+    function getPlatFormFee(address /* vault */) external view returns(uint256){
         return platFormFee;
     } //金库合约 获取平台服务费
 
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {
+    function _authorizeUpgrade(address newImplementation) internal view override onlyOwner {
         require(newImplementation != address(0), "New implementation is zero address");
     }
 }

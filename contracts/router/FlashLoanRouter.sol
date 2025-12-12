@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragam solidity ^0.8.20;
+pragma solidity ^0.8.20;
 
-import "./interface/IFlashLoan.sol";
-import "./core/ConfigManage.sol";
+import "../interface/IFlashLoan.sol";
+import "../core/ConfigManage.sol";
 
 contract FlashLoanRouter {
     enum LendingPlatForm {Aave_V2, Aave_V3, DYDX, UNISWAP_V3};

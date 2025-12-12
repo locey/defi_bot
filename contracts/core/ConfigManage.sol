@@ -20,6 +20,10 @@ contract ConfigManage is IConfigManager, Initializable, OwnableUpgradeable, UUPS
     uint16 public version;
     uint256 private _profitShareFee;
     
+    // 可配置的费用参数
+    uint256 public depositFee = 0;              // 存款费（basis points）
+    uint256 public withdrawFee = 1;             // 提款费（basis points） 暂定0.01%
+    uint256 public performanceFee = 1000;       // 业绩费（basis points） 暂定10%
 
     address lendingPool;
     address uniswapV2Router;
@@ -28,6 +32,9 @@ contract ConfigManage is IConfigManager, Initializable, OwnableUpgradeable, UUPS
     address arbitrageVault;
 
     event Upgrade(address indexed implemetation, uint256 version);
+    event DepositFeeUpdated(uint256 newFee);
+    event WithdrawFeeUpdated(uint256 newFee);
+    event PerformanceFeeUpdated(uint256 newFee);
     
     constructor() {
         _disableInitializers();
@@ -65,6 +72,71 @@ contract ConfigManage is IConfigManager, Initializable, OwnableUpgradeable, UUPS
     function setProfitShareFee(uint256 feeBps) external onlyOwner {
         require(feeBps < 10000, "feeBps too high");
         _profitShareFee = feeBps;
+    }
+
+    // ========== 可插拔费用配置 ==========
+    
+    /**
+     * @dev 设置存款费
+     * @param _depositFee 新的存款费（basis points，如100表示1%）
+     */
+    function setDepositFee(uint256 _depositFee) external onlyOwner {
+        require(_depositFee <= 10000, "Fee too high");
+        depositFee = _depositFee;
+        emit DepositFeeUpdated(_depositFee);
+    }
+
+    /**
+     * @dev 设置提款费
+     * @param _withdrawFee 新的提款费（basis points，如100表示1%）
+     */
+    function setWithdrawFee(uint256 _withdrawFee) external onlyOwner {
+        require(_withdrawFee <= 10000, "Fee too high");
+        withdrawFee = _withdrawFee;
+        emit WithdrawFeeUpdated(_withdrawFee);
+    }
+
+    /**
+     * @dev 设置业绩费
+     * @param _performanceFee 新的业绩费（basis points，如1000表示10%）
+     */
+    function setPerformanceFee(uint256 _performanceFee) external onlyOwner {
+        require(_performanceFee <= 10000, "Fee too high");
+        performanceFee = _performanceFee;
+        emit PerformanceFeeUpdated(_performanceFee);
+    }
+
+    /**
+     * @dev 批量设置所有费用
+     */
+    function setAllFees(
+        uint256 _depositFee,
+        uint256 _withdrawFee,
+        uint256 _performanceFee
+    ) external onlyOwner {
+        require(_depositFee <= 10000, "Deposit fee too high");
+        require(_withdrawFee <= 10000, "Withdraw fee too high");
+        require(_performanceFee <= 10000, "Performance fee too high");
+        
+        depositFee = _depositFee;
+        withdrawFee = _withdrawFee;
+        performanceFee = _performanceFee;
+        
+        emit DepositFeeUpdated(_depositFee);
+        emit WithdrawFeeUpdated(_withdrawFee);
+        emit PerformanceFeeUpdated(_performanceFee);
+    }
+
+    function getDepositFee(address /* vault */) external view override returns(uint256) {
+        return depositFee;
+    }
+
+    function getWithDrawFee(address /* vault */) external view override returns(uint256) {
+        return withdrawFee;
+    }
+
+    function getPlatFormFee(address /* vault */) external view override returns(uint256) {
+        return performanceFee;
     }
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner{

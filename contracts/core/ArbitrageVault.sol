@@ -121,30 +121,6 @@ contract ArbitrageVault is IArbitrageVault, ERC20, ReentrancyGuard, Ownable {
         configManager = IConfigManager(_newConfigManager);
     }
 
-    function getDepositFee() public view returns(uint256) {
-        try configManager.getDepositFee(address(this)) returns(uint256 fee) {
-            return fee;
-        } catch {
-            return DEFAULT_DEPOSITFEE;
-        }
-    }
-
-    function getWithDrawFee() public view returns(uint256) {
-        try configManager.getWithDrawFee(address(this)) returns(uint256 fee) {
-            return fee;
-        } catch {
-            return DEFAULT_WITHDRAWFEE;
-        }
-    }
-
-    function getPlatFormFee() public view returns(uint256) {
-        try configManager.getPlatFormFee(address(this)) returns(uint256 fee) {
-            return fee;
-        } catch {
-            return DEFAULT_PERFORMANCEFEE;
-        }
-    }
-
 
     // ========== ERC4626 核心函数 ==========
     
@@ -205,7 +181,7 @@ contract ArbitrageVault is IArbitrageVault, ERC20, ReentrancyGuard, Ownable {
      * @dev 预览存款将获得的份额
      */
     function previewDeposit(uint256 assets) public view returns (uint256) {
-        uint256 dePositFee = getDepositFee();
+        uint256 dePositFee = configManager.getDepositFee(address(this));
         uint256 fee = (assets * dePositFee) / 10000;
         return convertToShares(assets - fee);
     }
@@ -215,7 +191,7 @@ contract ArbitrageVault is IArbitrageVault, ERC20, ReentrancyGuard, Ownable {
      */
     function previewRedeem(uint256 shares) public view returns (uint256) {
         uint256 assets = convertToAssets(shares);
-        uint256 withDrawFee = getWithDrawFee();
+        uint256 withDrawFee = configManager.getWithDrawFee(address(this));
         uint256 fee = (assets * withDrawFee) / 10000;
         return assets - fee;
     }
@@ -239,7 +215,7 @@ contract ArbitrageVault is IArbitrageVault, ERC20, ReentrancyGuard, Ownable {
         );
         
         // 计算份额（扣除存款费后）
-        uint256 dePositFee = getDepositFee();
+        uint256 dePositFee = configManager.getDepositFee(address(this));
         uint256 fee = (assets * dePositFee) / 10000;
         uint256 assetsAfterFee = assets - fee;
         shares = convertToShares(assetsAfterFee);
@@ -300,7 +276,7 @@ contract ArbitrageVault is IArbitrageVault, ERC20, ReentrancyGuard, Ownable {
         assets = convertToAssets(shares);
         
         // 扣除提款费
-        uint256 withDrawFee = getWithDrawFee();
+        uint256 withDrawFee = configManager.getWithDrawFee(address(this));
         uint256 fee = (assets * withDrawFee) / 10000;
         uint256 assetsAfterFee = assets - fee;
         
@@ -375,7 +351,7 @@ contract ArbitrageVault is IArbitrageVault, ERC20, ReentrancyGuard, Ownable {
      */
     function recordProfit(uint256 profit) external onlyArbitrageCore override {
         // 收取业绩费
-        uint256 perFormanceFee = getPlatFormFee();
+        uint256 perFormanceFee = configManager.getPlatFormFee(address(this));
         uint256 fee = (profit * perFormanceFee) / 10000;
         
         totalProfitGenerated += profit;
