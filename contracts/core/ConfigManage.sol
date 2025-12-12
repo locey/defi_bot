@@ -19,13 +19,13 @@ contract ConfigManage is IConfigManager, Initializable, OwnableUpgradeable, UUPS
 
     uint16 public version;
     uint256 private _profitShareFee;
-    
+    uint256 public slippageTolerance;
 
-    address lendingPool;
-    address uniswapV2Router;
-    address uniswapV3Router;
-    address sushiSwapRouter;
-    address arbitrageVault;
+    address public lendingPool;
+    address public uniswapV2Router;
+    address public uniswapV3Router;
+    address public sushiSwapRouter;
+    address public arbitrageVault;
 
     event Upgrade(address indexed implemetation, uint256 version);
     
@@ -54,6 +54,8 @@ contract ConfigManage is IConfigManager, Initializable, OwnableUpgradeable, UUPS
         sushiSwapRouter = _sushiSwapRouter;
         arbitrageVault = _arbitrageVault;
         version = 1;
+        // 默认滑点500（5%）
+        slippageTolerance = 500;
     }
 
     //ArbitrageCore合约用到平台分成
@@ -71,5 +73,14 @@ contract ConfigManage is IConfigManager, Initializable, OwnableUpgradeable, UUPS
         require(newImplementation != address(0), "New implementation is zero address");
         version ++;
         emit Upgrade(newImplementation, version);
+    }
+
+    /**
+     * 动态配置滑点
+     * 请求参数：
+     *      _slipageTolerance：滑点容忍度
+     */
+    function setSlipageTolerance(uint _slippageTolerance) external onlyOwner{
+        slippageTolerance = _slippageTolerance;
     }
 }

@@ -5,16 +5,38 @@ import "../core/ConfigManage.sol";
 import "../interfaces/IUniswapV2Router02.sol";
 import "../interfaces/IDoubleRouterIntegration.sol";
 
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+
 contract DoubleRouterIntegration is IDoubleRouterIntegration {
 
-    address vault = ConfigManage.arbitrageVault;
-    uint public slipageTolerance;
+    using SafeERC20 for IERC20;
 
-    constructor(address _platForm, uint _slipageTolerance) {
-        require(_platForm != address(0), "Invalid platForm");
-        slipageTolerance = _slipageTolerance;
+    // address vault = ConfigManage.arbitrageVault;
+    ConfigManage public configManage;
+    uint256 public slippageTolerance;
+    address public admin;
+
+    constructor(address _configManage) {
+        admin = msg.sender;
+        configManage = ConfigManage(_configManage);
+        slippageTolerance = configManage.slippageTolerance();
     }
 
+    event DoubleRouterSwap(
+        address indexed sender, 
+        address indexed routerA, 
+        address indexed routerB, 
+        uint256 amountIn, 
+        uint256 profit
+    );
+
+    event DoubleRouterSwap2(
+        address indexed routerAddr, 
+        address indexed fromToken, 
+        address indexed toToken, 
+        uint256 currentAmount, 
+        uint256 outAmount
+    );
 
     /**
      * 多路由验证路径是否可获利
@@ -92,69 +114,116 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration {
         address[] calldata pathB,
         uint256 minProfit
     ) external {
-
+    
         require(pathA.length >= 2 && pathB.length >= 2, "invalid path");
         require(amountIn > 0, "zero amount");
+        require(pathB[0] == pathA[pathA.length - 1], "pathB start mismatch");
+        require(pathB[pathB.length - 1] == pathA[0], "pathB end mismatch");
+        require(IERC20(pathA[0]).balanceOf(address(this)) >= amountIn, "insufficient balance");
 
+        uint256 deadline = block.timestamp + 300;
         address tokenA = pathA[0];
         address tokenB = pathA[pathA.length - 1];
 
-        require(pathB[0] == tokenB, "pathB start mismatch");
-        require(pathB[pathB.length - 1] == tokenA, "pathB end mismatch");
-
-        // 获取初始余额
-        uint256 startBalance = IERC20(tokenA).balanceOf(address(this));
-        require(startBalance >= amountIn, "insufficient balance");
-
-        uint256 deadline = block.timestamp + 300;
-
-        // ===== Step 1: RouterA swap tokenA -> tokenB =====
-        {
-            uint256[] memory estimated1 = IUniswapV2Router(routerA).getAmountsOut(amountIn, pathA);
-            uint256 expectedOut1 = estimated1[estimated1.length - 1];
-
-            // 滑点保护
-            uint256 amountOutMin1 = (expectedOut1 * (10000 - slipageTolerance)) / 10000;
-
-            IERC20(tokenA).approve(routerA, amountIn);
-
-            IUniswapV2Router(routerA).swapExactTokensForTokensSupportingFeeOnTransferTokens(
-                amountIn,
-                amountOutMin1,
-                pathA,
-                address(this),
-                deadline
-            );
-        }
-
+        // Step 1: 调用子函数完成 RouterA 兑换
+        _swapOnRouter(routerA, tokenA, amountIn, pathA, deadline);
+        
+        // 校验 tokenB 余额
+        require(IERC20(tokenB).balanceOf(address(this)) > 0, "no tokenB received");
+        
+        // Step 2: 调用子函数完成 RouterB 兑换
         uint256 tokenBBalance = IERC20(tokenB).balanceOf(address(this));
-        require(tokenBBalance > 0, "no tokenB received");
+        _swapOnRouter(routerB, tokenB, tokenBBalance, pathB, deadline);
 
-        // ===== Step 2: RouterB swap tokenB -> tokenA =====
-        {
-            uint256[] memory estimated2 = IUniswapV2Router(routerB).getAmountsOut(tokenBBalance, pathB);
-            uint256 expectedOut2 = estimated2[estimated2.length - 1];
-            uint256 amountOutMin2 = (expectedOut2 * (10000 - slipageTolerance)) / 10000;
-
-            IERC20(tokenB).approve(routerB, tokenBBalance);
-
-            IUniswapV2Router(routerB).swapExactTokensForTokensSupportingFeeOnTransferTokens(
-                tokenBBalance,
-                amountOutMin2,
-                pathB,
-                address(this),
-                deadline
-            );
-        }
-
-        // 真实利润检测
+        // 利润校验
         uint256 endBalance = IERC20(tokenA).balanceOf(address(this));
-        require(endBalance > startBalance, "no profit");
-
-        uint256 profit = endBalance - startBalance;
-        require(profit >= minProfit, "profit < minProfit");
+        uint256 profit = endBalance - (IERC20(tokenA).balanceOf(address(this)) - amountIn);
+        require(profit > 0 && profit >= minProfit, "insufficient profit");
 
         emit DoubleRouterSwap(msg.sender, routerA, routerB, amountIn, profit);
     }
+
+    function _swapOnRouter(
+        address router,
+        address tokenIn,
+        uint256 amountIn,
+        address[] calldata path,
+        uint256 deadline
+    ) internal {
+        uint256 expectedOut = IUniswapV2Router02(router).getAmountsOut(amountIn, path)[path.length - 1];
+        uint256 amountOutMin = (expectedOut * (10000 - slippageTolerance)) / 10000;
+
+        IERC20(tokenIn).approve(router, amountIn);
+        IUniswapV2Router02(router).swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            amountIn, amountOutMin, path, address(this), deadline
+        );
+    }
+
+    function doubleRouterSwap2(
+        address spot,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        address[] calldata swapPath,
+        address[] calldata dexes
+    ) external returns(uint256 amountOut) {
+        require(swapPath.length >= 2, "invalid swapPath");
+        require(dexes.length == swapPath.length - 1, "dexes length mismatch");
+        require(swapPath[swapPath.length - 1] == tokenOut, "tokenOut mismatch with swapPath");
+        require(IERC20(tokenIn).balanceOf(spot) >= amountIn, "insufficient tokenIn balance");
+
+        uint256 currentAmount = amountIn;
+        uint256 deadline = block.timestamp + 300;
+
+        for (uint i = 0; i < dexes.length; i++) {
+            currentAmount = _executeSingleSwap(
+                spot,
+                dexes[i],
+                swapPath[i],
+                swapPath[i + 1],
+                currentAmount,
+                deadline
+            );
+        }
+        amountOut = currentAmount;
+    }
+
+    function _executeSingleSwap(
+        address spot,
+        address routerAddr,
+        address fromToken,
+        address toToken,
+        uint256 currentAmount,
+        uint256 deadline
+    ) internal returns (uint256 outAmount) {
+        // 余额校验
+        require(IERC20(fromToken).balanceOf(spot) >= currentAmount, "insufficient token balance for hop");
+
+        // 授权
+        IERC20(fromToken).approve(routerAddr, 0);
+        IERC20(fromToken).approve(routerAddr, currentAmount);
+
+        // 构建路径
+        address[] memory path = new address[](2);
+        path[0] = fromToken;
+        path[1] = toToken;
+
+        // 计算预期输出和最小输出
+        uint256 expectedOut = IUniswapV2Router02(routerAddr).getAmountsOut(currentAmount, path)[1];
+        uint256 minOut = (expectedOut * slippageTolerance) / 1000;
+        minOut = minOut == 0 ? 1 : minOut;
+
+        // 执行兑换
+        outAmount = IUniswapV2Router02(routerAddr).swapExactTokensForTokens(
+            currentAmount,
+            minOut,
+            path,
+            spot,
+            deadline
+        )[1];
+
+        // 触发事件
+        emit DoubleRouterSwap2(routerAddr, fromToken, toToken, currentAmount, outAmount);
+    }                               
 
 }
