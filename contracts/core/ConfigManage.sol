@@ -160,5 +160,4 @@ contract ConfigManage is IConfigManager, Initializable, OwnableUpgradeable, UUPS
         emit Upgrade(newImplementation, version);
     }
 
-    
 }
