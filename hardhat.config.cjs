@@ -1,6 +1,5 @@
-require("@nomicfoundation/hardhat-ethers");
-require("@nomicfoundation/hardhat-chai-matchers");
-require("@nomicfoundation/hardhat-network-helpers");
+require("@nomiclabs/hardhat-ethers");
+require("hardhat-gas-reporter");
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
@@ -35,5 +34,11 @@ module.exports = {
         },
       },
     ],
+  },
+  gasReporter: {
+    enabled: process.env.REPORT_GAS === "true",
+    currency: "USD",
+    outputFile: "gas-report.txt",
+    noColors: false,
   },
 };

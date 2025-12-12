@@ -22,7 +22,7 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
 
     //定义变量，借贷池，借贷平台等
     FlashLoanRouter public immutable flashLoan;     //路由合约
-    ISpotArbitrage public immutable SpotArbitrage;  //套利实现合约接口
+    ISpotArbitrage public immutable spotArbitrage;  //套利实现合约接口
     address public arbitrageCore;                   // 核心调度合约
 
     //项目平台手续费
@@ -97,7 +97,7 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
         require(_arbitrageCore != address(0), "Invalid arbitrageCore");
 
         flashLoan = FlashLoanRouter(_flashLoanRouter);
-        SpotArbitrage = ISpotArbitrage(_spotArbitrage);
+        spotArbitrage = ISpotArbitrage(_spotArbitrage);
         arbitrageCore = _arbitrageCore;
     }
 
@@ -125,7 +125,7 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
         require(_initiator == initiator, "Invalid initiator");
 
         //实施套利
-        uint256 amountOut = SpotArbitrage.executeSwaps(
+        uint256 amountOut = spotArbitrage.executeSwaps(
             tokenIn,
             swapPath[swapPath.length - 1],
             amountIn,
