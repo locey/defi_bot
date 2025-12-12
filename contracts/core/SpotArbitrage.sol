@@ -25,13 +25,16 @@ contract SpotArbitrage is ISpotArbitrage{
     *
     *本合约被ArbitrageCore调用
     */
-    function excuteSwaps(
+    function executeSwaps(
         address tokenIn,
         address tokenOut,
         uint256 amountIn,
         address[] calldata swapPath,
-        address[] calldata dexes
+        address[] calldata dexes,
+        uint256 /* minProfit */
     ) external returns(uint256 amountOut) {
+        // minProfit parameter is part of the ISpotArbitrage interface for checks at higher level;
+        // this implementation delegates swaps to doubleRouterIntegration and ignores minProfit here.
         return doubleRouterIntegration.doubleRouterSwap2(address(this), tokenIn, tokenOut, amountIn, swapPath, dexes);
     }
 }

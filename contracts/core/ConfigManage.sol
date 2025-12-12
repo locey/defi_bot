@@ -19,17 +19,16 @@ contract ConfigManage is IConfigManager, Initializable, OwnableUpgradeable, UUPS
 
     uint16 public version;
     uint256 private _profitShareFee;
-<<<<<<< HEAD
-    
+
     // 可配置的费用参数
     uint256 public depositFee = 0;              // 存款费（basis points）
     uint256 public withdrawFee = 1;             // 提款费（basis points） 暂定0.01%
     uint256 public performanceFee = 1000;       // 业绩费（basis points） 暂定10%
-=======
-    uint256 public slippageTolerance;
->>>>>>> 6e80ebe961988869b2c2bab869e1470458b50572
 
-    address public lendingPool;
+    // 滑点容忍度（basis points）
+    uint256 public slippageTolerance;
+
+        address public lendingPool;
     address public uniswapV2Router;
     address public uniswapV3Router;
     address public sushiSwapRouter;

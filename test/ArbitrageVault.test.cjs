@@ -81,7 +81,7 @@ describe("ArbitrageVault", function () {
       await vault.connect(user1).redeem(shares, user1.address, user1.address);
       
       expect(await weth.balanceOf(user1.address)).to.equal(INITIAL_BALANCE);
-      expect(await vault.sharesOf(user1.address)).to.equal(0);
+      expect(await vault.sharesOf(user1.address)).to.equal(0n);
     });
   });
 

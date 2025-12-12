@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
     /**
     *套利核心方法
     *参数包含：
-    * tokenIn  初始代币，
+    * tokenIn  初始代币，asset
     * tokenOut  目标代币，
     * amountIn  购买数量，
     * swapPath  策略路径，
@@ -14,7 +14,7 @@ pragma solidity ^0.8.20;
     **/
 interface IArbitrage {
     struct ArbitrageParams {
-        address tokenIn;
+        address asset;
         //address tokenOut;
         uint256 amountIn;
         address[] swapPath;

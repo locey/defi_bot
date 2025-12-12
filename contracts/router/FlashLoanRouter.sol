@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "../interfaces/IFlashLoan.sol";
+import "../interfaces/IFlashLoanLendingPool.sol";
 import "../core/ConfigManage.sol";
 
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 contract FlashLoanRouter {
+    ConfigManage public configManage;
     enum LendingPlatForm {Aave_V2, Aave_V3, DYDX, UNISWAP_V3}
 
     struct PlatFormConfig {
@@ -18,8 +21,8 @@ contract FlashLoanRouter {
     address public immutable admin;
 
     //初始化构造Aave_V2等平台的地址配置
-    constructor () {
-        admin =msg.sender;
+    constructor(address _configManage) {
+        admin = msg.sender;
         configManage = ConfigManage(_configManage);
         platFormConfigs[LendingPlatForm.Aave_V2] = PlatFormConfig({
             // lendingPool: 0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7,
@@ -65,11 +68,11 @@ contract FlashLoanRouter {
 
         //2.校验借款额度
         uint256 poolBalance = IERC20(asset).balanceOf(config.lendingPool);
-        uint256 maxAllowedAmount = poolBalance * maxLoanRatio / 10000;
+        uint256 maxAllowedAmount = poolBalance * config.maxLoanRatio / 10000;
         require(amount <= maxAllowedAmount, "Amount over a lot");
 
         //3.转发请求到lendingPool
-        ILendingPool(lendingPool).flashLoanSimple(
+        ILendingPool(config.lendingPool).flashLoanSimple(
             receiver,    // 借款接收者
             asset,       // 借款资产
             amount,      // 借款金额
