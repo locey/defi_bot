@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "../interface/IFlashLoan.sol";
+import "../interfaces/IFlashLoan.sol";
 import "../core/ConfigManage.sol";
 
 contract FlashLoanRouter {
