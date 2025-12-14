@@ -109,7 +109,9 @@ export function ArbitrageInvestmentCard({
             </p>
             <div className="flex items-end gap-1">
               <p className="text-xl font-bold text-green-400 font-mono">
-                {stats.profitRate.toFixed(2)}
+                {(stats.principal > 0 && stats.totalProfit > 0) 
+                  ? ((stats.totalProfit / stats.principal) * 100).toFixed(2) 
+                  : "0.00"}
               </p>
               <p className="text-xs text-slate-400 mb-0.5">%</p>
             </div>
@@ -126,20 +128,6 @@ export function ArbitrageInvestmentCard({
             </p>
             <p className="text-xs text-slate-500 mt-1">最近24小时</p>
           </div>
-        </div>
-
-        {/* 年化收益率 */}
-        <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 p-4 rounded-lg border border-purple-500/20 flex items-start justify-between">
-          <div>
-            <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">
-              预期年化收益率
-            </p>
-            <p className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 font-mono">
-              {stats.apy.toFixed(1)}%
-            </p>
-            <p className="text-xs text-slate-500 mt-1">基于最近30天数据计算</p>
-          </div>
-          <TrendingUp className="w-8 h-8 text-purple-400 opacity-50" />
         </div>
 
         {/* 风险提示 */}
