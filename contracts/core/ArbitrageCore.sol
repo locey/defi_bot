@@ -207,6 +207,7 @@ contract ArbitrageCore is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUp
         uint256 actProfit = balanceAfter - balanceBefore;
         require(actProfit > minProfit, "Profit below minimum");
 
+        //计算分润 分成比例由configManager管理
         uint256 platFormFee = actProfit * configManager.profitShareFee() / 10000;
         uint256 netProfitToVault = actProfit - platFormFee;
 

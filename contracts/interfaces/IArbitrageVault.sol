@@ -29,5 +29,6 @@ interface IArbitrageVault {
 
     //返回金库管理的底层资产地址
     function assetAddress() external view returns (address);
+    
 }
 
