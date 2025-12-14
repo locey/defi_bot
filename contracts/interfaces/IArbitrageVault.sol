@@ -29,6 +29,9 @@ interface IArbitrageVault {
 
     //返回金库管理的底层资产地址
     function assetAddress() external view returns (address);
+
+    //用户自己查询本金余额
+    function getMyBalance() public view returns (uint256);
     
 }
 

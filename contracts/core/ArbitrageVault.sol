@@ -379,7 +379,19 @@ contract ArbitrageVault is IArbitrageVault, ERC20, ReentrancyGuard, Ownable {
      * @dev 1211新增：获取用户本金
      */
     function getUserBalance(address user) public view returns (uint256) {
-        return userTotalDeposited[user];
+        uint256 totalDeposited = userTotalDeposited[user];
+        uint256 totalWithdrawn = userTotalWithdraw[user];   
+
+        //防止溢出
+        if (totalWithdrawn >= totalDeposited) {
+            return 0;
+        }
+
+        return totalDeposited - totalWithdrawn;
+    }
+
+    function getMyBalance() public view override returns (uint256) {
+        return getUserBalance(msg.sender);
     }
     
     /**

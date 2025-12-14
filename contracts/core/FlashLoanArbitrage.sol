@@ -8,7 +8,8 @@ import "../interfaces/ISpotArbitrage.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
+
 
 // 修正接口继承顺序，规范命名
 contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownable, Pausable {
@@ -22,21 +23,21 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
      */
 
     // 核心合约依赖（不可变，部署时初始化）
-    FlashLoanRouter public immutable flashLoanRouter; // 修正命名：flashLoan → flashLoanRouter（更语义化）
+    FlashLoanRouter public immutable flashLoanRouter;
     ISpotArbitrage public immutable spotArbitrage;
     address public immutable arbitrageCore; // 核心调度合约（不可变，避免被篡改）
 
     // 平台手续费：利润的10%（千分比，1000 = 10%）
-    uint256 public constant PROFIT_SHARE_FEE = 100; // 修正：10% = 100/1000，原1000是100%，逻辑错误！
+    uint256 public constant PROFIT_SHARE_FEE = 100; // 10% 平台分润手续费
     address public feeRecipient; // 手续费接收地址
 
-    // 执行记录（修正拼写）
+    // 执行记录结构体及数组
     struct ExecutionRecord {
         address initiator;
         address tokenIn;
         uint256 amountIn;
         uint256 profit;
-        uint256 platformFee; // 新增：记录扣除的手续费
+        uint256 platformFee; //记录扣除的手续费
         uint256 timestamp;
     }
     ExecutionRecord[] public executedHistory;
@@ -66,13 +67,13 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
 
     event FeeRecipientUpdated(address oldRecipient, address newRecipient);
 
-    // 修饰器（修正拼写+新增暂停修饰器）
+    // 修饰器
     modifier onlyArbitrageCore() {
         require(msg.sender == arbitrageCore, "FlashLoanArbitrage: only ArbitrageCore can call");
         _;
     }
 
-    // 构造函数（优化参数校验+初始化手续费接收地址）
+    // 构造函数
     constructor (
         address _flashLoanRouter,
         address _spotArbitrage,
@@ -90,7 +91,7 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
         feeRecipient = _feeRecipient;
     }
 
-    // ===================== 核心回调函数（修复漏洞） =====================
+    // ===================== 核心回调函数=====================
     function executeOperation(
         address asset,
         uint256 amount,
@@ -98,7 +99,7 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
         address initiator,
         bytes calldata params
     ) external override nonReentrant whenNotPaused returns (bool) {
-        // 关键修复：校验调用者是闪电贷路由合约（防止伪造调用）
+        // 关键：校验调用者是闪电贷路由合约（防止伪造调用）
         require(msg.sender == address(flashLoanRouter), "FlashLoanArbitrage: only flashLoanRouter can call");
 
         // 解码参数
@@ -133,7 +134,7 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
             uint256 platformFee = (grossProfit * PROFIT_SHARE_FEE) / 1000; // 扣取10%手续费
             uint256 netProfit = grossProfit - platformFee;
 
-            // 检查余额是否足够还款（关键修复）
+            // 检查余额是否足够还款
             uint256 contractBalance = IERC20(asset).balanceOf(address(this));
             require(contractBalance >= totalDebt, "FlashLoanArbitrage: insufficient balance to repay");
 
@@ -167,14 +168,14 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
 
             return true;
         } catch (bytes memory reason) {
-            // 触发失败事件（关键修复：捕获异常并触发事件）
+            // 触发失败事件
             string memory errorReason = abi.decode(reason, (string));
             emit FlashLoanFailed(initiator, asset, errorReason);
-            revert("FlashLoanArbitrage: arbitrage failed - " + errorReason);
+            revert(string.concat("FlashLoanArbitrage: executeOperation failed - ", errorReason));
         }
     }
 
-    // ===================== 发起闪电贷（移除冗余currentContext） =====================
+    // ===================== 发起闪电贷 =====================
     function executeFlashLoan(
         FlashLoanRouter.LendingPlatForm platform,
         address tokenIn,
@@ -189,7 +190,7 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
         require(amountIn > 0, "FlashLoanArbitrage: amountIn must >0");
         require(minProfit > 0, "FlashLoanArbitrage: minProfit must >0");
 
-        // 构造回调参数（直接使用入参，移除冗余currentContext）
+        // 构造回调参数
         bytes memory params = abi.encode(
             msg.sender, // initiator = ArbitrageCore
             tokenIn,
@@ -199,7 +200,7 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
             minProfit
         );
 
-        // 发起闪电贷（修正拼写错误：requset → request）
+        // 发起闪电贷
         try flashLoanRouter.requestFlashLoan(
             platform,
             address(this),
@@ -211,11 +212,11 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
         } catch (bytes memory reason) {
             string memory errorReason = abi.decode(reason, (string));
             emit FlashLoanFailed(msg.sender, tokenIn, errorReason);
-            revert("FlashLoanArbitrage: request flashLoan failed - " + errorReason);
+            revert(string.concat("FlashLoanArbitrage: request flashLoan failed - " , errorReason));
         }
     }
 
-    // ===================== 管理函数（新增+完善） =====================
+    // ===================== 管理函数=====================
     /**
      * @dev 紧急暂停/恢复合约（仅所有者）
      */
