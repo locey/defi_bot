@@ -20,7 +20,14 @@ contract SpotArbitrage is ISpotArbitrage{
     /**
     *实施AMM-AMM套利的实现合约
     *对后端提供的策略（包含代币转换路径和交易所）循环遍历并进行swap
-    *
+    *请求参数
+    * tokenIn
+    * tokenOut
+    * amountIn
+    * swapPath  
+    *   [ETH,BSC,DAI,ETH]
+    * dexes
+    *   [UNISWAP,UNISWAP,SUSHISWAP]
     *
     *
     *本合约被ArbitrageCore调用
@@ -31,10 +38,10 @@ contract SpotArbitrage is ISpotArbitrage{
         uint256 amountIn,
         address[] calldata swapPath,
         address[] calldata dexes,
-        uint256 /* minProfit */
+        uint256 minProfit
     ) external returns(uint256 amountOut) {
         // minProfit parameter is part of the ISpotArbitrage interface for checks at higher level;
         // this implementation delegates swaps to doubleRouterIntegration and ignores minProfit here.
-        return doubleRouterIntegration.doubleRouterSwap2(address(this), tokenIn, tokenOut, amountIn, swapPath, dexes);
+        return doubleRouterIntegration.doubleRouterSwap2(address(this), tokenIn, tokenOut, amountIn, swapPath, dexes, minProfit);
     }
 }
