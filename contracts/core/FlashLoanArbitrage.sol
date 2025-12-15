@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "../interfaces/IFlashLoan.sol";
 import "../router/FlashLoanRouter.sol";
 import "../interfaces/ISpotArbitrage.sol";
+import "../interfaces/IConfigManager.sol";
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -25,11 +26,15 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
     // 核心合约依赖（不可变，部署时初始化）
     FlashLoanRouter public immutable flashLoanRouter;
     ISpotArbitrage public immutable spotArbitrage;
+    IConfigManager public immutable configManager;//参数管理
+
     address public immutable arbitrageCore; // 核心调度合约（不可变，避免被篡改）
 
     // 平台手续费：利润的10%（千分比，1000 = 10%）
-    uint256 public constant PROFIT_SHARE_FEE = 100; // 10% 平台分润手续费
-    address public feeRecipient; // 手续费接收地址
+    //uint256 public constant PROFIT_SHARE_FEE = 100; // 10% 平台分润手续费
+    //address public feeRecipient; // 手续费接收地址
+    //盈利接受：平台钱包地址
+    address public platFormWallet;
 
     // 执行记录结构体及数组
     struct ExecutionRecord {
@@ -37,7 +42,6 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
         address tokenIn;
         uint256 amountIn;
         uint256 profit;
-        uint256 platformFee; //记录扣除的手续费
         uint256 timestamp;
     }
     ExecutionRecord[] public executedHistory;
@@ -55,8 +59,7 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
         address indexed token,
         uint256 borrowed,
         uint256 premium,
-        uint256 profit,
-        uint256 platformFee
+        uint256 profit
     );
 
     event FlashLoanFailed(
@@ -78,17 +81,22 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
         address _flashLoanRouter,
         address _spotArbitrage,
         address _arbitrageCore,
-        address _feeRecipient
+        //address _feeRecipient,
+        address _platFormWallet,
+        address _configManager
     ) Ownable(msg.sender) {
         require(_flashLoanRouter != address(0), "FlashLoanArbitrage: invalid flashLoanRouter");
         require(_spotArbitrage != address(0), "FlashLoanArbitrage: invalid spotArbitrage");
         require(_arbitrageCore != address(0), "FlashLoanArbitrage: invalid arbitrageCore");
-        require(_feeRecipient != address(0), "FlashLoanArbitrage: invalid feeRecipient");
+        require(_platFormWallet != address(0), "FlashLoanArbitrage: invalid platFormWallet");
+        require(_configManager != address(0), "FlashLoanArbitrage: invalid configManager");
 
         flashLoanRouter = FlashLoanRouter(_flashLoanRouter);
         spotArbitrage = ISpotArbitrage(_spotArbitrage);
         arbitrageCore = _arbitrageCore;
-        feeRecipient = _feeRecipient;
+        //feeRecipient = _feeRecipient;
+        platFormWallet = _platFormWallet;
+        configManager = IConfigManager(_configManager);
     }
 
     // ===================== 核心回调函数=====================
@@ -126,13 +134,14 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
             dexes,
             minProfit
         ) returns (uint256 amountOut) {
-            // 计算总债务和利润
+            // 计算总债务和利润 总借款+手续费
             uint256 totalDebt = amount + premium;
             require(amountOut > totalDebt + minProfit, "FlashLoanArbitrage: no profit made");
 
-            uint256 grossProfit = amountOut - totalDebt;
-            uint256 platformFee = (grossProfit * PROFIT_SHARE_FEE) / 1000; // 扣取10%手续费
-            uint256 netProfit = grossProfit - platformFee;
+            // 计算平台手续费和净利润
+            uint256 grossProfit = amountOut - totalDebt;//本次套利总收益
+            //uint256 platformFee = (grossProfit * configManager.profitShareFee()) / 1000; // 平台10%手续费
+            //uint256 netProfit = grossProfit - platformFee;//净利润
 
             // 检查余额是否足够还款
             uint256 contractBalance = IERC20(asset).balanceOf(address(this));
@@ -142,17 +151,18 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
             IERC20(asset).approve(address(flashLoanRouter), totalDebt);
 
             // 2. 支付平台手续费
-            if (platformFee > 0) {
-                IERC20(asset).transfer(feeRecipient, platformFee);
-            }
+            // if (platformFee > 0) {
+            //     IERC20(asset).transfer(feeRecipient, platformFee);
+            // }
+            IERC20(asset).transfer(platFormWallet, grossProfit);
 
             // 3. 记录执行历史
             executedHistory.push(ExecutionRecord({
                 initiator: initiator,
                 tokenIn: tokenIn,
                 amountIn: amountIn,
-                profit: netProfit,
-                platformFee: platformFee,
+                profit: grossProfit,
+                //platformFee: platformFee,
                 timestamp: block.timestamp
             }));
 
@@ -162,8 +172,7 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
                 asset,
                 amount,
                 premium,
-                netProfit,
-                platformFee
+                grossProfit
             );
 
             return true;
@@ -185,7 +194,7 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
         uint256 minProfit
     ) external onlyArbitrageCore nonReentrant whenNotPaused {
         // 前置校验（防止无效请求）
-        require(swapPath.length >= 2, "FlashLoanArbitrage: swapPath length must >=2");
+        require(swapPath.length >= 3, "FlashLoanArbitrage: swapPath length must >=3");
         require(dexes.length > 0, "FlashLoanArbitrage: dexes cannot be empty");
         require(amountIn > 0, "FlashLoanArbitrage: amountIn must >0");
         require(minProfit > 0, "FlashLoanArbitrage: minProfit must >0");

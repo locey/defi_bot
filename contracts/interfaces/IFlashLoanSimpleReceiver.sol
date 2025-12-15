@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
-
+import "../router/FlashLoanRouter.sol";
 // 引入 Aave V2 的闪电贷接口（平台提供）利息0.09%      v3的利息0.05%
 interface IFlashLoanSimpleReceiver {
     // 核心回调函数：LendingPool 放款后，会自动调用这个函数
@@ -11,4 +11,13 @@ interface IFlashLoanSimpleReceiver {
         address initiator,  // 借款发起者（我们的合约）
         bytes calldata params  // 额外参数（可传递套利需要的信息）
     ) external returns (bool); // 返回 true 表示操作成功，准备还款
+
+    function executeFlashLoan(
+        FlashLoanRouter.LendingPlatForm platform,
+        address asset,
+        uint256 amountIn,
+        address[] calldata swapPath,
+        address[] calldata dexes,
+        uint256 minProfit
+    ) external;
 }
