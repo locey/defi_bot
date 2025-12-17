@@ -1,0 +1,143 @@
+# DeFi 套利机器人配置文件
+
+# 数据库配置
+database:
+  host: ${DB_HOST:localhost}
+  port: ${DB_PORT:5432}
+  user: ${DB_USER:postgres}
+  password: ${DB_PASSWORD:postgres}
+  dbname: ${DB_NAME:defi_arbitrage}
+  sslmode: disable
+  timezone: Asia/Shanghai
+  max_idle_conns: 10
+  max_open_conns: 100
+  conn_max_lifetime: 3600  # 秒
+
+# 区块链配置
+blockchain:
+  # 主 RPC URL（单节点模式）
+  rpc_url: ${RPC_URL:https://eth-mainnet.g.alchemy.com/v2/your_api_key}
+  
+  # 多 RPC URL（池模式，启用后会使用负载均衡和故障转移）
+  rpc_urls:
+    - https://eth-mainnet.g.alchemy.com/v2/your_api_key
+    - https://rpc.ankr.com/eth
+    - https://ethereum.publicnode.com
+  
+  chain_id: ${CHAIN_ID:1}
+  timeout: 30  # 秒
+  retry: 3
+  use_pool: false  # 生产环境建议启用 RPC 池
+
+# 合约地址
+contracts:
+  arbitrage_core: ${ARBITRAGE_CORE_ADDRESS:}
+  config_manager: ${CONFIG_MANAGER_ADDRESS:}
+
+# DEX 配置
+dexes:
+  # Uniswap V2
+  - name: "Uniswap V2"
+    protocol: "uniswap_v2"
+    router: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
+    factory: "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"
+    fee: 30  # 0.3%
+    fee_tier: 0  # V2 不使用
+    version: "v2"
+    chain_id: 1
+    
+  # SushiSwap (V2 兼容)
+  - name: "SushiSwap"
+    protocol: "sushiswap"
+    router: "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F"
+    factory: "0xC0AEe478e3658e2610c5F7A4A2E1777cE9e4f2Ac"
+    fee: 30  # 0.3%
+    fee_tier: 0  # V2 不使用
+    version: "v2"
+    chain_id: 1
+    
+  # Uniswap V3 - 0.05% fee tier
+  - name: "Uniswap V3 (0.05%)"
+    protocol: "uniswap_v3"
+    router: "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+    factory: "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+    fee: 5  # 0.05%
+    fee_tier: 500
+    version: "v3"
+    chain_id: 1
+    
+  # Uniswap V3 - 0.3% fee tier
+  - name: "Uniswap V3 (0.3%)"
+    protocol: "uniswap_v3"
+    router: "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+    factory: "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+    fee: 30  # 0.3%
+    fee_tier: 3000
+    version: "v3"
+    chain_id: 1
+    
+  # Uniswap V3 - 1% fee tier
+  - name: "Uniswap V3 (1%)"
+    protocol: "uniswap_v3"
+    router: "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+    factory: "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+    fee: 100  # 1%
+    fee_tier: 10000
+    version: "v3"
+    chain_id: 1
+
+# 代币配置（常用代币）
+tokens:
+  - symbol: "WETH"
+    address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+    decimals: 18
+  - symbol: "USDT"
+    address: "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+    decimals: 6
+  - symbol: "USDC"
+    address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+    decimals: 6
+  - symbol: "DAI"
+    address: "0x6B175474E89094C44Da98b954EedeAC495271d0F"
+    decimals: 18
+
+# 定时任务配置
+scheduler:
+  # 采集价格数据的间隔（秒）
+  collect_interval: 30
+  # 分析套利机会的间隔（秒）
+  analyze_interval: 10
+  # 清理过期数据的间隔（小时）
+  cleanup_interval: 24
+
+# 套利配置
+arbitrage:
+  # 最小利润率（百分比）
+  min_profit_rate: 0.5
+  # 最大滑点（百分比）
+  max_slippage: 1.0
+  # Gas 价格上限（Gwei）
+  max_gas_price: 100
+
+# 日志配置
+log:
+  level: ${LOG_LEVEL:info}
+  file: ${LOG_FILE:logs/app.log}
+  max_size: 100  # MB
+  max_backups: 10
+  max_age: 30  # 天
+
+# 服务器配置
+server:
+  port: ${SERVER_PORT:8080}
+  mode: release  # debug, release
+
+# Redis 配置（可选）
+redis:
+  enabled: ${REDIS_ENABLED:true}  # 启用 Redis 缓存
+  host: ${REDIS_HOST:localhost}
+  port: ${REDIS_PORT:6379}
+  password: ${REDIS_PASSWORD:}
+  db: ${REDIS_DB:0}
+  ttl: 300  # 默认过期时间 5 分钟
+
