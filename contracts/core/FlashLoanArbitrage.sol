@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "../interfaces/IFlashLoan.sol";
+import "../interfaces/IFlashLoanSimpleReceiver.sol";
 import "../router/FlashLoanRouter.sol";
 import "../interfaces/ISpotArbitrage.sol";
 import "../interfaces/IConfigManager.sol";
@@ -191,7 +191,7 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
         uint256 amountIn,
         address[] calldata swapPath,
         address[] calldata dexes,
-        uint256 minProfit
+        uint256 minProfit 
     ) external onlyArbitrageCore nonReentrant whenNotPaused {
         // 前置校验（防止无效请求）
         require(swapPath.length >= 3, "FlashLoanArbitrage: swapPath length must >=3");
