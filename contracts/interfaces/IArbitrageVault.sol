@@ -21,6 +21,9 @@ interface IArbitrageVault {
     //为套利授权资金（由ArbitrageCore调用）
     function approveForArbitrage(uint256 amount) external;
 
+    //为套利转账资金（由ArbitrageCore调用）
+    function transferForArbitrage(uint256 amount) external;
+
     //记录套利利润（由ArbitrageCore调用）
     function recordProfit(uint256 profit) external;
 
@@ -31,7 +34,7 @@ interface IArbitrageVault {
     function assetAddress() external view returns (address);
 
     //用户自己查询本金余额
-    function getMyBalance() public view returns (uint256);
+    function getMyBalance() external view returns (uint256);
     
 }
 

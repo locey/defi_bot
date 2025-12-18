@@ -340,6 +340,16 @@ contract ArbitrageVault is IArbitrageVault, ERC20, ReentrancyGuard, Ownable {
         require(amount <= getAvailableForArbitrage(), "Exceeds available");
         asset.approve(arbitrageCore, amount);
     }
+
+    /**
+     * @dev 为套利转账资金（由ArbitrageCore调用）
+     * 
+     * @param amount 转账金额
+     */
+    function transferForArbitrage(uint256 amount) external onlyArbitrageCore override {
+        require(amount <= getAvailableForArbitrage(), "Exceeds available");
+        asset.safeTransfer(arbitrageCore, amount);
+    }
     
     /**
      * @dev 记录套利利润（由ArbitrageCore调用）
