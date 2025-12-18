@@ -19,6 +19,7 @@ interface IArbitrage {
         uint256 amountIn;
         address[] swapPath;
         address[] dexes;
+        uint256 expectProfit;
         uint256 minProfit;
         //bool isFlashLoan;
         //uint8 flashLoanPlatForm;

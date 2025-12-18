@@ -340,6 +340,16 @@ contract ArbitrageVault is IArbitrageVault, ERC20, ReentrancyGuard, Ownable {
         require(amount <= getAvailableForArbitrage(), "Exceeds available");
         asset.approve(arbitrageCore, amount);
     }
+
+    /**
+     * @dev 为套利转账资金（由ArbitrageCore调用）
+     * 
+     * @param amount 转账金额
+     */
+    function transferForArbitrage(uint256 amount) external onlyArbitrageCore override {
+        require(amount <= getAvailableForArbitrage(), "Exceeds available");
+        asset.safeTransfer(arbitrageCore, amount);
+    }
     
     /**
      * @dev 记录套利利润（由ArbitrageCore调用）
@@ -379,7 +389,19 @@ contract ArbitrageVault is IArbitrageVault, ERC20, ReentrancyGuard, Ownable {
      * @dev 1211新增：获取用户本金
      */
     function getUserBalance(address user) public view returns (uint256) {
-        return userTotalDeposited[user];
+        uint256 totalDeposited = userTotalDeposited[user];
+        uint256 totalWithdrawn = userTotalWithdraw[user];   
+
+        //防止溢出
+        if (totalWithdrawn >= totalDeposited) {
+            return 0;
+        }
+
+        return totalDeposited - totalWithdrawn;
+    }
+
+    function getMyBalance() public view override returns (uint256) {
+        return getUserBalance(msg.sender);
     }
     
     /**

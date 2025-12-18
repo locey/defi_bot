@@ -53,8 +53,9 @@ contract FlashLoanRouter {
                 maxLoanRatio: maxLoanRatio
             });
     }
-
-    function requsetFlashLoan(
+    
+    //发起闪电贷请求
+    function requestFlashLoan(
         //1.平台2.业务合约地址3.借款资产（如USDC的地址）4.借款额度（申请金额）
         LendingPlatForm platform,
         address receiver,
