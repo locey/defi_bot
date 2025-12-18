@@ -18,6 +18,7 @@ interface IFlashLoanSimpleReceiver {
         uint256 amountIn,
         address[] calldata swapPath,
         address[] calldata dexes,
+        uint256 expectProfit,
         uint256 minProfit
     ) external;
 }

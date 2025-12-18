@@ -93,7 +93,6 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
         configManager = IConfigManager(_configManager);
         backCaller = _backCaller;
 
-
     }
 
     //金库函数：添加金库
@@ -167,6 +166,7 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
         uint256 amountIn = params.amountIn;
         address[] calldata swapPath = params.swapPath;
         address[] calldata dexes = params.dexes;
+        uint256 expectProfit = params.expectProfit;
         uint256 minProfit = params.minProfit;
 
         //参数验证
@@ -197,6 +197,7 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
             amountIn,
             swapPath,
             dexes,
+            expectProfit,
             minProfit
         );
         //记录套路后余额
@@ -242,8 +243,9 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
             uint256 amountIn,
             address[] memory swapPath,
             address[] memory dexes,
+            uint256 expectProfit,
             uint256 minProfit
-        ) = abi.decode(paramsData, (FlashLoanRouter.LendingPlatForm, address, uint256, address[], address[], uint256));
+        ) = abi.decode(paramsData, (FlashLoanRouter.LendingPlatForm, address, uint256, address[], address[], uint256, uint256));
         //验证
         require(asset != address(0), "Invalid asset");
         require(amountIn > 0, "Amount must be > 0");
@@ -257,6 +259,7 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
             amountIn,
             swapPath,
             dexes,
+            expectProfit,
             minProfit
         );
         //事件触发FlashLoanArbitrageExecuted

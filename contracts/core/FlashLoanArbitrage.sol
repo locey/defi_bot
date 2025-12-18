@@ -117,8 +117,9 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
             uint256 amountIn,
             address[] memory swapPath,
             address[] memory dexes,
+            uint256 expectProfit,
             uint256 minProfit
-        ) = abi.decode(params, (address, address, uint256, address[], address[], uint256));
+        ) = abi.decode(params, (address, address, uint256, address[], address[], uint256, uint256));
 
         // 基础校验
         require(_initiator == initiator, "FlashLoanArbitrage: invalid initiator");
@@ -132,6 +133,7 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
             amountIn,
             swapPath,
             dexes,
+            expectProfit,
             minProfit
         ) returns (uint256 amountOut) {
             // 计算总债务和利润 总借款+手续费
@@ -191,6 +193,7 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
         uint256 amountIn,
         address[] calldata swapPath,
         address[] calldata dexes,
+        uint256 expectProfit,
         uint256 minProfit 
     ) external onlyArbitrageCore nonReentrant whenNotPaused {
         // 前置校验（防止无效请求）
@@ -206,6 +209,7 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
             amountIn,
             swapPath,
             dexes,
+            expectProfit,
             minProfit
         );
 

@@ -22,6 +22,7 @@ interface IDoubleRouterIntegration {
         uint256 amountIn,
         address[] calldata pathA,
         address[] calldata pathB,
+        uint256 expectProfit,
         uint256 minProfit
     ) external;
 
@@ -31,6 +32,8 @@ interface IDoubleRouterIntegration {
         address tokenOut,
         uint256 amountIn,
         address[] calldata swapPath,
-        address[] calldata dexes
+        address[] calldata dexes,
+        uint256 expectProfit,
+        uint256 minProfit
     ) external returns(uint256 amountOut);
 }
