@@ -159,13 +159,24 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration {
         );
     }
 
+    /**
+     * 双路由交易V2
+     * @param spot 入账地址
+     * @param tokenIn 初始代币
+     * @param tokenOut 最终代币
+     * @param amountIn 交易数量
+     * @param swapPath 交易路由
+     * @param dexes AMM路由
+     * @param minProfit 最小利润
+     */  
     function doubleRouterSwap2(
         address spot,
         address tokenIn,
         address tokenOut,
         uint256 amountIn,
         address[] calldata swapPath,
-        address[] calldata dexes
+        address[] calldata dexes,
+        uint256 minProfit
     ) external returns(uint256 amountOut) {
         require(swapPath.length >= 2, "invalid swapPath");
         require(dexes.length == swapPath.length - 1, "dexes length mismatch");
@@ -182,9 +193,11 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration {
                 swapPath[i],
                 swapPath[i + 1],
                 currentAmount,
-                deadline
+                deadline,
+                minProfit
             );
         }
+        require(currentAmount > minProfit, "no profit hop");
         amountOut = currentAmount;
     }
 
@@ -194,11 +207,9 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration {
         address fromToken,
         address toToken,
         uint256 currentAmount,
-        uint256 deadline
+        uint256 deadline,
+        uint256 minProfit
     ) internal returns (uint256 outAmount) {
-        // 余额校验
-        require(IERC20(fromToken).balanceOf(spot) >= currentAmount, "insufficient token balance for hop");
-
         // 授权
         IERC20(fromToken).approve(routerAddr, 0);
         IERC20(fromToken).approve(routerAddr, currentAmount);
@@ -208,9 +219,18 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration {
         path[0] = fromToken;
         path[1] = toToken;
 
-        // 计算预期输出和最小输出
-        uint256 expectedOut = IUniswapV2Router02(routerAddr).getAmountsOut(currentAmount, path)[1];
-        uint256 minOut = (expectedOut * slippageTolerance) / 1000;
+        // 计算预期输出
+        uint[] memory amounts = IUniswapV2Router02(routerAddr).getAmountsOut(currentAmount, path);
+        uint256 expectedOut = amounts[amounts.length - 1];
+        // 根据预期计算滑点容忍度，预期输出 - 输入 - 最小利润 = 最大容忍度
+        uint256 maxLoss = expectedOut - currentAmount - minProfit;
+        require(maxLoss > 0, "no slippage room");
+        uint256 slippageBps = (maxLoss * 10000) / expectedOut;
+        // slippageTolerance为默认的最大滑点容忍度，不得超过这个值
+        if (slippageBps > slippageTolerance) {
+            slippageBps = slippageTolerance;
+        }
+        uint256 minOut = (expectedOut * (10000 - slippageBps)) / 10000;
         minOut = minOut == 0 ? 1 : minOut;
 
         // 执行兑换

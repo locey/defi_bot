@@ -28,7 +28,7 @@ contract ConfigManage is IConfigManager, Initializable, OwnableUpgradeable, UUPS
     // 滑点容忍度（basis points）
     uint256 public slippageTolerance;
 
-        address public lendingPool;
+    address public lendingPool;
     address public uniswapV2Router;
     address public uniswapV3Router;
     address public sushiSwapRouter;
@@ -38,6 +38,7 @@ contract ConfigManage is IConfigManager, Initializable, OwnableUpgradeable, UUPS
     event DepositFeeUpdated(uint256 newFee);
     event WithdrawFeeUpdated(uint256 newFee);
     event PerformanceFeeUpdated(uint256 newFee);
+    event SlipageToleranceUpdated(uint256 newSlippage);
     
     constructor() {
         _disableInitializers();
@@ -64,8 +65,8 @@ contract ConfigManage is IConfigManager, Initializable, OwnableUpgradeable, UUPS
         sushiSwapRouter = _sushiSwapRouter;
         arbitrageVault = _arbitrageVault;
         version = 1;
-        // 默认滑点500（5%）
-        slippageTolerance = 500;
+        // 默认滑点300（3%）
+        slippageTolerance = 300;
     }
 
     //ArbitrageCore合约用到平台分成
@@ -151,6 +152,7 @@ contract ConfigManage is IConfigManager, Initializable, OwnableUpgradeable, UUPS
      */
     function setSlipageTolerance(uint _slippageTolerance) external onlyOwner{
         slippageTolerance = _slippageTolerance;
+        emit SlipageToleranceUpdated(_slippageTolerance);
     }
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner{
