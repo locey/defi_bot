@@ -1,242 +1,250 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "../interfaces/IFlashLoan.sol";
+import "../interfaces/IFlashLoanSimpleReceiver.sol";
 import "../router/FlashLoanRouter.sol";
 import "../interfaces/ISpotArbitrage.sol";
+import "../interfaces/IConfigManager.sol";
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 
-contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownable  {
+
+// 修正接口继承顺序，规范命名
+contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownable, Pausable {
     /**
-    *功能：集成Aave闪电贷
-    *闪电贷回调
-    *利润计算
-    *自动还款
-    *本合约为闪电贷套利工作流管理，
-    *本合约调用实现合约SpotArbitrage实施套利动作
-    *本合约被ArbitrageCore调用
-    */
+     * 功能：集成闪电贷完成套利
+     * 核心流程：
+     * 1. ArbitrageCore调用executeFlashLoan发起闪电贷请求
+     * 2. FlashLoanRouter完成资金借出，回调executeOperation
+     * 3. executeOperation调用SpotArbitrage执行套利
+     * 4. 扣取平台费，偿还闪电贷，记录收益
+     */
 
-    //定义变量，借贷池，借贷平台等
-    FlashLoanRouter public immutable flashLoan;     //路由合约
-    ISpotArbitrage public immutable spotArbitrage;  //套利实现合约接口
-    address public arbitrageCore;                   // 核心调度合约
+    // 核心合约依赖（不可变，部署时初始化）
+    FlashLoanRouter public immutable flashLoanRouter;
+    ISpotArbitrage public immutable spotArbitrage;
+    IConfigManager public immutable configManager;//参数管理
 
-    //项目平台手续费
-    uint256 public constant PROFIT_SHARE_FEE = 1000;//平台收取利润的10%作为服务费
+    address public immutable arbitrageCore; // 核心调度合约（不可变，避免被篡改）
 
-    //当前执行上下文，用于回调时获取参数
-    struct ExcutionContext {
-        address initiator;  //发起人
-        address tokenIn;    //初始代币
-        uint256 amountIn;   //借款额度（申请金额）
-        address[] swapPath; //策略路径
-        address[] dexes;    //dex路径
-        uint256 minProfit;  //最小利润
-        bool isExcuting;     //正在执行标识
-    }
+    // 平台手续费：利润的10%（千分比，1000 = 10%）
+    //uint256 public constant PROFIT_SHARE_FEE = 100; // 10% 平台分润手续费
+    //address public feeRecipient; // 手续费接收地址
+    //盈利接受：平台钱包地址
+    address public platFormWallet;
 
-    ExcutionContext private currentContext;
-
-    //执行记录
-    struct ExcutionRecord {
-        address initiator;  
-        address tokenIn;    
-        uint256 amountIn; 
+    // 执行记录结构体及数组
+    struct ExecutionRecord {
+        address initiator;
+        address tokenIn;
+        uint256 amountIn;
         uint256 profit;
         uint256 timestamp;
     }
- 
-    ExcutionRecord[] public excutedHistory; 
+    ExecutionRecord[] public executedHistory;
 
-    //定义事件，进行记录等
-    event FlashLoanRequest(
+    // 事件（修正拼写+完善）
+    event FlashLoanRequested(
         address indexed initiator,
         address indexed token,
         uint256 amount,
-        FlashLoanRouter.LendingPlatForm platForm
+        FlashLoanRouter.LendingPlatForm platform
     );
 
-    event FlashLoanExcuted(
+    event FlashLoanExecuted(
         address indexed initiator,
         address indexed token,
-        uint256 borrowed, //实际借款
-        uint256 premium,  //平台利息
-        uint256 profit    //最后利润 
+        uint256 borrowed,
+        uint256 premium,
+        uint256 profit
     );
 
-    event FlashLoanFaild(
+    event FlashLoanFailed(
         address indexed initiator,
+        address indexed token,
         string reason
     );
 
-    //修饰器
+    event FeeRecipientUpdated(address oldRecipient, address newRecipient);
 
-    modifier onlyArbgitrageCore(){
-        require(msg.sender == arbitrageCore, "only ArbgitrageCore can call ");
+    // 修饰器
+    modifier onlyArbitrageCore() {
+        require(msg.sender == arbitrageCore, "FlashLoanArbitrage: only ArbitrageCore can call");
         _;
     }
 
-    modifier notExcuting() {
-        require(!currentContext.isExcuting, "It's excuting");
-        _;
-    }
-
-    //初始化构造函数
-    //lendingPoolAddressProvider:借贷池地址提供者
+    // 构造函数
     constructor (
         address _flashLoanRouter,
         address _spotArbitrage,
-        address _arbitrageCore
+        address _arbitrageCore,
+        //address _feeRecipient,
+        address _platFormWallet,
+        address _configManager
     ) Ownable(msg.sender) {
-        require(_flashLoanRouter != address(0), "Invalid flashLoanRouter");
-        require(_spotArbitrage != address(0), "Invalid spotArbitrage");
-        require(_arbitrageCore != address(0), "Invalid arbitrageCore");
+        require(_flashLoanRouter != address(0), "FlashLoanArbitrage: invalid flashLoanRouter");
+        require(_spotArbitrage != address(0), "FlashLoanArbitrage: invalid spotArbitrage");
+        require(_arbitrageCore != address(0), "FlashLoanArbitrage: invalid arbitrageCore");
+        require(_platFormWallet != address(0), "FlashLoanArbitrage: invalid platFormWallet");
+        require(_configManager != address(0), "FlashLoanArbitrage: invalid configManager");
 
-        flashLoan = FlashLoanRouter(_flashLoanRouter);
+        flashLoanRouter = FlashLoanRouter(_flashLoanRouter);
         spotArbitrage = ISpotArbitrage(_spotArbitrage);
         arbitrageCore = _arbitrageCore;
+        //feeRecipient = _feeRecipient;
+        platFormWallet = _platFormWallet;
+        configManager = IConfigManager(_configManager);
     }
 
-    //闪电贷回调函数
+    // ===================== 核心回调函数=====================
     function executeOperation(
         address asset,
         uint256 amount,
         uint256 premium,
         address initiator,
         bytes calldata params
-    ) external override returns (bool) {
-        //解码参数
+    ) external override nonReentrant whenNotPaused returns (bool) {
+        // 关键：校验调用者是闪电贷路由合约（防止伪造调用）
+        require(msg.sender == address(flashLoanRouter), "FlashLoanArbitrage: only flashLoanRouter can call");
+
+        // 解码参数
         (
             address _initiator,
             address tokenIn,
             uint256 amountIn,
             address[] memory swapPath,
             address[] memory dexes,
+            uint256 expectProfit,
             uint256 minProfit
-        ) = abi.decode(
-            params,
-            (address, address, uint256, address[], address[], uint256)
-        );
+        ) = abi.decode(params, (address, address, uint256, address[], address[], uint256, uint256));
 
-        require(_initiator == initiator, "Invalid initiator");
+        // 基础校验
+        require(_initiator == initiator, "FlashLoanArbitrage: invalid initiator");
+        require(swapPath.length >= 2, "FlashLoanArbitrage: swapPath length must >=2"); // 防止数组越界
+        require(dexes.length > 0, "FlashLoanArbitrage: dexes cannot be empty");
+        require(amountIn > 0, "FlashLoanArbitrage: amountIn must >0");
 
-        //实施套利
-        uint256 amountOut = spotArbitrage.executeSwaps(
+        try spotArbitrage.executeSwaps(
             tokenIn,
             swapPath[swapPath.length - 1],
             amountIn,
             swapPath,
             dexes,
+            expectProfit,
             minProfit
-        );
+        ) returns (uint256 amountOut) {
+            // 计算总债务和利润 总借款+手续费
+            uint256 totalDebt = amount + premium;
+            require(amountOut > totalDebt + minProfit, "FlashLoanArbitrage: no profit made");
 
-        //计算利润
-        uint256 totalDebt = amount + premium;
-        require(amountOut > totalDebt + minProfit, "No profit made");
+            // 计算平台手续费和净利润
+            uint256 grossProfit = amountOut - totalDebt;//本次套利总收益
+            //uint256 platformFee = (grossProfit * configManager.profitShareFee()) / 1000; // 平台10%手续费
+            //uint256 netProfit = grossProfit - platformFee;//净利润
 
-        uint256 profit = amountOut - totalDebt;
+            // 检查余额是否足够还款
+            uint256 contractBalance = IERC20(asset).balanceOf(address(this));
+            require(contractBalance >= totalDebt, "FlashLoanArbitrage: insufficient balance to repay");
 
-        //支付闪电贷
-        IERC20(asset).approve(address(flashLoan), totalDebt);
+            // 1. 偿还闪电贷
+            IERC20(asset).approve(address(flashLoanRouter), totalDebt);
 
-        //记录执行历史
-        excutedHistory.push(ExcutionRecord({
-            initiator: initiator,
-            tokenIn: tokenIn,
-            amountIn: amountIn,
-            profit: profit,
-            timestamp: block.timestamp
-        }));
+            // 2. 支付平台手续费
+            // if (platformFee > 0) {
+            //     IERC20(asset).transfer(feeRecipient, platformFee);
+            // }
+            IERC20(asset).transfer(platFormWallet, grossProfit);
 
-        emit FlashLoanExcuted(
-            initiator,
-            asset,
-            amount,
-            premium,
-            profit
-        );
+            // 3. 记录执行历史
+            executedHistory.push(ExecutionRecord({
+                initiator: initiator,
+                tokenIn: tokenIn,
+                amountIn: amountIn,
+                profit: grossProfit,
+                //platformFee: platformFee,
+                timestamp: block.timestamp
+            }));
 
-        return true;
+            // 触发成功事件
+            emit FlashLoanExecuted(
+                initiator,
+                asset,
+                amount,
+                premium,
+                grossProfit
+            );
+
+            return true;
+        } catch (bytes memory reason) {
+            // 触发失败事件
+            string memory errorReason = abi.decode(reason, (string));
+            emit FlashLoanFailed(initiator, asset, errorReason);
+            revert(string.concat("FlashLoanArbitrage: executeOperation failed - ", errorReason));
+        }
     }
 
-    //核心函数：实施闪电贷，并调用内部函数_initFlashLoan发起闪电贷
+    // ===================== 发起闪电贷 =====================
     function executeFlashLoan(
         FlashLoanRouter.LendingPlatForm platform,
         address tokenIn,
         uint256 amountIn,
         address[] calldata swapPath,
         address[] calldata dexes,
-        uint256 minProfit
-    ) external onlyArbgitrageCore notExcuting {
-        //设置当前执行上下文
-        currentContext = ExcutionContext({
-            initiator: msg.sender,
-            tokenIn: tokenIn,
-            amountIn: amountIn,
-            swapPath: swapPath,
-            dexes: dexes,
-            minProfit: minProfit,
-            isExcuting: true
-        });
+        uint256 expectProfit,
+        uint256 minProfit 
+    ) external onlyArbitrageCore nonReentrant whenNotPaused {
+        // 前置校验（防止无效请求）
+        require(swapPath.length >= 3, "FlashLoanArbitrage: swapPath length must >=3");
+        require(dexes.length > 0, "FlashLoanArbitrage: dexes cannot be empty");
+        require(amountIn > 0, "FlashLoanArbitrage: amountIn must >0");
+        require(minProfit > 0, "FlashLoanArbitrage: minProfit must >0");
 
-        //发起闪电贷
-        _initFlashLoan(platform, tokenIn, amountIn);
-
-        //清理当前执行上下文
-        delete currentContext;
-    }
-    //内部函数_initFlashLoan，选择闪电贷平台（如AAVE），调用内部函数_initAAVEFlashLoan进行闪电贷
-    function _initFlashLoan(
-        FlashLoanRouter.LendingPlatForm platform,
-        address asset,
-        uint256 amount
-    ) internal {
-        //构造参数
+        // 构造回调参数
         bytes memory params = abi.encode(
-            currentContext.initiator,
-            currentContext.tokenIn,
-            currentContext.amountIn,
-            currentContext.swapPath,
-            currentContext.dexes,
-            currentContext.minProfit
+            msg.sender, // initiator = ArbitrageCore
+            tokenIn,
+            amountIn,
+            swapPath,
+            dexes,
+            expectProfit,
+            minProfit
         );
 
-        //发起闪电贷
-        flashLoan.requsetFlashLoan(
+        // 发起闪电贷
+        try flashLoanRouter.requestFlashLoan(
             platform,
             address(this),
-            asset,
-            amount,
+            tokenIn,
+            amountIn,
             params
-        );
-
-        emit FlashLoanRequest(
-            currentContext.initiator,
-            asset,
-            amount,
-            platform
-        );
+        ) {
+            emit FlashLoanRequested(msg.sender, tokenIn, amountIn, platform);
+        } catch (bytes memory reason) {
+            string memory errorReason = abi.decode(reason, (string));
+            emit FlashLoanFailed(msg.sender, tokenIn, errorReason);
+            revert(string.concat("FlashLoanArbitrage: request flashLoan failed - " , errorReason));
+        }
     }
-    //内部函数_initAAVEFlashLoan,发起AAVE闪电贷
-    function _initAAVEFlashLoan(
-        address asset,
-        uint256 amount,
-        bytes memory params
-    ) internal {
-        //调用Aave闪电贷路由合约
-        flashLoan.requsetFlashLoan(
-            FlashLoanRouter.LendingPlatForm.Aave_V2,
-            address(this),
-            asset,
-            amount,
-            params
-        );
+
+    // ===================== 管理函数=====================
+    /**
+     * @dev 紧急暂停/恢复合约（仅所有者）
+     */
+    function pause() external onlyOwner {
+        _pause();
     }
-    //内部函数_initDYDXFlashLoan,发起DYDX闪电贷(扩展)
 
+    function unpause() external onlyOwner {
+        _unpause();
+    }
 
+    /**
+     * @dev 获取执行历史总数
+     */
+    function getExecutionHistoryLength() external view returns (uint256) {
+        return executedHistory.length;
+    }
 }

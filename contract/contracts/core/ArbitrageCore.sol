@@ -4,21 +4,24 @@ pragma solidity ^0.8.20;
 import "../interfaces/IArbitrage.sol";
 import "../interfaces/IArbitrageVault.sol";
 import "../interfaces/ISpotArbitrage.sol";
-import "../interfaces/IFlashLoan.sol";
+import "../interfaces/IFlashLoanSimpleReceiver.sol";
 import "../interfaces/IConfigManager.sol";
+import "../router/FlashLoanRouter.sol";
 
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
-contract ArbitrageCore is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
+contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     /**
     *套利调度核心合约
     *调用套利策略执行
-    *验证获利
+    *金库资金套利机器人的验证获利
     *分润：暂定平台收取10%（即应配置100），此值放置在configManager中进行管理，以便管理员随时调整
+    *闪电贷套利机器人的套利结果，验证，分润流程在FlashLoanArbitrage合约中完成
     */
 
     
@@ -51,7 +54,6 @@ contract ArbitrageCore is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUp
     event FlashLoanArbitrageExecuted(
         address indexed initiator,
         address indexed asset,
-        address tokenIn,
         uint256 amountIn,
         uint256 profit,
         uint256 timestamp
@@ -90,7 +92,6 @@ contract ArbitrageCore is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUp
         platFormWallet = _platFormWallet; //利润转账地址(项目方钱包地址)
         configManager = IConfigManager(_configManager);
         backCaller = _backCaller;
-
 
     }
 
@@ -149,7 +150,7 @@ contract ArbitrageCore is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUp
     function executeStrategy(
         StrategyTypes strategyTypes,
         IArbitrage.ArbitrageParams calldata params
-    ) external onlybackCaller nonReentrant {
+    ) external nonReentrant onlybackCaller {
         if (strategyTypes == StrategyTypes.OWN_FUNDS ) {
             _executedVaultArbitrage(params);
         } else if (strategyTypes == StrategyTypes.FLASH_LOAN) {
@@ -165,6 +166,7 @@ contract ArbitrageCore is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUp
         uint256 amountIn = params.amountIn;
         address[] calldata swapPath = params.swapPath;
         address[] calldata dexes = params.dexes;
+        uint256 expectProfit = params.expectProfit;
         uint256 minProfit = params.minProfit;
 
         //参数验证
@@ -181,16 +183,13 @@ contract ArbitrageCore is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUp
         uint256 availableVault = vault.getAvailableForArbitrage();
         require(amountIn <= availableVault, "amountIn too much");
 
-        //获取vault资金授权
-        vault.approveForArbitrage(amountIn);
-
-        //资金转入本合约
-        ERC20Upgradeable(asset).transferFrom(address(vault), address(this), amountIn);
+        //获取vault资金转账
+        vault.transferForArbitrage(amountIn);
 
         //记录套利前余额
         uint256 balanceBefore = ERC20Upgradeable(asset).balanceOf(address(this));
         //授权给套利实现合约
-        ERC20Upgradeable(asset).approve(address(spotArbitrage), amountIn);
+        ERC20Upgradeable(asset).transfer(address(spotArbitrage), amountIn);
         //执行套利策略
         spotArbitrage.executeSwaps(
             asset,
@@ -198,6 +197,7 @@ contract ArbitrageCore is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUp
             amountIn,
             swapPath,
             dexes,
+            expectProfit,
             minProfit
         );
         //记录套路后余额
@@ -207,12 +207,14 @@ contract ArbitrageCore is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUp
         uint256 actProfit = balanceAfter - balanceBefore;
         require(actProfit > minProfit, "Profit below minimum");
 
+        //计算分润 分成比例由configManager管理
         uint256 platFormFee = actProfit * configManager.profitShareFee() / 10000;
         uint256 netProfitToVault = actProfit - platFormFee;
 
         //将净利润返回vault
         require(balanceAfter >= amountIn + netProfitToVault, "Insufficient  balanceAfter");
         ERC20Upgradeable(asset).transfer(address(vault), amountIn + netProfitToVault);
+        //转账平台服务费  平台收益
         ERC20Upgradeable(asset).transfer(platFormWallet, platFormFee);
 
         //通知金库记录盈利
@@ -232,12 +234,43 @@ contract ArbitrageCore is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUp
 
     //闪电贷套利
     function _executedFlashLoanArbitrage(IArbitrage.ArbitrageParams calldata params) private {
-        revert("Flash Loan not implemented yet");
+        
+        bytes memory paramsData = abi.encode(params);
+        //参数
+        (   
+            FlashLoanRouter.LendingPlatForm platform,
+            address asset,
+            uint256 amountIn,
+            address[] memory swapPath,
+            address[] memory dexes,
+            uint256 expectProfit,
+            uint256 minProfit
+        ) = abi.decode(paramsData, (FlashLoanRouter.LendingPlatForm, address, uint256, address[], address[], uint256, uint256));
         //验证
-
+        require(asset != address(0), "Invalid asset");
+        require(amountIn > 0, "Amount must be > 0");
+        require(swapPath.length >= 3, "swapPath need 3 at least");
+        require(swapPath[0] == asset, "First token must be asset");
+        require(swapPath[0] == swapPath[swapPath.length - 1], "tokenIn = tokenOut");
         //调用闪电贷套利执行
-
+        flashLoanArbitrage.executeFlashLoan(
+            platform,
+            asset,
+            amountIn,
+            swapPath,
+            dexes,
+            expectProfit,
+            minProfit
+        );
         //事件触发FlashLoanArbitrageExecuted
+        emit FlashLoanArbitrageExecuted(
+            msg.sender,
+            asset,
+            amountIn,
+            0, //利润在executeOperation中计算
+            block.timestamp
+        );
+
     }
 
     function _authorizeUpgrade(address newImplementation) internal view override onlyOwner{

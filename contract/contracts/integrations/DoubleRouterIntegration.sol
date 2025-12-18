@@ -158,7 +158,7 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration {
             amountIn, amountOutMin, path, address(this), deadline
         );
     }
-    
+
     /**
      * 双路由交易V2
      * @param spot 入账地址
@@ -181,7 +181,7 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration {
         require(swapPath.length >= 2, "invalid swapPath");
         require(dexes.length == swapPath.length - 1, "dexes length mismatch");
         require(swapPath[swapPath.length - 1] == tokenOut, "tokenOut mismatch with swapPath");
-        // require(IERC20(tokenIn).balanceOf(spot) >= amountIn, "insufficient tokenIn balance");
+        require(IERC20(tokenIn).balanceOf(spot) >= amountIn, "insufficient tokenIn balance");
 
         uint256 currentAmount = amountIn;
         uint256 deadline = block.timestamp + 300;
@@ -198,7 +198,6 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration {
             );
         }
         require(currentAmount > minProfit, "no profit hop");
-
         amountOut = currentAmount;
     }
 
@@ -211,9 +210,6 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration {
         uint256 deadline,
         uint256 minProfit
     ) internal returns (uint256 outAmount) {
-        // 余额校验
-        // require(IERC20(fromToken).balanceOf(spot) >= currentAmount, "insufficient token balance for hop");
-
         // 授权
         IERC20(fromToken).approve(routerAddr, 0);
         IERC20(fromToken).approve(routerAddr, currentAmount);

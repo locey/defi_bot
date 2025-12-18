@@ -28,7 +28,7 @@ contract ConfigManage is IConfigManager, Initializable, OwnableUpgradeable, UUPS
     // 滑点容忍度（basis points）
     uint256 public slippageTolerance;
 
-        address public lendingPool;
+    address public lendingPool;
     address public uniswapV2Router;
     address public uniswapV3Router;
     address public sushiSwapRouter;
@@ -38,7 +38,7 @@ contract ConfigManage is IConfigManager, Initializable, OwnableUpgradeable, UUPS
     event DepositFeeUpdated(uint256 newFee);
     event WithdrawFeeUpdated(uint256 newFee);
     event PerformanceFeeUpdated(uint256 newFee);
-    event SlipageToleranceUpdated(uint256 newSlippage)
+    event SlipageToleranceUpdated(uint256 newSlippage);
     
     constructor() {
         _disableInitializers();
