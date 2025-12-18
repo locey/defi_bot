@@ -183,11 +183,8 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
         uint256 availableVault = vault.getAvailableForArbitrage();
         require(amountIn <= availableVault, "amountIn too much");
 
-        //获取vault资金授权
+        //获取vault资金转账
         vault.transferForArbitrage(amountIn);
-
-        //资金转入本合约
-        ERC20Upgradeable(asset).transferFrom(address(vault), address(this), amountIn);
 
         //记录套利前余额
         uint256 balanceBefore = ERC20Upgradeable(asset).balanceOf(address(this));
