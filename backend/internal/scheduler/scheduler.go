@@ -67,7 +67,20 @@ func (s *Scheduler) Start() error {
 	}
 	log.Printf("已添加分析任务: 每 %d 秒执行一次", analyzeInterval)
 
-	// 3. 清理过期数据任务
+	// 3. ✅ Gas 价格采集任务（业界标准：每30秒）
+	gasSpec := "@every 30s"
+	_, err = s.cron.AddFunc(gasSpec, func() {
+		log.Println("执行定时任务: 采集 Gas 价格")
+		if err := s.collector.CollectGasData(); err != nil {
+			log.Printf("采集 Gas 价格失败: %v", err)
+		}
+	})
+	if err != nil {
+		return fmt.Errorf("添加 Gas 采集任务失败: %w", err)
+	}
+	log.Printf("已添加 Gas 采集任务: 每 30 秒执行一次")
+
+	// 4. 清理过期数据任务
 	cleanupInterval := s.config.CleanupInterval
 	if cleanupInterval <= 0 {
 		cleanupInterval = 24 // 默认 24 小时

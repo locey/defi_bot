@@ -73,6 +73,8 @@ func AutoMigrate() error {
 		&models.TradingPair{},
 		&models.PairReserve{},
 		&models.PriceRecord{},
+		&models.LiquidityDepth{},  // ✅ 新增：流动性深度表
+		&models.GasPriceHistory{}, // ✅ 新增：Gas价格历史表
 		&models.ArbitrageOpportunity{},
 		&models.ArbitrageExecution{},
 	)
@@ -129,69 +131,79 @@ func SeedData(cfg *config.Config) error {
 		var dex models.Dex
 		result := db.Where("name = ?", dexCfg.Name).First(&dex)
 
+		// 设置默认值
+		protocol := dexCfg.Protocol
+		if protocol == "" {
+			protocol = "uniswap_v2"
+		}
+
+		version := dexCfg.Version
+		if version == "" {
+			version = "v2"
+		}
+
+		chainID := dexCfg.ChainID
+		if chainID == 0 {
+			chainID = cfg.Blockchain.ChainID
+		}
+
+		dexType := dexCfg.DexType
+		if dexType == "" {
+			dexType = "amm" // 默认为 AMM
+		}
+
+		priority := dexCfg.Priority
+		if priority == 0 {
+			priority = 100 // 默认优先级
+		}
+
 		if result.Error == gorm.ErrRecordNotFound {
 			// DEX 不存在，创建新记录
-			protocol := dexCfg.Protocol
-			if protocol == "" {
-				protocol = "uniswap_v2" // 默认为 v2
-			}
-
-			version := dexCfg.Version
-			if version == "" {
-				version = "v2" // 默认为 v2
-			}
-
-			chainID := dexCfg.ChainID
-			if chainID == 0 {
-				chainID = cfg.Blockchain.ChainID // 使用全局 ChainID
-			}
-
 			dex = models.Dex{
-				Name:           dexCfg.Name,
-				Protocol:       protocol,
-				RouterAddress:  dexCfg.Router,
-				FactoryAddress: dexCfg.Factory,
-				Fee:            dexCfg.Fee,
-				FeeTier:        dexCfg.FeeTier,
-				ChainID:        chainID,
-				IsActive:       true,
-				Version:        version,
+				Name:             dexCfg.Name,
+				DexType:          dexType,
+				Protocol:         protocol,
+				RouterAddress:    dexCfg.Router,
+				FactoryAddress:   dexCfg.Factory,
+				QuoterAddress:    dexCfg.Quoter,
+				Fee:              dexCfg.Fee,
+				FeeTier:          dexCfg.FeeTier,
+				DynamicFee:       dexCfg.DynamicFee,
+				ChainID:          chainID,
+				IsActive:         true,
+				SupportFlashLoan: dexCfg.SupportFlashLoan,
+				SupportMultiHop:  dexCfg.SupportMultiHop,
+				SupportV3Ticks:   dexCfg.SupportV3Ticks,
+				Version:          version,
+				Priority:         priority,
 			}
 			if err := db.Create(&dex).Error; err != nil {
 				log.Printf("创建 DEX %s 失败: %v", dexCfg.Name, err)
 				continue
 			}
-			log.Printf("创建 DEX: %s (协议: %s, 版本: %s)", dexCfg.Name, protocol, version)
+			log.Printf("✅ 创建 DEX: %s (类型: %s, 协议: %s, 版本: %s)", dexCfg.Name, dexType, protocol, version)
 		} else {
 			// DEX 已存在，更新配置
-			protocol := dexCfg.Protocol
-			if protocol == "" {
-				protocol = "uniswap_v2"
-			}
-
-			version := dexCfg.Version
-			if version == "" {
-				version = "v2"
-			}
-
-			chainID := dexCfg.ChainID
-			if chainID == 0 {
-				chainID = cfg.Blockchain.ChainID
-			}
-
+			dex.DexType = dexType
 			dex.Protocol = protocol
 			dex.RouterAddress = dexCfg.Router
 			dex.FactoryAddress = dexCfg.Factory
+			dex.QuoterAddress = dexCfg.Quoter
 			dex.Fee = dexCfg.Fee
 			dex.FeeTier = dexCfg.FeeTier
+			dex.DynamicFee = dexCfg.DynamicFee
 			dex.Version = version
 			dex.ChainID = chainID
+			dex.SupportFlashLoan = dexCfg.SupportFlashLoan
+			dex.SupportMultiHop = dexCfg.SupportMultiHop
+			dex.SupportV3Ticks = dexCfg.SupportV3Ticks
+			dex.Priority = priority
 
 			if err := db.Save(&dex).Error; err != nil {
 				log.Printf("更新 DEX %s 失败: %v", dexCfg.Name, err)
 				continue
 			}
-			log.Printf("更新 DEX: %s (协议: %s, 版本: %s)", dexCfg.Name, protocol, version)
+			log.Printf("✅ 更新 DEX: %s (类型: %s, 协议: %s, 版本: %s)", dexCfg.Name, dexType, protocol, version)
 		}
 	}
 

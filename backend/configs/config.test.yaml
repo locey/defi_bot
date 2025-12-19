@@ -35,45 +35,101 @@ contracts:
 
 # DEX 配置（Sepolia 测试网）
 dexes:
+  # ============ AMM - V2 类型 ============
+  
   # Uniswap V2 (Sepolia)
   - name: "Uniswap V2"
+    dex_type: "amm"
     protocol: "uniswap_v2"
     router: "0xC532a74256D3Db42D0Bf7a0400fEFDbad7694008"  # Sepolia 路由
     factory: "0x7E0987E5b3a30e3f2828572Bb659A548460a3003"  # Sepolia 工厂
+    quoter: ""  # V2 不需要 Quoter
     fee: 30
     fee_tier: 0
     version: "v2"
     chain_id: 11155111
-    
+    support_flash_loan: false
+    support_multi_hop: true
+    priority: 100
+  
+  # SushiSwap (Sepolia) - 如果测试网有部署
+  # - name: "SushiSwap"
+  #   dex_type: "amm"
+  #   protocol: "sushiswap"
+  #   router: "0x..."  # Sepolia SushiSwap Router（需要查找）
+  #   factory: "0x..."  # Sepolia SushiSwap Factory
+  #   fee: 30
+  #   fee_tier: 0
+  #   version: "v2"
+  #   chain_id: 11155111
+  #   support_flash_loan: false
+  #   priority: 110
+  
+  # ============ AMM - V3 类型 ============
+  
   # Uniswap V3 (Sepolia) - 0.05% fee tier
   - name: "Uniswap V3 (0.05%)"
+    dex_type: "amm"
     protocol: "uniswap_v3"
     router: "0xE592427A0AEce92De3Edee1F18E0157C05861564"  # V3 SwapRouter
     factory: "0x0227628f3F023bb0B980b67D528571c95c6DaC1c"  # Sepolia V3 Factory
+    quoter: "0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3"  # Sepolia QuoterV2
     fee: 5
     fee_tier: 500
     version: "v3"
     chain_id: 11155111
+    support_flash_loan: false
+    support_multi_hop: true
+    support_v3_ticks: true
+    priority: 90
     
   # Uniswap V3 (Sepolia) - 0.3% fee tier
   - name: "Uniswap V3 (0.3%)"
+    dex_type: "amm"
     protocol: "uniswap_v3"
     router: "0xE592427A0AEce92De3Edee1F18E0157C05861564"
     factory: "0x0227628f3F023bb0B980b67D528571c95c6DaC1c"
+    quoter: "0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3"  # Sepolia QuoterV2
     fee: 30
     fee_tier: 3000
     version: "v3"
     chain_id: 11155111
+    support_flash_loan: false
+    support_multi_hop: true
+    support_v3_ticks: true
+    priority: 95
     
   # Uniswap V3 (Sepolia) - 1% fee tier
   - name: "Uniswap V3 (1%)"
+    dex_type: "amm"
     protocol: "uniswap_v3"
     router: "0xE592427A0AEce92De3Edee1F18E0157C05861564"
     factory: "0x0227628f3F023bb0B980b67D528571c95c6DaC1c"
+    quoter: "0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3"  # Sepolia QuoterV2
     fee: 100
     fee_tier: 10000
     version: "v3"
     chain_id: 11155111
+    support_flash_loan: false
+    support_multi_hop: true
+    support_v3_ticks: true
+    priority: 98
+  
+  # ============ 聚合器类型（开发中）============
+  
+  # 1inch (Sepolia) - 如果需要
+  # - name: "1inch"
+  #   dex_type: "aggregator"
+  #   protocol: "1inch"
+  #   router: "0x..."  # 1inch Aggregation Router
+  #   factory: ""  # 聚合器没有 factory
+  #   quoter: ""  # 使用 API 报价
+  #   fee: 0  # 动态费用
+  #   dynamic_fee: true
+  #   version: "v6"
+  #   chain_id: 11155111
+  #   support_multi_hop: true
+  #   priority: 50  # 聚合器优先级高（价格通常更优）
 
 # 代币配置（Sepolia 测试网常用代币）
 tokens:

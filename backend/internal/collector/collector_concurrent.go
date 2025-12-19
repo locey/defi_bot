@@ -17,12 +17,22 @@ type PriceData struct {
 	Token0Symbol string
 	Token1Symbol string
 	DexName      string
+	DexProtocol  string // 新增：协议类型（用于判断是否为V3）
+
+	// === V2 数据 ===
 	Reserve0     string
 	Reserve1     string
 	Price        string
 	InversePrice string
-	BlockNumber  uint64
-	Timestamp    time.Time
+
+	// === V3 数据 ===
+	SqrtPriceX96 string
+	Tick         int32
+	Liquidity    string
+
+	// === 元数据 ===
+	BlockNumber uint64
+	Timestamp   time.Time
 }
 
 // CollectPricesConcurrent 并发采集价格数据
@@ -137,17 +147,26 @@ func (c *Collector) fetchPairDataWithRetry(pair models.TradingPair, blockNumber 
 			pair.Token0.Decimals, pair.Token1.Decimals,
 		)
 
+		// 构造价格数据
 		priceData := &PriceData{
 			PairID:       pair.ID,
 			Token0Symbol: pair.Token0.Symbol,
 			Token1Symbol: pair.Token1.Symbol,
 			DexName:      pair.Dex.Name,
+			DexProtocol:  pair.Dex.Protocol,
 			Reserve0:     priceInfo.Reserve0.String(),
 			Reserve1:     priceInfo.Reserve1.String(),
 			Price:        price.String(),
 			InversePrice: inversePrice.String(),
 			BlockNumber:  blockNumber,
 			Timestamp:    timestamp,
+		}
+
+		// === ✅ V3 数据（如果是V3池）===
+		if pair.Dex.SupportV3Ticks && priceInfo.SqrtPriceX96 != nil {
+			priceData.SqrtPriceX96 = priceInfo.SqrtPriceX96.String()
+			priceData.Tick = priceInfo.Tick
+			priceData.Liquidity = priceInfo.Liquidity.String()
 		}
 
 		// 缓存数据（5分钟过期）
@@ -176,15 +195,26 @@ func (c *Collector) batchInsertResults(resultsChan chan *PriceData, errorsChan c
 
 	// 收集结果
 	for data := range resultsChan {
-		reserves = append(reserves, models.PairReserve{
+		// === 储备量记录 ===
+		reserveRecord := models.PairReserve{
 			PairID:      data.PairID,
 			Reserve0:    data.Reserve0,
 			Reserve1:    data.Reserve1,
 			BlockNumber: data.BlockNumber,
 			Timestamp:   data.Timestamp,
-		})
+		}
 
-		prices = append(prices, models.PriceRecord{
+		// V3 储备量附加数据
+		if data.SqrtPriceX96 != "" {
+			reserveRecord.SqrtPriceX96 = data.SqrtPriceX96
+			reserveRecord.Tick = data.Tick
+			reserveRecord.Liquidity = data.Liquidity
+		}
+
+		reserves = append(reserves, reserveRecord)
+
+		// === 价格记录 ===
+		priceRecord := models.PriceRecord{
 			PairID:       data.PairID,
 			Price:        data.Price,
 			InversePrice: data.InversePrice,
@@ -192,7 +222,18 @@ func (c *Collector) batchInsertResults(resultsChan chan *PriceData, errorsChan c
 			Reserve1:     data.Reserve1,
 			BlockNumber:  data.BlockNumber,
 			Timestamp:    data.Timestamp,
-		})
+		}
+
+		// ✅ V3 价格附加数据
+		if data.SqrtPriceX96 != "" {
+			priceRecord.SqrtPriceX96 = data.SqrtPriceX96
+			priceRecord.Tick = data.Tick
+			priceRecord.Liquidity = data.Liquidity
+			// fee_growth 字段保持为空（NULL），不赋值
+			// depth 字段保持为空（NULL），不赋值
+		}
+
+		prices = append(prices, priceRecord)
 
 		log.Printf("✅ 采集成功: %s/%s @ %s - Price: %s",
 			data.Token0Symbol, data.Token1Symbol, data.DexName,

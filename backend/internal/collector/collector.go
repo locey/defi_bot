@@ -52,10 +52,21 @@ func (c *Collector) CollectAllData() error {
 		log.Printf("采集价格数据失败: %v", err)
 	}
 
+	// 4. ✅ 采集 V3 流动性深度数据（每次采集时）
+	if err := c.CollectV3Depths(); err != nil {
+		log.Printf("采集V3深度数据失败: %v", err)
+	}
+
 	duration := time.Since(startTime)
 	log.Printf("数据采集完成，耗时: %v", duration)
 
 	return nil
+}
+
+// CollectGasData 采集 Gas 价格数据（单独调用）
+func (c *Collector) CollectGasData() error {
+	gasCollector := NewGasCollector(c.web3Client)
+	return gasCollector.CollectGasPrice()
 }
 
 // CollectTradingPairs 采集交易对数据

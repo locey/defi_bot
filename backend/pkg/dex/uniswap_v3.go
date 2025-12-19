@@ -86,6 +86,13 @@ func (p *UniswapV3Protocol) GetPrice(pairAddress string) (*PriceInfo, error) {
 		Reserve0:     reserve0,
 		Reserve1:     reserve1,
 		Liquidity:    liquidity,
+		
+		// === ✅ V3 专用数据 ===
+		SqrtPriceX96:     slot0.SqrtPriceX96,
+		Tick:             slot0.Tick,
+		FeeGrowthGlobal0: big.NewInt(0), // TODO: 从合约获取
+		FeeGrowthGlobal1: big.NewInt(0), // TODO: 从合约获取
+		
 		Timestamp:    time.Now(),
 	}, nil
 }

@@ -54,14 +54,21 @@ type ContractsConfig struct {
 
 // DexConfig DEX 配置
 type DexConfig struct {
-	Name     string `mapstructure:"name"`
-	Protocol string `mapstructure:"protocol"` // 协议类型：uniswap_v2, uniswap_v3, sushiswap 等
-	Router   string `mapstructure:"router"`
-	Factory  string `mapstructure:"factory"`
-	Fee      int    `mapstructure:"fee"`
-	FeeTier  uint32 `mapstructure:"fee_tier"` // V3 费率层级（如 500, 3000, 10000），V2 为 0
-	Version  string `mapstructure:"version"`  // 版本，如 v2, v3
-	ChainID  int64  `mapstructure:"chain_id"` // 链 ID
+	Name             string `mapstructure:"name"`
+	DexType          string `mapstructure:"dex_type"`           // DEX类型：amm, aggregator, orderbook, hybrid
+	Protocol         string `mapstructure:"protocol"`           // 协议类型：uniswap_v2, uniswap_v3, sushiswap, curve, 1inch 等
+	Router           string `mapstructure:"router"`             // 路由合约地址
+	Factory          string `mapstructure:"factory"`            // 工厂合约地址（聚合器可为空）
+	Quoter           string `mapstructure:"quoter"`             // Quoter合约地址（V3专用）
+	Fee              int    `mapstructure:"fee"`                // 手续费（基点）
+	FeeTier          uint32 `mapstructure:"fee_tier"`           // V3 费率层级
+	DynamicFee       bool   `mapstructure:"dynamic_fee"`        // 是否为动态费率
+	Version          string `mapstructure:"version"`            // 版本
+	ChainID          int64  `mapstructure:"chain_id"`           // 链 ID
+	SupportFlashLoan bool   `mapstructure:"support_flash_loan"` // 是否支持闪电贷
+	SupportMultiHop  bool   `mapstructure:"support_multi_hop"`  // 是否支持多跳路由
+	SupportV3Ticks   bool   `mapstructure:"support_v3_ticks"`   // 是否支持V3 tick数据
+	Priority         int    `mapstructure:"priority"`           // 优先级（数值越小越优先）
 }
 
 // TokenConfig 代币配置

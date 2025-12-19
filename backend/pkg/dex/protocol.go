@@ -30,7 +30,14 @@ type PriceInfo struct {
 	Reserve0     *big.Int   // token0 储备量
 	Reserve1     *big.Int   // token1 储备量
 	Liquidity    *big.Int   // 流动性（V2: sqrt(reserve0*reserve1), V3: 实际流动性）
-	Timestamp    time.Time  // 时间戳
+
+	// === V3 专用字段 ===
+	SqrtPriceX96     *big.Int // V3 的 sqrtPriceX96
+	Tick             int32    // V3 的 tick
+	FeeGrowthGlobal0 *big.Int // V3 手续费增长0
+	FeeGrowthGlobal1 *big.Int // V3 手续费增长1
+
+	Timestamp time.Time // 时间戳
 }
 
 // LiquidityInfo 流动性信息

@@ -36,55 +36,112 @@ contracts:
 
 # DEX 配置
 dexes:
-  # Uniswap V2
+  # ============ AMM - V2 类型 ============
+  
+  # Uniswap V2（主网）
   - name: "Uniswap V2"
+    dex_type: "amm"
     protocol: "uniswap_v2"
     router: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
     factory: "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"
+    quoter: ""  # V2 不需要
     fee: 30  # 0.3%
-    fee_tier: 0  # V2 不使用
+    fee_tier: 0
+    dynamic_fee: false
     version: "v2"
     chain_id: 1
+    support_flash_loan: false
+    support_multi_hop: true
+    support_v3_ticks: false
+    priority: 100
     
   # SushiSwap (V2 兼容)
   - name: "SushiSwap"
+    dex_type: "amm"
     protocol: "sushiswap"
     router: "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F"
     factory: "0xC0AEe478e3658e2610c5F7A4A2E1777cE9e4f2Ac"
+    quoter: ""
     fee: 30  # 0.3%
-    fee_tier: 0  # V2 不使用
+    fee_tier: 0
+    dynamic_fee: false
     version: "v2"
     chain_id: 1
+    support_flash_loan: false
+    support_multi_hop: true
+    support_v3_ticks: false
+    priority: 105
     
+  # ============ AMM - V3 类型 ============
+  
   # Uniswap V3 - 0.05% fee tier
   - name: "Uniswap V3 (0.05%)"
+    dex_type: "amm"
     protocol: "uniswap_v3"
-    router: "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+    router: "0xE592427A0AEce92De3Edee1F18E0157C05861564"  # SwapRouter
     factory: "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+    quoter: "0x61fFE014bA17989E743c5F6cB21bF9697530B21e"   # QuoterV2（主网）
     fee: 5  # 0.05%
     fee_tier: 500
+    dynamic_fee: false
     version: "v3"
     chain_id: 1
+    support_flash_loan: false
+    support_multi_hop: true
+    support_v3_ticks: true
+    priority: 85
     
   # Uniswap V3 - 0.3% fee tier
   - name: "Uniswap V3 (0.3%)"
+    dex_type: "amm"
     protocol: "uniswap_v3"
     router: "0xE592427A0AEce92De3Edee1F18E0157C05861564"
     factory: "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+    quoter: "0x61fFE014bA17989E743c5F6cB21bF9697530B21e"
     fee: 30  # 0.3%
     fee_tier: 3000
+    dynamic_fee: false
     version: "v3"
     chain_id: 1
+    support_flash_loan: false
+    support_multi_hop: true
+    support_v3_ticks: true
+    priority: 90
     
   # Uniswap V3 - 1% fee tier
   - name: "Uniswap V3 (1%)"
+    dex_type: "amm"
     protocol: "uniswap_v3"
     router: "0xE592427A0AEce92De3Edee1F18E0157C05861564"
     factory: "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+    quoter: "0x61fFE014bA17989E743c5F6cB21bF9697530B21e"
     fee: 100  # 1%
     fee_tier: 10000
+    dynamic_fee: false
     version: "v3"
     chain_id: 1
+    support_flash_loan: false
+    support_multi_hop: true
+    support_v3_ticks: true
+    priority: 95
+  
+  # ============ 聚合器类型（可选，开发中）============
+  
+  # 1inch Aggregator（主网）
+  # - name: "1inch"
+  #   dex_type: "aggregator"
+  #   protocol: "1inch"
+  #   router: "0x1111111254EEB25477B68fb85Ed929f73A960582"  # 1inch v6 Router
+  #   factory: ""  # 聚合器没有 factory
+  #   quoter: ""   # 使用 API 报价
+  #   fee: 0       # 动态费用
+  #   dynamic_fee: true
+  #   version: "v6"
+  #   chain_id: 1
+  #   support_flash_loan: false
+  #   support_multi_hop: true
+  #   support_v3_ticks: false
+  #   priority: 50  # 聚合器优先级最高（通常价格最优）
 
 # 代币配置（常用代币）
 tokens:
