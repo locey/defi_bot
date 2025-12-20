@@ -167,6 +167,7 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration {
      * @param amountIn 交易数量
      * @param swapPath 交易路由
      * @param dexes AMM路由
+     * @param expectProfit 期望利润
      * @param minProfit 最小利润
      */  
     function doubleRouterSwap2(
@@ -176,6 +177,7 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration {
         uint256 amountIn,
         address[] calldata swapPath,
         address[] calldata dexes,
+        uint256 expectProfit,
         uint256 minProfit
     ) external returns(uint256 amountOut) {
         require(swapPath.length >= 2, "invalid swapPath");
@@ -185,7 +187,7 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration {
 
         uint256 currentAmount = amountIn;
         uint256 deadline = block.timestamp + 300;
-
+        uint256 aveProfit = expectProfit / dexes.length;
         for (uint i = 0; i < dexes.length; i++) {
             currentAmount = _executeSingleSwap(
                 spot,
@@ -194,7 +196,7 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration {
                 swapPath[i + 1],
                 currentAmount,
                 deadline,
-                minProfit
+                aveProfit
             );
         }
         require(currentAmount > minProfit, "no profit hop");
@@ -208,7 +210,7 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration {
         address toToken,
         uint256 currentAmount,
         uint256 deadline,
-        uint256 minProfit
+        uint256 aveProfit
     ) internal returns (uint256 outAmount) {
         // 授权
         IERC20(fromToken).approve(routerAddr, 0);
@@ -223,7 +225,7 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration {
         uint[] memory amounts = IUniswapV2Router02(routerAddr).getAmountsOut(currentAmount, path);
         uint256 expectedOut = amounts[amounts.length - 1];
         // 根据预期计算滑点容忍度，预期输出 - 输入 - 最小利润 = 最大容忍度
-        uint256 maxLoss = expectedOut - currentAmount - minProfit;
+        uint256 maxLoss = expectedOut - currentAmount - aveProfit;
         require(maxLoss > 0, "no slippage room");
         uint256 slippageBps = (maxLoss * 10000) / expectedOut;
         // slippageTolerance为默认的最大滑点容忍度，不得超过这个值
