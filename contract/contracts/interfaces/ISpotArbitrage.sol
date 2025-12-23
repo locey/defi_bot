@@ -5,7 +5,7 @@ pragma solidity ^0.8.20;
 //实现套利合约接口
 interface ISpotArbitrage {
     function executeSwaps(
-        address asset,
+        address spot,
         address tokenOut,
         uint256 amountIn,
         address[] calldata swapPath,

@@ -96,71 +96,8 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration {
         return (isProfit, finalOut, profitAmount);
     }
 
-
     /**
      * 双路由交易
-     * @param routerA routerA地址
-     * @param routerB routerB地址
-     * @param amountIn 交易数量
-     * @param pathA 交易路径A
-     * @param pathB 交易路径B
-     * @param minProfit 最小利润
-     */    
-    function doubleRouterSwap(
-        address routerA,
-        address routerB,
-        uint256 amountIn,
-        address[] calldata pathA,
-        address[] calldata pathB,
-        uint256 minProfit
-    ) external {
-    
-        require(pathA.length >= 2 && pathB.length >= 2, "invalid path");
-        require(amountIn > 0, "zero amount");
-        require(pathB[0] == pathA[pathA.length - 1], "pathB start mismatch");
-        require(pathB[pathB.length - 1] == pathA[0], "pathB end mismatch");
-        require(IERC20(pathA[0]).balanceOf(address(this)) >= amountIn, "insufficient balance");
-
-        uint256 deadline = block.timestamp + 300;
-        address tokenA = pathA[0];
-        address tokenB = pathA[pathA.length - 1];
-
-        // Step 1: 调用子函数完成 RouterA 兑换
-        _swapOnRouter(routerA, tokenA, amountIn, pathA, deadline);
-        
-        // 校验 tokenB 余额
-        require(IERC20(tokenB).balanceOf(address(this)) > 0, "no tokenB received");
-        
-        // Step 2: 调用子函数完成 RouterB 兑换
-        uint256 tokenBBalance = IERC20(tokenB).balanceOf(address(this));
-        _swapOnRouter(routerB, tokenB, tokenBBalance, pathB, deadline);
-
-        // 利润校验
-        uint256 endBalance = IERC20(tokenA).balanceOf(address(this));
-        uint256 profit = endBalance - (IERC20(tokenA).balanceOf(address(this)) - amountIn);
-        require(profit > 0 && profit >= minProfit, "insufficient profit");
-
-        emit DoubleRouterSwap(msg.sender, routerA, routerB, amountIn, profit);
-    }
-
-    function _swapOnRouter(
-        address router,
-        address tokenIn,
-        uint256 amountIn,
-        address[] calldata path,
-        uint256 deadline
-    ) internal {
-        uint256 expectedOut = IUniswapV2Router02(router).getAmountsOut(amountIn, path)[path.length - 1];
-        uint256 amountOutMin = (expectedOut * (10000 - slippageTolerance)) / 10000;
-
-        IERC20(tokenIn).approve(router, amountIn);
-        IUniswapV2Router02(router).swapExactTokensForTokensSupportingFeeOnTransferTokens(
-            amountIn, amountOutMin, path, address(this), deadline
-        );
-    }
-
-    /**
-     * 双路由交易V2
      * @param spot 入账地址
      * @param tokenIn 初始代币
      * @param tokenOut 最终代币
@@ -170,7 +107,7 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration {
      * @param expectProfit 期望利润
      * @param minProfit 最小利润
      */  
-    function doubleRouterSwap2(
+    function doubleRouterSwap(
         address spot,
         address tokenIn,
         address tokenOut,
