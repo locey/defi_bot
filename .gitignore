@@ -32,18 +32,36 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# IDE
-.vscode/
+# 编译生成的二进制文件
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# 测试脚本（不提交）
+scripts/
+
+# 日志文件（保留目录结构，忽略内容）
+logs/*
+!logs/.gitkeep
+
+# Go 相关
+*.test
+*.out
+vendor/
+
+# IDE 相关
 .idea/
+.vscode/
 *.swp
 *.swo
 *~
 
-# OS
+# OS 相关
 Thumbs.db
 
 # Logs
-logs
 *.log
 
 # Runtime data
@@ -94,16 +112,25 @@ jspm_packages/
 # DynamoDB Local files
 .dynamodb/
 
-
-
 */docs/*
 stock-fe/docs/*.md
 */docs/*.md
 .*/*
 .claude/*
-.claude/*
-.claude/*
-.*/*
 *.sh
 .next/*
 .vercel/*
+
+# 临时文件
+tmp/
+temp/
+*.tmp
+
+# 数据库备份
+*.sql
+backup_*.sql
+
+# Docker 数据卷（通过 docker-compose 管理）
+postgres_data/
+redis_data/
+pgadmin_data/
