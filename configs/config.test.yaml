@@ -1,0 +1,179 @@
+# 测试配置文件（使用公共 RPC 和测试网）
+
+# 数据库配置 - 连接到 WSL2 的 PostgreSQL (通过 localhost)
+database:
+  host: localhost
+  port: 5432
+  user: defi_user
+  password: defi_pass123
+  dbname: defi_arbitrage
+  sslmode: disable
+  timezone: Asia/Shanghai
+  max_idle_conns: 5
+  max_open_conns: 20
+  conn_max_lifetime: 3600
+
+# 区块链配置（使用以太坊主网公共 RPC）
+blockchain:
+  # 选项1：使用 Infura 公共端点（需要替换 YOUR_INFURA_KEY）
+  rpc_url: https://sepolia.infura.io/v3/3bbd17e943844442bd02357af9292ebe
+  
+  # 选项2：使用 Cloudflare 公共端点（无需 API Key，但有速率限制）
+  # rpc_url: https://cloudflare-eth.com
+  
+  # 选项3：使用 Ankr 公共端点
+  # rpc_url: https://rpc.ankr.com/eth
+  
+  chain_id: 11155111  # Sepolia 测试网
+  timeout: 60  # 公共 RPC 可能较慢，增加超时时间
+  retry: 3
+
+# 合约地址（可选）
+contracts:
+  arbitrage_core: ""
+  config_manager: ""
+
+# DEX 配置（Sepolia 测试网）
+dexes:
+  # ============ AMM - V2 类型 ============
+  
+  # Uniswap V2 (Sepolia)
+  - name: "Uniswap V2"
+    dex_type: "amm"
+    protocol: "uniswap_v2"
+    router: "0xC532a74256D3Db42D0Bf7a0400fEFDbad7694008"  # Sepolia 路由
+    factory: "0x7E0987E5b3a30e3f2828572Bb659A548460a3003"  # Sepolia 工厂
+    quoter: ""  # V2 不需要 Quoter
+    fee: 30
+    fee_tier: 0
+    version: "v2"
+    chain_id: 11155111
+    support_flash_loan: false
+    support_multi_hop: true
+    priority: 100
+  
+  # SushiSwap (Sepolia) - 如果测试网有部署
+  # - name: "SushiSwap"
+  #   dex_type: "amm"
+  #   protocol: "sushiswap"
+  #   router: "0x..."  # Sepolia SushiSwap Router（需要查找）
+  #   factory: "0x..."  # Sepolia SushiSwap Factory
+  #   fee: 30
+  #   fee_tier: 0
+  #   version: "v2"
+  #   chain_id: 11155111
+  #   support_flash_loan: false
+  #   priority: 110
+  
+  # ============ AMM - V3 类型 ============
+  
+  # Uniswap V3 (Sepolia) - 0.05% fee tier
+  - name: "Uniswap V3 (0.05%)"
+    dex_type: "amm"
+    protocol: "uniswap_v3"
+    router: "0xE592427A0AEce92De3Edee1F18E0157C05861564"  # V3 SwapRouter
+    factory: "0x0227628f3F023bb0B980b67D528571c95c6DaC1c"  # Sepolia V3 Factory
+    quoter: "0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3"  # Sepolia QuoterV2
+    fee: 5
+    fee_tier: 500
+    version: "v3"
+    chain_id: 11155111
+    support_flash_loan: false
+    support_multi_hop: true
+    support_v3_ticks: true
+    priority: 90
+    
+  # Uniswap V3 (Sepolia) - 0.3% fee tier
+  - name: "Uniswap V3 (0.3%)"
+    dex_type: "amm"
+    protocol: "uniswap_v3"
+    router: "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+    factory: "0x0227628f3F023bb0B980b67D528571c95c6DaC1c"
+    quoter: "0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3"  # Sepolia QuoterV2
+    fee: 30
+    fee_tier: 3000
+    version: "v3"
+    chain_id: 11155111
+    support_flash_loan: false
+    support_multi_hop: true
+    support_v3_ticks: true
+    priority: 95
+    
+  # Uniswap V3 (Sepolia) - 1% fee tier
+  - name: "Uniswap V3 (1%)"
+    dex_type: "amm"
+    protocol: "uniswap_v3"
+    router: "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+    factory: "0x0227628f3F023bb0B980b67D528571c95c6DaC1c"
+    quoter: "0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3"  # Sepolia QuoterV2
+    fee: 100
+    fee_tier: 10000
+    version: "v3"
+    chain_id: 11155111
+    support_flash_loan: false
+    support_multi_hop: true
+    support_v3_ticks: true
+    priority: 98
+  
+  # ============ 聚合器类型（开发中）============
+  
+  # 1inch (Sepolia) - 如果需要
+  # - name: "1inch"
+  #   dex_type: "aggregator"
+  #   protocol: "1inch"
+  #   router: "0x..."  # 1inch Aggregation Router
+  #   factory: ""  # 聚合器没有 factory
+  #   quoter: ""  # 使用 API 报价
+  #   fee: 0  # 动态费用
+  #   dynamic_fee: true
+  #   version: "v6"
+  #   chain_id: 11155111
+  #   support_multi_hop: true
+  #   priority: 50  # 聚合器优先级高（价格通常更优）
+
+# 代币配置（Sepolia 测试网常用代币）
+tokens:
+  - symbol: "WETH"
+    address: "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14"  # Sepolia WETH
+    decimals: 18
+  - symbol: "DAI"
+    address: "0x68194a729C2450ad26072b3D33ADaCbcef39D574"  # Sepolia DAI
+    decimals: 18
+  - symbol: "USDC"
+    address: "0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8"  # Sepolia USDC
+    decimals: 6
+
+# 定时任务配置（测试时使用较长的间隔）
+scheduler:
+  collect_interval: 300  # 5 分钟采集一次（避免频繁调用公共 RPC）
+  analyze_interval: 600  # 10 分钟分析一次
+  cleanup_interval: 24   # 24 小时清理一次
+
+# 套利配置
+arbitrage:
+  min_profit_rate: 0.5
+  max_slippage: 1.0
+  max_gas_price: 100
+
+# 日志配置
+log:
+  level: info
+  file: logs/test.log
+  max_size: 100
+  max_backups: 3
+  max_age: 7
+
+# 服务器配置
+server:
+  port: 8080
+  mode: debug
+
+# Redis 配置
+redis:
+  enabled: true  # 启用 Redis 缓存
+  host: localhost
+  port: 6379
+  password: ""
+  db: 0
+  ttl: 300  # 默认过期时间 5 分钟
+

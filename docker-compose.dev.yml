@@ -1,0 +1,88 @@
+# Docker Compose 开发环境配置
+# 用于 WSL2 + Docker Desktop 本地开发
+# 使用方式: docker-compose -f docker-compose.dev.yml up
+
+version: '3.8'
+
+services:
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:15-alpine
+    container_name: defi_bot_db_dev
+    environment:
+      POSTGRES_USER: defi_user
+      POSTGRES_PASSWORD: defi_pass123
+      POSTGRES_DB: defi_arbitrage
+      TZ: Asia/Shanghai
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    networks:
+      - defi_bot_network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U defi_user" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    container_name: defi_bot_redis_dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_dev_data:/data
+    networks:
+      - defi_bot_network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    command: redis-server --appendonly yes
+
+  # pgAdmin (数据库管理工具)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: defi_bot_pgadmin_dev
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@defibot.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_dev_data:/var/lib/pgadmin
+    networks:
+      - defi_bot_network
+    restart: unless-stopped
+    depends_on:
+      - postgres
+
+  # Redis Commander (Redis 管理工具)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: defi_bot_redis_commander_dev
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"
+    networks:
+      - defi_bot_network
+    restart: unless-stopped
+    depends_on:
+      - redis
+
+volumes:
+  postgres_dev_data:
+  redis_dev_data:
+  pgadmin_dev_data:
+
+
+networks:
+  defi_bot_network:
+    driver: bridge
