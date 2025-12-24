@@ -1,0 +1,108 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:15-alpine
+    container_name: defi_bot_db
+    environment:
+      POSTGRES_USER: ${DB_USER:-defi_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-defi_pass123}
+      POSTGRES_DB: ${DB_NAME:-defi_arbitrage}
+      TZ: Asia/Shanghai
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - defi_bot_network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-defi_user}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    container_name: defi_bot_redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - defi_bot_network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    command: redis-server --appendonly yes
+
+  # 后端服务
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: defi_bot_backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      # 数据库配置
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-defi_user}
+      DB_PASSWORD: ${DB_PASSWORD:-defi_pass123}
+      DB_NAME: ${DB_NAME:-defi_arbitrage}
+      # 区块链配置
+      RPC_URL: ${RPC_URL:-https://sepolia.infura.io/v3/3bbd17e943844442bd02357af9292ebe}
+      CHAIN_ID: ${CHAIN_ID:-11155111}
+      # Redis 配置
+      REDIS_ENABLED: ${REDIS_ENABLED:-true}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_DB: ${REDIS_DB:-0}
+      # 日志配置
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - ./configs:/app/configs
+      - ./logs:/app/logs
+    networks:
+      - defi_bot_network
+    restart: unless-stopped
+    command: [ "./server", "-config", "configs/config.yaml" ]
+
+  # pgAdmin (可选，用于数据库管理)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: defi_bot_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@defibot.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - defi_bot_network
+    restart: unless-stopped
+    profiles:
+      - admin
+
+volumes:
+  postgres_data:
+  redis_data:
+  pgadmin_data:
+
+
+networks:
+  defi_bot_network:
+    driver: bridge

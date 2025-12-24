@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 编译生成的二进制文件
 bin/
 *.exe
@@ -23,10 +24,50 @@ vendor/
 # IDE 相关
 .idea/
 .vscode/
+=======
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files
+.env
+/contract/artifacts/*
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# IDE
+.vscode/
+.idea/
+>>>>>>> 668402e7bfd0e1861b224d7983152352170252b7
 *.swp
 *.swo
 *~
 
+<<<<<<< HEAD
 # OS 相关
 .DS_Store
 Thumbs.db
@@ -44,3 +85,73 @@ backup_*.sql
 postgres_data/
 redis_data/
 pgadmin_data/
+=======
+# OS
+Thumbs.db
+
+# Logs
+logs
+*.log
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+.nyc_output
+
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# parcel-bundler cache (https://parceljs.org/)
+.cache
+.parcel-cache
+
+# next.js build output
+.next
+
+# nuxt.js build output
+.nuxt
+
+# vuepress build output
+.vuepress/dist
+
+# Serverless directories
+.serverless
+
+# FuseBox cache
+.fusebox/
+
+# DynamoDB Local files
+.dynamodb/
+
+
+
+*/docs/*
+stock-fe/docs/*.md
+*/docs/*.md
+.*/*
+.claude/*
+.claude/*
+.claude/*
+.*/*
+*.sh
+.next/*
+.vercel/*
+>>>>>>> 668402e7bfd0e1861b224d7983152352170252b7
