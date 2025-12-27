@@ -123,6 +123,55 @@ export function ArbitrageBotPage() {
         />
       </div>
 
+      {/* 管理员控制面板 - 仅 Owner 可见 */}
+      {ethVault && ethVault.isOwner && (
+        <Card className="bg-slate-900 border-slate-700 p-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-xl font-bold text-white mb-2">管理员控制</h3>
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400">当前状态:</span>
+                {ethVault.isPaused ? (
+                  <span className="px-2 py-1 rounded bg-red-500/20 text-red-400 text-sm font-medium">
+                    🔴 已暂停
+                  </span>
+                ) : (
+                  <span className="px-2 py-1 rounded bg-green-500/20 text-green-400 text-sm font-medium">
+                    🟢 运行中
+                  </span>
+                )}
+              </div>
+            </div>
+            <Button
+              variant={ethVault.isPaused ? "default" : "destructive"}
+              onClick={async () => {
+                try {
+                  const tx = await ethVault.setPaused(!ethVault.isPaused);
+                  toast({
+                    title: ethVault.isPaused ? "已恢复" : "已暂停",
+                    description: `交易哈希: ${tx.hash}`,
+                  });
+                } catch (e) {
+                  toast({
+                    title: "操作失败",
+                    description: String(e),
+                    variant: "destructive",
+                  });
+                }
+              }}
+              disabled={ethVault.loading}
+            >
+              {ethVault.loading 
+                ? "处理中..." 
+                : ethVault.isPaused 
+                  ? "▶️ 恢复机器人" 
+                  : "⏸️ 暂停机器人"
+              }
+            </Button>
+          </div>
+        </Card>
+      )}
+
       {/* 存入/提取模态框 */}
       <div>
         <DepositWithdrawModal
