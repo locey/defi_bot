@@ -72,3 +72,6 @@ func (p *CurveProtocol) GetVirtualPrice(poolAddress string) (*big.Int, error) {
 	// TODO: 调用 Curve 池合约的 get_virtual_price() 方法
 	return nil, fmt.Errorf("Curve get_virtual_price 未实现")
 }
+
+
+

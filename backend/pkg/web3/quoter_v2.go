@@ -142,3 +142,6 @@ func (c *Client) CalculatePriceImpact(
 	result, _ := impact.Float64()
 	return result
 }
+
+
+

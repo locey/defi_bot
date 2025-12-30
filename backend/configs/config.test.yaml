@@ -1,8 +1,10 @@
 # 测试配置文件（使用公共 RPC 和测试网）
 
-# 数据库配置 - 连接到 WSL2 的 PostgreSQL (通过 localhost)
+# 数据库配置 - 连接到 WSL2 的 PostgreSQL 
+# ( 获取 Windows 主机的 IP（从 WSL 角度 看 docker desktop）
+# ip route | grep default | awk '{print go run scripts/utils/add_missing_data.go$3}'
 database:
-  host: localhost
+  host: 192.168.240.1
   port: 5432
   user: defi_user
   password: defi_pass123
@@ -13,7 +15,7 @@ database:
   max_open_conns: 20
   conn_max_lifetime: 3600
 
-# 区块链配置（使用以太坊主网公共 RPC）
+# 区块链配置（Sepolia 测试网）
 blockchain:
   # 选项1：使用 Infura 公共端点（需要替换 YOUR_INFURA_KEY）
   rpc_url: https://sepolia.infura.io/v3/3bbd17e943844442bd02357af9292ebe
@@ -21,17 +23,22 @@ blockchain:
   # 选项2：使用 Cloudflare 公共端点（无需 API Key，但有速率限制）
   # rpc_url: https://cloudflare-eth.com
   
-  # 选项3：使用 Ankr 公共端点
-  # rpc_url: https://rpc.ankr.com/eth
+  # 选项3：使用 Ankr 公共端点（备用）
+  # rpc_url: https://rpc.ankr.com/eth_sepolia
   
   chain_id: 11155111  # Sepolia 测试网
   timeout: 60  # 公共 RPC 可能较慢，增加超时时间
   retry: 3
 
-# 合约地址（可选）
+# 合约地址
 contracts:
-  arbitrage_core: ""
-  config_manager: ""
+  arbitrage_core: "0x16D275cABF4e8980B01FFC416E7b7Cc39c44F9CF"  # 已部署到 Sepolia
+  config_manager: "0x55C07CCd00932Bd3813F90E01dA08b70A58583eb"  # 已部署到 Sepolia
+
+# Keeper 配置（执行套利交易的账户）
+keeper:
+  address: ""  # 填写你的 Sepolia 测试地址
+  private_key: ""  # 填写你的私钥（不要提交到 git！）
 
 # DEX 配置（Sepolia 测试网）
 dexes:

@@ -6,24 +6,30 @@ import (
 	"sync"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/defi-bot/backend/internal/database"
 	"github.com/defi-bot/backend/internal/models"
+	"github.com/defi-bot/backend/pkg/validation"
 	"gorm.io/gorm"
 )
 
-// PriceData 价格数据结构（用于并发采集）
+// PriceData 价格数据结构（用于并发采集）- 优化版
 type PriceData struct {
 	PairID       uint
 	Token0Symbol string
 	Token1Symbol string
+	Token0Decimals int  // 新增：用于价格计算
+	Token1Decimals int  // 新增：用于价格计算
 	DexName      string
-	DexProtocol  string // 新增：协议类型（用于判断是否为V3）
+	DexProtocol  string
 
-	// === V2 数据 ===
-	Reserve0     string
-	Reserve1     string
-	Price        string
-	InversePrice string
+	// === 原始值（Wei 单位）===
+	Reserve0 string
+	Reserve1 string
+
+	// === 标准化价格 ===
+	Price        decimal.Decimal // 改为 decimal.Decimal
+	InversePrice decimal.Decimal // 改为 decimal.Decimal
 
 	// === V3 数据 ===
 	SqrtPriceX96 string
@@ -141,23 +147,35 @@ func (c *Collector) fetchPairDataWithRetry(pair models.TradingPair, blockNumber 
 			return nil, fmt.Errorf("无流动性")
 		}
 
-		// 计算价格（考虑精度调整）
+		// 计算标准化价格
 		price, inversePrice := c.CalculatePrice(
 			priceInfo.Reserve0, priceInfo.Reserve1,
 			pair.Token0.Decimals, pair.Token1.Decimals,
 		)
+		
+		// 验证价格合理性
+		validator := validation.NewPriceValidator()
+		pairType := validation.DeterminePairType(pair.Token0.Symbol, pair.Token1.Symbol)
+		pairKey := fmt.Sprintf("%s/%s@%s", pair.Token0.Symbol, pair.Token1.Symbol, pair.Dex.Name)
+		
+		if err := validator.Validate(pairKey, price, pairType); err != nil {
+			log.Printf("⚠️  价格验证失败 %s: %v", pairKey, err)
+			// 继续处理，但记录警告
+		}
 
 		// 构造价格数据
 		priceData := &PriceData{
-			PairID:       pair.ID,
-			Token0Symbol: pair.Token0.Symbol,
-			Token1Symbol: pair.Token1.Symbol,
-			DexName:      pair.Dex.Name,
-			DexProtocol:  pair.Dex.Protocol,
-			Reserve0:     priceInfo.Reserve0.String(),
-			Reserve1:     priceInfo.Reserve1.String(),
-			Price:        price.String(),
-			InversePrice: inversePrice.String(),
+			PairID:         pair.ID,
+			Token0Decimals: pair.Token0.Decimals,
+			Token1Decimals: pair.Token1.Decimals,
+			Token0Symbol:   pair.Token0.Symbol,
+			Token1Symbol:   pair.Token1.Symbol,
+			DexName:        pair.Dex.Name,
+			DexProtocol:    pair.Dex.Protocol,
+			Reserve0:       priceInfo.Reserve0.String(), // 保留原始 Wei 字符串
+			Reserve1:       priceInfo.Reserve1.String(),
+			Price:          price,        // decimal.Decimal
+			InversePrice:   inversePrice, // decimal.Decimal
 			BlockNumber:  blockNumber,
 			Timestamp:    timestamp,
 		}
@@ -217,7 +235,7 @@ func (c *Collector) batchInsertResults(resultsChan chan *PriceData, errorsChan c
 		priceRecord := models.PriceRecord{
 			PairID:       data.PairID,
 			Price:        data.Price,
-			InversePrice: data.InversePrice,
+			InversePrice: &data.InversePrice, // 指针
 			Reserve0:     data.Reserve0,
 			Reserve1:     data.Reserve1,
 			BlockNumber:  data.BlockNumber,
@@ -237,7 +255,7 @@ func (c *Collector) batchInsertResults(resultsChan chan *PriceData, errorsChan c
 
 		log.Printf("✅ 采集成功: %s/%s @ %s - Price: %s",
 			data.Token0Symbol, data.Token1Symbol, data.DexName,
-			data.Price[:min(15, len(data.Price))])
+			data.Price.StringFixed(8)) // 显示8位小数
 
 		successCount++
 	}

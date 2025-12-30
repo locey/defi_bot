@@ -69,12 +69,14 @@ func AutoMigrate() error {
 	// 迁移所有模型
 	err := db.AutoMigrate(
 		&models.Token{},
-		&models.Dex{},
+		&models.Exchange{},          // ✅ 更新：统一 DEX 和 CEX
 		&models.TradingPair{},
 		&models.PairReserve{},
 		&models.PriceRecord{},
-		&models.LiquidityDepth{},  // ✅ 新增：流动性深度表
-		&models.GasPriceHistory{}, // ✅ 新增：Gas价格历史表
+		&models.LiquidityDepth{},    // 流动性深度表
+		&models.GasPriceHistory{},   // Gas价格历史表
+		&models.OrderBook{},         // ✅ 新增：CEX 订单簿表
+		&models.CexTicker{},         // ✅ 新增：CEX 行情表
 		&models.ArbitrageOpportunity{},
 		&models.ArbitrageExecution{},
 	)
@@ -126,9 +128,9 @@ func SeedData(cfg *config.Config) error {
 		}
 	}
 
-	// 初始化 DEX 数据
+	// 初始化 DEX 数据（交易所类型为 dex）
 	for _, dexCfg := range cfg.Dexes {
-		var dex models.Dex
+		var dex models.Exchange
 		result := db.Where("name = ?", dexCfg.Name).First(&dex)
 
 		// 设置默认值
@@ -159,8 +161,9 @@ func SeedData(cfg *config.Config) error {
 
 		if result.Error == gorm.ErrRecordNotFound {
 			// DEX 不存在，创建新记录
-			dex = models.Dex{
+			dex = models.Exchange{
 				Name:             dexCfg.Name,
+				ExchangeType:     "dex", // ← DEX 类型
 				DexType:          dexType,
 				Protocol:         protocol,
 				RouterAddress:    dexCfg.Router,
@@ -207,6 +210,128 @@ func SeedData(cfg *config.Config) error {
 		}
 	}
 
+	// ✅ 初始化 CEX 数据（币安）
+	if cfg.Cex.Enabled && cfg.Cex.Binance.Enabled {
+		var binance models.Exchange
+		result := db.Where("name = ?", "Binance").First(&binance)
+
+		if result.Error == gorm.ErrRecordNotFound {
+			// 创建币安交易所
+			binance = models.Exchange{
+				Name:             "Binance",
+				ExchangeType:     "cex",           // ← CEX 类型
+				Protocol:         "binance_spot",  // ← 协议
+				Version:          "v3",
+				APIEndpoint:      cfg.Cex.Binance.APIEndpoint,
+				WSEndpoint:       cfg.Cex.Binance.WSEndpoint,
+				TakerFee:         0.001,  // 0.1%
+				MakerFee:         0.001,  // 0.1%
+				IsActive:         true,
+				Priority:         50,     // CEX 优先级高于 DEX（通常流动性更好）
+				SupportOrderbook: true,   // 支持订单簿
+				SupportWebSocket: true,   // 支持 WebSocket
+				RateLimit:        cfg.Cex.Binance.RateLimit,
+				Description:      "Binance Spot Exchange - Global Crypto Exchange",
+				WebsiteURL:       "https://www.binance.com",
+			}
+
+			if err := db.Create(&binance).Error; err != nil {
+				log.Printf("创建 Binance 失败: %v", err)
+			} else {
+				log.Printf("✅ 创建 CEX: Binance (Spot)")
+
+				// 创建币安交易对
+				createBinanceTradingPairs(db, binance.ID, cfg)
+			}
+		} else {
+			log.Printf("✅ 币安交易所已存在")
+		}
+	}
+
 	log.Println("种子数据初始化完成")
 	return nil
+}
+
+// createBinanceTradingPairs 创建币安交易对
+func createBinanceTradingPairs(db *gorm.DB, binanceID uint, cfg *config.Config) {
+	log.Println("创建币安交易对...")
+
+	for _, symbol := range cfg.Cex.Binance.Symbols {
+		// 解析符号（如 "ETHUSDT" → base="ETH", quote="USDT"）
+		base, quote := parseSymbol(symbol)
+
+		// 符号映射（CEX 的 ETH 对应链上的 WETH）
+		base = mapSymbolToToken(base)
+		quote = mapSymbolToToken(quote)
+
+		// 查找对应的 Token
+		var baseToken, quoteToken models.Token
+		db.Where("symbol = ?", base).First(&baseToken)
+		db.Where("symbol = ?", quote).First(&quoteToken)
+
+		if baseToken.ID == 0 {
+			log.Printf("⚠️  找不到基础代币: %s (映射自 %s)，跳过 %s", base, symbol[:len(symbol)-len(quote)], symbol)
+			continue
+		}
+		if quoteToken.ID == 0 {
+			log.Printf("⚠️  找不到报价代币: %s，跳过 %s", quote, symbol)
+			continue
+		}
+
+		// 检查交易对是否已存在
+		var existingPair models.TradingPair
+		result := db.Where("exchange_id = ? AND symbol = ?", binanceID, symbol).First(&existingPair)
+
+		if result.Error == gorm.ErrRecordNotFound {
+			// 创建交易对
+			pair := models.TradingPair{
+				ExchangeID: binanceID,
+				Token0ID:   baseToken.ID,  // Base = Token0
+				Token1ID:   quoteToken.ID, // Quote = Token1
+				Symbol:     symbol,        // CEX 使用 Symbol
+				BaseAsset:  base,
+				QuoteAsset: quote,
+				IsActive:   true,
+			}
+
+			if err := db.Create(&pair).Error; err != nil {
+				log.Printf("创建币安交易对失败 %s: %v", symbol, err)
+				continue
+			}
+
+			log.Printf("✅ 创建币安交易对: %s (%s/%s)", symbol, base, quote)
+		}
+	}
+}
+
+// parseSymbol 解析币安交易对符号
+func parseSymbol(symbol string) (string, string) {
+	// 常见的报价资产（按长度从长到短排序，避免误匹配）
+	quotes := []string{"USDT", "USDC", "BUSD", "TUSD", "BTC", "ETH", "BNB", "DAI"}
+
+	for _, quote := range quotes {
+		if len(symbol) > len(quote) && symbol[len(symbol)-len(quote):] == quote {
+			base := symbol[:len(symbol)-len(quote)]
+			return base, quote
+		}
+	}
+
+	// 默认：无法解析
+	return symbol, ""
+}
+
+// mapSymbolToToken 将 CEX 符号映射到链上代币符号
+func mapSymbolToToken(symbol string) string {
+	mapping := map[string]string{
+		"ETH":  "WETH", // CEX 的 ETH 对应链上的 WETH
+		"BTC":  "WBTC", // CEX 的 BTC 对应链上的 WBTC（如果有）
+		"USDT": "USDT",
+		"USDC": "USDC",
+		"DAI":  "DAI",
+	}
+	
+	if mapped, ok := mapping[symbol]; ok {
+		return mapped
+	}
+	return symbol
 }

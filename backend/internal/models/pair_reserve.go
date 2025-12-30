@@ -31,3 +31,6 @@ type PairReserve struct {
 func (PairReserve) TableName() string {
 	return "pair_reserves"
 }
+
+
+

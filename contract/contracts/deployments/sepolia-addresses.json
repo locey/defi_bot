@@ -1,0 +1,22 @@
+{
+  "network": "sepolia",
+  "chainId": 11155111,
+  "deployer": "0xbB7a87784E29C435AA62BE64b36295c5915ab7A1",
+  "timestamp": "2025-12-29T17:49:01.447Z",
+  "addresses": {
+    "weth": "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14",
+    "configManager": "0x55C07CCd00932Bd3813F90E01dA08b70A58583eb",
+    "vault": "0x69C3BFA8c2521Cb8Fb94643E061Cf55EbB14CFb3",
+    "doubleRouterIntegration": "0xc00D6c3528b70Ae181a4F7A57a00c2fDe79530Ea",
+    "uniswapV2Integration": "0x3efCAA3aeE19A886F688B267a303e25bBf35a1AE",
+    "arbitrageCore": "0x16D275cABF4e8980B01FFC416E7b7Cc39c44F9CF",
+    "spotArbitrage": "0x127DD7Ec55920D06137EFaB76B2a08E434bBE6BC"
+  },
+  "notes": {
+    "backCaller": "0xbB7a87784E29C435AA62BE64b36295c5915ab7A1",
+    "platformWallet": "0xbB7a87784E29C435AA62BE64b36295c5915ab7A1",
+    "lendingPool": "0xbB7a87784E29C435AA62BE64b36295c5915ab7A1",
+    "uniswapV2Router": "0xC532a74256D3Db42D0Bf7a0400fEFDbad7694008",
+    "uniswapV3Router": "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+  }
+}

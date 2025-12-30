@@ -7,3 +7,6 @@ package web3
 func (c *Client) GetPairReserves(pairAddress string) (*PairReserves, error) {
 	return c.GetPairReservesFromContract(pairAddress)
 }
+
+
+

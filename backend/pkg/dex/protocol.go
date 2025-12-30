@@ -50,3 +50,6 @@ type LiquidityInfo struct {
 	FeeGrowth0   *big.Int // 手续费增长（V3）
 	FeeGrowth1   *big.Int // 手续费增长（V3）
 }
+
+
+

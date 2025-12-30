@@ -114,3 +114,6 @@ type AggregatorQuote struct {
 	PriceImpact float64    // 价格影响
 	Timestamp   time.Time
 }
+
+
+

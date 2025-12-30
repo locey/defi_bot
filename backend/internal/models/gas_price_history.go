@@ -51,3 +51,6 @@ func (g *GasPriceHistory) GetRecommendedGasPrice(priority string) string {
 		return g.StandardPrice
 	}
 }
+
+
+

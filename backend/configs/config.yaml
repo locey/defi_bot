@@ -4,8 +4,8 @@
 database:
   host: ${DB_HOST:localhost}
   port: ${DB_PORT:5432}
-  user: ${DB_USER:postgres}
-  password: ${DB_PASSWORD:postgres}
+  user: ${DB_USER:defi_user}
+  password: ${DB_PASSWORD:defi_pass123}
   dbname: ${DB_NAME:defi_arbitrage}
   sslmode: disable
   timezone: Asia/Shanghai
@@ -15,16 +15,16 @@ database:
 
 # 区块链配置
 blockchain:
-  # 主 RPC URL（单节点模式）
-  rpc_url: ${RPC_URL:https://eth-mainnet.g.alchemy.com/v2/your_api_key}
+  # 主 RPC URL（Sepolia 测试网）
+  rpc_url: ${RPC_URL:https://rpc.ankr.com/eth_sepolia}
   
   # 多 RPC URL（池模式，启用后会使用负载均衡和故障转移）
   rpc_urls:
-    - https://eth-mainnet.g.alchemy.com/v2/your_api_key
-    - https://rpc.ankr.com/eth
-    - https://ethereum.publicnode.com
+    - https://rpc.ankr.com/eth_sepolia
+    - https://ethereum-sepolia.publicnode.com
+    - https://rpc.sepolia.org
   
-  chain_id: ${CHAIN_ID:1}
+  chain_id: ${CHAIN_ID:11155111}
   timeout: 30  # 秒
   retry: 3
   use_pool: false  # 生产环境建议启用 RPC 池
@@ -33,6 +33,11 @@ blockchain:
 contracts:
   arbitrage_core: ${ARBITRAGE_CORE_ADDRESS:}
   config_manager: ${CONFIG_MANAGER_ADDRESS:}
+
+# Keeper 配置（用于自动执行套利）
+keeper:
+  private_key: ${KEEPER_PRIVATE_KEY:}  # Keeper 私钥（用于签名交易）
+  address: ${KEEPER_ADDRESS:}          # Keeper 地址
 
 # DEX 配置
 dexes:
@@ -166,6 +171,8 @@ scheduler:
   analyze_interval: 10
   # 清理过期数据的间隔（小时）
   cleanup_interval: 24
+  # 最小利润率阈值（百分比，用于过滤低利润机会）
+  min_profit_rate: 0.5  # 0.5%
 
 # 套利配置
 arbitrage:
@@ -197,4 +204,23 @@ redis:
   password: ${REDIS_PASSWORD:}
   db: ${REDIS_DB:0}
   ttl: 300  # 默认过期时间 5 分钟
+
+# ============ CEX 配置（中心化交易所）============
+cex:
+  enabled: ${CEX_ENABLED:true}  # 是否启用 CEX 数据采集
+  
+  # 币安配置
+  binance:
+    enabled: ${BINANCE_ENABLED:true}
+    api_endpoint: "https://api.binance.com"
+    ws_endpoint: "wss://stream.binance.com:9443"
+    api_key: ${BINANCE_API_KEY:}       # API Key（可选，读取公开数据不需要）
+    api_secret: ${BINANCE_API_SECRET:} # API Secret（可选）
+    rate_limit: 1200                   # 每分钟请求限制
+    symbols:  # 要采集的交易对符号列表
+      - "ETHUSDT"   # ETH/USDT
+      - "BTCUSDT"   # BTC/USDT
+      - "ETHBTC"    # ETH/BTC
+      - "USDCUSDT"  # USDC/USDT
+      - "DAIUSDT"   # DAI/USDT
 

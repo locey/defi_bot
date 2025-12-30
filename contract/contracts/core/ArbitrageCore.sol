@@ -86,18 +86,49 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
         __ReentrancyGuard_init();
         __UUPSUpgradeable_init();
 
-        require(_spotArbitrage != address(0), "Invalid spot Arbitrage");
-        require(_flashLoanArbitrage != address(0), "Invalid flashLoan Arbitrage");
         require(_platFormWallet != address(0), "Invalid platForm Wallet");
         require(_configManager != address(0), "Invalid config Manager");
         require(_backCaller != address(0), "Invalid backend Caller");
 
-        spotArbitrage = ISpotArbitrage(_spotArbitrage);
-        flashLoanArbitrage = IFlashLoanSimpleReceiver(_flashLoanArbitrage);
+        // 为了解决部署时的循环依赖（core 需要 spot/flash 地址，而 spot/flash 构造函数又需要 core 地址），
+        // spot/flash 允许在初始化时为空，之后由 owner 通过 setter 绑定。
+        if (_spotArbitrage != address(0)) {
+            spotArbitrage = ISpotArbitrage(_spotArbitrage);
+        }
+        if (_flashLoanArbitrage != address(0)) {
+            flashLoanArbitrage = IFlashLoanSimpleReceiver(_flashLoanArbitrage);
+        }
         platFormWallet = _platFormWallet; //利润转账地址(项目方钱包地址)
         configManager = IConfigManager(_configManager);
         backCaller = _backCaller;
 
+    }
+
+    // ===================== 管理函数（用于部署后绑定依赖/轮换地址） =====================
+
+    function setSpotArbitrage(address _spotArbitrage) external onlyOwner {
+        require(_spotArbitrage != address(0), "Invalid spot Arbitrage");
+        spotArbitrage = ISpotArbitrage(_spotArbitrage);
+    }
+
+    function setFlashLoanArbitrage(address _flashLoanArbitrage) external onlyOwner {
+        require(_flashLoanArbitrage != address(0), "Invalid flashLoan Arbitrage");
+        flashLoanArbitrage = IFlashLoanSimpleReceiver(_flashLoanArbitrage);
+    }
+
+    function setPlatFormWallet(address _platFormWallet) external onlyOwner {
+        require(_platFormWallet != address(0), "Invalid platForm Wallet");
+        platFormWallet = _platFormWallet;
+    }
+
+    function setConfigManager(address _configManager) external onlyOwner {
+        require(_configManager != address(0), "Invalid config Manager");
+        configManager = IConfigManager(_configManager);
+    }
+
+    function setBackCaller(address _backCaller) external onlyOwner {
+        require(_backCaller != address(0), "Invalid backend Caller");
+        backCaller = _backCaller;
     }
 
     //金库函数：添加金库

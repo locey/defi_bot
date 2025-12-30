@@ -1,39 +1,67 @@
 package collector
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"math/big"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/defi-bot/backend/internal/database"
 	"github.com/defi-bot/backend/internal/models"
 	"github.com/defi-bot/backend/pkg/cache"
 	"github.com/defi-bot/backend/pkg/dex"
+	"github.com/defi-bot/backend/pkg/utils"
 	"github.com/defi-bot/backend/pkg/web3"
 )
 
-// Collector 数据采集器
+// Collector 数据采集器（统一 DEX 和 CEX）
 type Collector struct {
 	web3Client      *web3.Client
 	protocolFactory *dex.ProtocolFactory
+	cexCollector    *CexCollector // ← 新增: CEX 采集器
 	cache           *cache.RedisCache
 }
 
 // NewCollector 创建新的采集器
-func NewCollector(web3Client *web3.Client, redisCache *cache.RedisCache) *Collector {
+func NewCollector(web3Client *web3.Client, cexCollector *CexCollector, redisCache *cache.RedisCache) *Collector {
 	return &Collector{
 		web3Client:      web3Client,
 		protocolFactory: dex.NewProtocolFactory(web3Client),
+		cexCollector:    cexCollector, // ← 初始化 CEX 采集器
 		cache:           redisCache,
 	}
 }
 
-// CollectAllData 采集所有数据（使用并发优化）
+// CollectAllData 采集所有数据（DEX + CEX，使用并发优化）
 func (c *Collector) CollectAllData() error {
-	log.Println("开始采集链上数据...")
+	log.Println("开始采集数据（DEX + CEX）...")
 
 	startTime := time.Now()
+
+	// 1. DEX 数据采集
+	if err := c.CollectDexData(); err != nil {
+		log.Printf("DEX 数据采集失败: %v", err)
+	}
+
+	// 2. ✅ CEX 数据采集
+	if c.cexCollector != nil {
+		ctx := context.Background()
+		if err := c.cexCollector.CollectAllCexData(ctx); err != nil {
+			log.Printf("CEX 数据采集失败: %v", err)
+		}
+	}
+
+	duration := time.Since(startTime)
+	log.Printf("数据采集完成，耗时: %v", duration)
+
+	return nil
+}
+
+// CollectDexData 采集 DEX 链上数据（原有逻辑）
+func (c *Collector) CollectDexData() error {
+	log.Println("开始采集 DEX 链上数据...")
 
 	// 1. 获取当前区块号
 	blockNumber, err := c.web3Client.GetBlockNumber()
@@ -52,13 +80,10 @@ func (c *Collector) CollectAllData() error {
 		log.Printf("采集价格数据失败: %v", err)
 	}
 
-	// 4. ✅ 采集 V3 流动性深度数据（每次采集时）
+	// 4. 采集 V3 流动性深度数据
 	if err := c.CollectV3Depths(); err != nil {
 		log.Printf("采集V3深度数据失败: %v", err)
 	}
-
-	duration := time.Since(startTime)
-	log.Printf("数据采集完成，耗时: %v", duration)
 
 	return nil
 }
@@ -73,9 +98,9 @@ func (c *Collector) CollectGasData() error {
 func (c *Collector) CollectTradingPairs() error {
 	db := database.GetDB()
 
-	// 获取所有活跃的 DEX
-	var dexes []models.Dex
-	if err := db.Where("is_active = ?", true).Find(&dexes).Error; err != nil {
+	// 获取所有活跃的 DEX（只查询 DEX 类型的交易所）
+	var dexes []models.Exchange
+	if err := db.Where("is_active = ? AND exchange_type = ?", true, "dex").Find(&dexes).Error; err != nil {
 		return fmt.Errorf("查询 DEX 失败: %w", err)
 	}
 
@@ -136,7 +161,7 @@ func (c *Collector) CollectTradingPairs() error {
 				if result.Error != nil {
 					// 创建新的交易对记录
 					pair := models.TradingPair{
-						DexID:       dexInfo.ID,
+						ExchangeID:  dexInfo.ID,
 						Token0ID:    token0.ID,
 						Token1ID:    token1.ID,
 						PairAddress: pairAddress,
@@ -168,37 +193,19 @@ func (c *Collector) GetPairAddress(factoryAddress, token0Address, token1Address 
 	return pairAddress, nil
 }
 
-// CalculatePrice 计算价格
-// price = reserve1 / reserve0 (考虑精度)
-func (c *Collector) CalculatePrice(reserve0, reserve1 *big.Int, decimals0, decimals1 int) (*big.Float, *big.Float) {
-	// 转换为浮点数
-	r0 := new(big.Float).SetInt(reserve0)
-	r1 := new(big.Float).SetInt(reserve1)
-
-	// 计算精度调整因子
-	pow10_d0 := new(big.Float).SetFloat64(1)
-	pow10_d1 := new(big.Float).SetFloat64(1)
-
-	ten := big.NewFloat(10)
-
-	// 计算 10^decimals0
-	for i := 0; i < decimals0; i++ {
-		pow10_d0.Mul(pow10_d0, ten)
-	}
-
-	// 计算 10^decimals1
-	for i := 0; i < decimals1; i++ {
-		pow10_d1.Mul(pow10_d1, ten)
-	}
-
-	// 调整储备量
-	r0.Quo(r0, pow10_d0)
-	r1.Quo(r1, pow10_d1)
-
-	// 计算价格
-	price := new(big.Float).Quo(r1, r0)        // token1/token0
-	inversePrice := new(big.Float).Quo(r0, r1) // token0/token1
-
+// CalculatePrice 计算标准化价格（业界标准方法）
+// 使用 decimal.Decimal 保证精度，返回人类可读的价格
+func (c *Collector) CalculatePrice(
+	reserve0, reserve1 *big.Int,
+	decimals0, decimals1 int,
+) (decimal.Decimal, decimal.Decimal) {
+	
+	priceCalc := utils.NewPriceCalculator()
+	
+	// 计算标准化价格
+	price := priceCalc.CalculateNormalizedPrice(reserve0, reserve1, decimals0, decimals1)
+	inversePrice := priceCalc.CalculateInversePrice(price)
+	
 	return price, inversePrice
 }
 

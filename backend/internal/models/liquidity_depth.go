@@ -45,3 +45,6 @@ func (l *LiquidityDepth) GetSlippagePercent() float64 {
 func (l *LiquidityDepth) IsHighSlippage() bool {
 	return l.SlippageBps > 100 // 100 bps = 1%
 }
+
+
+

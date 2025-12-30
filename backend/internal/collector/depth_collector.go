@@ -19,9 +19,9 @@ func (c *Collector) CollectV3Depths() error {
 	var pairs []models.TradingPair
 	err := db.Preload("Token0").
 		Preload("Token1").
-		Preload("Dex").
-		Joins("JOIN dexes ON dexes.id = trading_pairs.dex_id").
-		Where("dexes.support_v3_ticks = ? AND dexes.quoter_address != ? AND trading_pairs.is_active = ?",
+		Preload("Exchange").
+		Joins("JOIN exchanges ON exchanges.id = trading_pairs.exchange_id").
+		Where("exchanges.support_v3_ticks = ? AND exchanges.quoter_address != ? AND trading_pairs.is_active = ?",
 			true, "", true).
 		Find(&pairs).Error
 
@@ -51,14 +51,14 @@ func (c *Collector) CollectV3Depths() error {
 
 	// 逐个采集
 	for _, pair := range pairs {
-		if pair.Dex.QuoterAddress == "" {
+		if pair.Exchange.QuoterAddress == "" {
 			continue
 		}
 
 		depths, err := c.collectPairDepth(pair, testAmounts, blockNumber, timestamp)
 		if err != nil {
 			log.Printf("⚠️  采集深度失败 %s/%s @ %s: %v",
-				pair.Token0.Symbol, pair.Token1.Symbol, pair.Dex.Name, err)
+				pair.Token0.Symbol, pair.Token1.Symbol, pair.Exchange.Name, err)
 			continue
 		}
 
@@ -69,7 +69,7 @@ func (c *Collector) CollectV3Depths() error {
 			} else {
 				totalDepths += len(depths)
 				log.Printf("✅ 采集深度: %s/%s @ %s - %d 个测试点",
-					pair.Token0.Symbol, pair.Token1.Symbol, pair.Dex.Name, len(depths))
+					pair.Token0.Symbol, pair.Token1.Symbol, pair.Exchange.Name, len(depths))
 			}
 		}
 	}
@@ -88,7 +88,7 @@ func (c *Collector) collectPairDepth(
 	depths := make([]models.LiquidityDepth, 0, len(testAmounts)*2)
 
 	// 获取当前价格（用于计算价格影响）
-	priceInfo, err := c.protocolFactory.CreateProtocol(pair.Dex.Protocol)
+	priceInfo, err := c.protocolFactory.CreateProtocol(pair.Exchange.Protocol)
 	if err != nil {
 		return nil, err
 	}
@@ -102,11 +102,11 @@ func (c *Collector) collectPairDepth(
 	for _, amount := range testAmounts {
 		// ===  方向1: token0 → token1 ===
 		result0to1, err := c.web3Client.QuoteExactInputSingle(
-			pair.Dex.QuoterAddress,
+			pair.Exchange.QuoterAddress,
 			pair.Token0.Address,
 			pair.Token1.Address,
 			amount,
-			pair.Dex.FeeTier,
+			pair.Exchange.FeeTier,
 		)
 
 		if err == nil && result0to1.AmountOut.Sign() > 0 {
@@ -134,11 +134,11 @@ func (c *Collector) collectPairDepth(
 
 		// === 方向2: token1 → token0 ===
 		result1to0, err := c.web3Client.QuoteExactInputSingle(
-			pair.Dex.QuoterAddress,
+			pair.Exchange.QuoterAddress,
 			pair.Token1.Address,
 			pair.Token0.Address,
 			amount,
-			pair.Dex.FeeTier,
+			pair.Exchange.FeeTier,
 		)
 
 		if err == nil && result1to0.AmountOut.Sign() > 0 {
@@ -205,3 +205,4 @@ func pow10(n int) float64 {
 	}
 	return result
 }
+

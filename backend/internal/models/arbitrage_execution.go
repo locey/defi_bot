@@ -38,3 +38,6 @@ type ArbitrageExecution struct {
 func (ArbitrageExecution) TableName() string {
 	return "arbitrage_executions"
 }
+
+
+

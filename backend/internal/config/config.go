@@ -13,7 +13,9 @@ type Config struct {
 	Database   DatabaseConfig   `mapstructure:"database"`
 	Blockchain BlockchainConfig `mapstructure:"blockchain"`
 	Contracts  ContractsConfig  `mapstructure:"contracts"`
+	Keeper     KeeperConfig     `mapstructure:"keeper"` // ← 新增: Keeper 配置
 	Dexes      []DexConfig      `mapstructure:"dexes"`
+	Cex        CexConfig        `mapstructure:"cex"` // CEX 配置
 	Tokens     []TokenConfig    `mapstructure:"tokens"`
 	Scheduler  SchedulerConfig  `mapstructure:"scheduler"`
 	Arbitrage  ArbitrageConfig  `mapstructure:"arbitrage"`
@@ -52,6 +54,12 @@ type ContractsConfig struct {
 	ConfigManager string `mapstructure:"config_manager"`
 }
 
+// KeeperConfig Keeper 配置
+type KeeperConfig struct {
+	PrivateKey string `mapstructure:"private_key"` // Keeper 私钥（用于签名交易）
+	Address    string `mapstructure:"address"`     // Keeper 地址
+}
+
 // DexConfig DEX 配置
 type DexConfig struct {
 	Name             string `mapstructure:"name"`
@@ -80,9 +88,10 @@ type TokenConfig struct {
 
 // SchedulerConfig 定时任务配置
 type SchedulerConfig struct {
-	CollectInterval int `mapstructure:"collect_interval"`
-	AnalyzeInterval int `mapstructure:"analyze_interval"`
-	CleanupInterval int `mapstructure:"cleanup_interval"`
+	CollectInterval int     `mapstructure:"collect_interval"`
+	AnalyzeInterval int     `mapstructure:"analyze_interval"`
+	CleanupInterval int     `mapstructure:"cleanup_interval"`
+	MinProfitRate   float64 `mapstructure:"min_profit_rate"` // ← 新增: 最小利润率阈值
 }
 
 // ArbitrageConfig 套利配置
@@ -115,6 +124,23 @@ type RedisConfig struct {
 	Password string `mapstructure:"password"`
 	DB       int    `mapstructure:"db"`
 	TTL      int    `mapstructure:"ttl"` // 默认过期时间（秒）
+}
+
+// CexConfig CEX 配置
+type CexConfig struct {
+	Enabled bool          `mapstructure:"enabled"` // 是否启用 CEX 采集
+	Binance BinanceConfig `mapstructure:"binance"` // 币安配置
+}
+
+// BinanceConfig 币安配置
+type BinanceConfig struct {
+	Enabled     bool     `mapstructure:"enabled"`       // 是否启用币安
+	APIEndpoint string   `mapstructure:"api_endpoint"`  // API 地址
+	WSEndpoint  string   `mapstructure:"ws_endpoint"`   // WebSocket 地址
+	APIKey      string   `mapstructure:"api_key"`       // API Key（可选，读取公开数据不需要）
+	APISecret   string   `mapstructure:"api_secret"`    // API Secret（可选）
+	RateLimit   int      `mapstructure:"rate_limit"`    // 每分钟请求限制
+	Symbols     []string `mapstructure:"symbols"`       // 要采集的交易对符号列表
 }
 
 var globalConfig *Config

@@ -20,7 +20,8 @@ func main() {
 
 	fmt.Println("========================================")
 	fmt.Println("🧪 DeFi Bot 综合测试工具")
-	fmt.Println("========================================\n")
+	fmt.Println("========================================")
+	fmt.Println()
 
 	// 1. 加载配置
 	fmt.Println("📋 步骤 1/7: 加载配置...")
@@ -29,7 +30,8 @@ func main() {
 		fmt.Printf("❌ 失败: %v\n", err)
 		return
 	}
-	fmt.Printf("✅ 成功: 配置文件已加载\n\n")
+	fmt.Printf("✅ 成功: 配置文件已加载\n")
+	fmt.Println()
 
 	// 2. 测试数据库连接
 	fmt.Println("📋 步骤 2/7: 测试数据库连接...")
@@ -40,7 +42,8 @@ func main() {
 	defer database.CloseDB()
 	db := database.GetDB()
 	db.Logger = db.Logger.LogMode(1) // Silent mode
-	fmt.Printf("✅ 成功: 数据库连接正常\n\n")
+	fmt.Printf("✅ 成功: 数据库连接正常\n")
+	fmt.Println()
 
 	// 3. 验证所有表都存在
 	fmt.Println("📋 步骤 3/7: 验证数据库表...")
@@ -90,7 +93,8 @@ func main() {
 		fmt.Printf("❌ 失败: %v\n", err)
 		return
 	}
-	fmt.Printf("✅ 成功: 当前区块号 %d\n\n", blockNumber)
+	fmt.Printf("✅ 成功: 当前区块号 %d\n", blockNumber)
+	fmt.Println()
 
 	// 6. 测试协议工厂
 	fmt.Println("📋 步骤 6/7: 测试协议工厂...")
@@ -172,3 +176,5 @@ func min(a, b int) int {
 	}
 	return b
 }
+
+

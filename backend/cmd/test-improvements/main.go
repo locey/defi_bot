@@ -21,7 +21,8 @@ func main() {
 
 	fmt.Println("========================================")
 	fmt.Println("🧪 改进功能测试工具")
-	fmt.Println("========================================\n")
+	fmt.Println("========================================")
+	fmt.Println()
 
 	// 1. 加载配置
 	fmt.Println("📋 步骤 1/5: 加载配置...")
@@ -30,7 +31,8 @@ func main() {
 		fmt.Printf("❌ 失败: %v\n", err)
 		return
 	}
-	fmt.Println("✅ 成功\n")
+	fmt.Println("✅ 成功")
+	fmt.Println()
 
 	// 2. 初始化数据库
 	fmt.Println("📋 步骤 2/5: 初始化数据库...")
@@ -41,7 +43,8 @@ func main() {
 	defer database.CloseDB()
 	db := database.GetDB()
 	db.Logger = db.Logger.LogMode(1)
-	fmt.Println("✅ 成功\n")
+	fmt.Println("✅ 成功")
+	fmt.Println()
 
 	// 3. 初始化 Web3 客户端
 	fmt.Println("📋 步骤 3/5: 初始化 Web3 客户端...")
@@ -55,14 +58,15 @@ func main() {
 		return
 	}
 	defer client.Close()
-	fmt.Println("✅ 成功\n")
+	fmt.Println("✅ 成功")
+	fmt.Println()
 
 	// 4. 测试 V3 深度采集
 	fmt.Println("========================================")
 	fmt.Println("🔬 测试 1: V3 流动性深度采集")
 	fmt.Println("========================================")
 
-	col := collector.NewCollector(client, nil)
+	col := collector.NewCollector(client, nil, nil)
 
 	fmt.Println("开始采集V3深度数据...")
 	if err := col.CollectV3Depths(); err != nil {
@@ -221,3 +225,5 @@ func getStatusEmoji(success bool) string {
 	}
 	return "待采集"
 }
+
+

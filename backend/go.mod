@@ -4,8 +4,10 @@ go 1.21
 
 require (
 	github.com/ethereum/go-ethereum v1.13.8
+	github.com/gorilla/websocket v1.5.0
 	github.com/redis/go-redis/v9 v9.17.2
 	github.com/robfig/cron/v3 v3.0.1
+	github.com/shopspring/decimal v1.4.0
 	github.com/spf13/viper v1.18.2
 	gorm.io/driver/postgres v1.5.4
 	gorm.io/gorm v1.25.5
@@ -27,7 +29,6 @@ require (
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/google/uuid v1.5.0 // indirect
-	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/holiman/uint256 v1.2.4 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
