@@ -1,0 +1,235 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "MockConfigManager",
+  "sourceName": "contracts/mock/MockConfigManager.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "owner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnableInvalidOwner",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "OwnableUnauthorizedAccount",
+      "type": "error"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "previousOwner",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnershipTransferred",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "depositFee",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "getDepositFee",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "getPlatFormFee",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "getWithDrawFee",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "platFormFee",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "profitShareFee",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "renounceOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_deposit",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_withdraw",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_performance",
+          "type": "uint256"
+        }
+      ],
+      "name": "setDefaultFees",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "feeBps",
+          "type": "uint256"
+        }
+      ],
+      "name": "setProfitShareFee",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "transferOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "withDrawFee",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x60808060405234608957331560735760008054336001600160a01b0319821681178355916001600160a01b03909116907f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e09080a360646001556000600255600a60035560646004556103f0908161008f8239f35b631e4fbdf760e01b600052600060045260246000fd5b600080fdfe608080604052600436101561001357600080fd5b60003560e01c9081631af1922d146103765750806343bd410814610303578063537c121f146102a157806367a5279314610283578063715018a61461022a5780637cf96844146101fa5780638da5cb5b146101d15780639f44f8ce146101a1578063de0d3e7714610171578063ec2a574014610153578063eea5bf4b146101355763f2fde38b146100a357600080fd5b34610130576020366003190112610130576004356001600160a01b03811690819003610130576100d1610391565b801561011a57600080546001600160a01b03198116831782556001600160a01b0316907f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e09080a3005b631e4fbdf760e01b600052600060045260246000fd5b600080fd5b34610130576000366003190112610130576020600354604051908152f35b34610130576000366003190112610130576020600454604051908152f35b34610130576020366003190112610130576004356001600160a01b03811603610130576020600254604051908152f35b34610130576020366003190112610130576004356001600160a01b03811603610130576020600354604051908152f35b34610130576000366003190112610130576000546040516001600160a01b039091168152602090f35b34610130576020366003190112610130576004356001600160a01b03811603610130576020600454604051908152f35b3461013057600036600319011261013057610243610391565b600080546001600160a01b0319811682556001600160a01b03167f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e08280a3005b34610130576000366003190112610130576020600254604051908152f35b34610130576020366003190112610130576004356102bd610391565b6127108110156102cc57600155005b60405162461bcd60e51b815260206004820152600f60248201526e0cccaca84e0e640e8dede40d0d2ced608b1b6044820152606490fd5b346101305760603660031901126101305760443561031f610391565b61271081101561033a57600435600255602435600355600155005b60405162461bcd60e51b81526020600482015260146024820152730e0cae4ccdee4dac2dcc6ca40e8dede40d0d2ced60631b6044820152606490fd5b34610130576000366003190112610130576020906001548152f35b6000546001600160a01b031633036103a557565b63118cdaa760e01b6000523360045260246000fdfea2646970667358221220d2511250ba97fefd2b270b4df11ba85b36167e48ecce8dd63963ca96cda7dc5464736f6c634300081c0033",
+  "deployedBytecode": "0x608080604052600436101561001357600080fd5b60003560e01c9081631af1922d146103765750806343bd410814610303578063537c121f146102a157806367a5279314610283578063715018a61461022a5780637cf96844146101fa5780638da5cb5b146101d15780639f44f8ce146101a1578063de0d3e7714610171578063ec2a574014610153578063eea5bf4b146101355763f2fde38b146100a357600080fd5b34610130576020366003190112610130576004356001600160a01b03811690819003610130576100d1610391565b801561011a57600080546001600160a01b03198116831782556001600160a01b0316907f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e09080a3005b631e4fbdf760e01b600052600060045260246000fd5b600080fd5b34610130576000366003190112610130576020600354604051908152f35b34610130576000366003190112610130576020600454604051908152f35b34610130576020366003190112610130576004356001600160a01b03811603610130576020600254604051908152f35b34610130576020366003190112610130576004356001600160a01b03811603610130576020600354604051908152f35b34610130576000366003190112610130576000546040516001600160a01b039091168152602090f35b34610130576020366003190112610130576004356001600160a01b03811603610130576020600454604051908152f35b3461013057600036600319011261013057610243610391565b600080546001600160a01b0319811682556001600160a01b03167f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e08280a3005b34610130576000366003190112610130576020600254604051908152f35b34610130576020366003190112610130576004356102bd610391565b6127108110156102cc57600155005b60405162461bcd60e51b815260206004820152600f60248201526e0cccaca84e0e640e8dede40d0d2ced608b1b6044820152606490fd5b346101305760603660031901126101305760443561031f610391565b61271081101561033a57600435600255602435600355600155005b60405162461bcd60e51b81526020600482015260146024820152730e0cae4ccdee4dac2dcc6ca40e8dede40d0d2ced60631b6044820152606490fd5b34610130576000366003190112610130576020906001548152f35b6000546001600160a01b031633036103a557565b63118cdaa760e01b6000523360045260246000fdfea2646970667358221220d2511250ba97fefd2b270b4df11ba85b36167e48ecce8dd63963ca96cda7dc5464736f6c634300081c0033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

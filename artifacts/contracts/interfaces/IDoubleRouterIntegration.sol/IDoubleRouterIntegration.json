@@ -1,0 +1,132 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IDoubleRouterIntegration",
+  "sourceName": "contracts/interfaces/IDoubleRouterIntegration.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "amountIn",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address[]",
+          "name": "path",
+          "type": "address[]"
+        },
+        {
+          "internalType": "address[]",
+          "name": "routers",
+          "type": "address[]"
+        }
+      ],
+      "name": "doubleRouterArbCheck",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "profitable",
+          "type": "bool"
+        },
+        {
+          "internalType": "uint256",
+          "name": "finalAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "int256",
+          "name": "profit",
+          "type": "int256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "routerA",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "routerB",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amountIn",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address[]",
+          "name": "pathA",
+          "type": "address[]"
+        },
+        {
+          "internalType": "address[]",
+          "name": "pathB",
+          "type": "address[]"
+        },
+        {
+          "internalType": "uint256",
+          "name": "minProfit",
+          "type": "uint256"
+        }
+      ],
+      "name": "doubleRouterSwap",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "spot",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "tokenIn",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "tokenOut",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amountIn",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address[]",
+          "name": "swapPath",
+          "type": "address[]"
+        },
+        {
+          "internalType": "address[]",
+          "name": "dexes",
+          "type": "address[]"
+        }
+      ],
+      "name": "doubleRouterSwap2",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "amountOut",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

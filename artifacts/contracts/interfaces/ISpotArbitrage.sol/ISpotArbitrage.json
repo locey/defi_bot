@@ -1,0 +1,55 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "ISpotArbitrage",
+  "sourceName": "contracts/interfaces/ISpotArbitrage.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "tokenOut",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amountIn",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address[]",
+          "name": "swapPath",
+          "type": "address[]"
+        },
+        {
+          "internalType": "address[]",
+          "name": "dexes",
+          "type": "address[]"
+        },
+        {
+          "internalType": "uint256",
+          "name": "minProfit",
+          "type": "uint256"
+        }
+      ],
+      "name": "executeSwaps",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "amountOut",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

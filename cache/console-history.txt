@@ -1,0 +1,20 @@
+console.log("钱包代币余额：", ethers.utils.formatEther(balance));
+console.log("钱包代币余额：", ethers.formatEther(balance)); // 应该显示100
+const balance = await token.balanceOf("0xcd3B766CCDd6AE721141F452C550Ca635964ce71");
+await token.mint("0xcd3B766CCDd6AE721141F452C550Ca635964ce71", ethers.utils.parseEther("100000"));
+await token.mint("0xcd3B766CCDd6AE721141F452C550Ca635964ce71", ethers.parseEther("100"));
+const token = await ethers.getContractAt("MockERC20", "0x5FbDB2315678afecb367f032d93F642f64180aa3");
+await vault.deposit(ethers.utils.parseEther("1"), deployer.address);
+await weth.approve(vault.address, ethers.utils.parseEther("100")); 
+await vault.deposit(ethers.parseEther("1"), deployer.address); 
+console.log("💸 执行 deposit...");
+console.log("Vault 绑定的 WETH 地址：", assetAddr); 
+const assetAddr = await vault.assetAddress();
+console.log("Vault 合约名称：", await vault.name()); 
+await weth.approve(vault.address, ethers.parseEther("100"));
+console.log("🔑 授权 WETH 给 Vault...");
+const [deployer] = await ethers.getSigners("0xcd3B766CCDd6AE721141F452C550Ca635964ce71");
+const weth = WETH.attach("0x5FbDB2315678afecb367f032d93F642f64180aa3"); 
+const WETH = await ethers.getContractFactory("MockERC20");
+const vault = Vault.attach("0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9");
+const Vault = await ethers.getContractFactory("ArbitrageVault");

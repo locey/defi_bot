@@ -34,7 +34,7 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
     address public platFormWallet;
     address public backCaller;              //后端
     address[] public supportAssets;
-
+    bool public paused;
 
     //金库地址
     mapping(address => IArbitrageVault) public vaults;
@@ -63,6 +63,11 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
 
     modifier onlybackCaller() {
         require(msg.sender == backCaller || msg.sender == owner(), "Only back or owner can call");
+        _;
+    }
+
+    modifier whenNotPaused() {
+        require(!paused, "Arbitrage Contract is paused");
         _;
     }
 
@@ -108,6 +113,10 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
         supportAssets.push(asset);
 
         emit VaultAdd(asset, vault);
+    }
+
+    function setPaused(bool _paused) external onlyOwner {
+        paused = _paused;
     }
 
     //金库函数：获取金库信息
