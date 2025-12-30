@@ -1,0 +1,46 @@
+# 编译生成的二进制文件
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# 测试脚本（不提交）
+scripts/
+
+# 日志文件（保留目录结构，忽略内容）
+logs/*
+!logs/.gitkeep
+
+# 环境变量配置（包含敏感信息）
+.env
+
+# Go 相关
+*.test
+*.out
+vendor/
+
+# IDE 相关
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS 相关
+.DS_Store
+Thumbs.db
+
+# 临时文件
+tmp/
+temp/
+*.tmp
+
+# 数据库备份
+*.sql
+backup_*.sql
+
+# Docker 数据卷（通过 docker-compose 管理）
+postgres_data/
+redis_data/
+pgadmin_data/
