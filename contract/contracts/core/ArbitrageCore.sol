@@ -115,9 +115,6 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
         emit VaultAdd(asset, vault);
     }
 
-    function setPaused(bool _paused) external onlyOwner {
-        paused = _paused;
-    }
 
     //金库函数：获取金库信息
     function getVaultInfo(
@@ -135,6 +132,10 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
             vault.totalAssets(),
             vault.getAvailableForArbitrage()
         );
+    }
+
+    function setPaused(bool _paused) external onlyOwner {
+        paused = _paused;
     }
 
     //核心函数：实现套利的调用，并对盈利&分润计算
@@ -159,7 +160,7 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
     function executeStrategy(
         StrategyTypes strategyTypes,
         IArbitrage.ArbitrageParams calldata params
-    ) external nonReentrant onlybackCaller {
+    ) external nonReentrant whenNotPaused onlybackCaller {
         if (strategyTypes == StrategyTypes.OWN_FUNDS ) {
             _executedVaultArbitrage(params);
         } else if (strategyTypes == StrategyTypes.FLASH_LOAN) {
