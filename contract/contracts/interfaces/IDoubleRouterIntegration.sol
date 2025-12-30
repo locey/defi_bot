@@ -15,18 +15,8 @@ interface IDoubleRouterIntegration {
         uint finalAmount,
         int profit
     );
-    
-    function doubleRouterSwap(
-        address routerA,
-        address routerB,
-        uint256 amountIn,
-        address[] calldata pathA,
-        address[] calldata pathB,
-        uint256 expectProfit,
-        uint256 minProfit
-    ) external;
 
-    function doubleRouterSwap2(
+    function doubleRouterSwap(
         address spot,
         address tokenIn,
         address tokenOut,

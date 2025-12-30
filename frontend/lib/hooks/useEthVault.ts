@@ -46,6 +46,8 @@ export function useEthVault(
   const [totalProfit, setTotalProfit] = useState<number>(0);
   const [apy, setApy] = useState<number>(0);
   const [walletEth, setWalletEth] = useState<number>(0);
+  const [isPaused, setIsPaused] = useState<boolean>(false);
+  const [isOwner, setIsOwner] = useState<boolean>(false);
   const owner: Address | undefined = useMemo(() => {
     const acc = (walletClient as any)?.account;
     const addr = acc?.address ?? acc;
@@ -191,7 +193,7 @@ export function useEthVault(
     if (!publicClient || !owner) return;
     try {
       if (vaultAddress) {
-        const [principalWei, assetsWei] = await Promise.all([
+        const [principalWei, assetsWei, pausedState, contractOwner] = await Promise.all([
           publicClient.readContract({
             address: vaultAddress,
             abi: ArbitrageVaultABI as Abi,
@@ -204,11 +206,23 @@ export function useEthVault(
             functionName: "assetsOf",
             args: [owner],
           }) as Promise<bigint>,
+          publicClient.readContract({
+            address: vaultAddress,
+            abi: ArbitrageVaultABI as Abi,
+            functionName: "paused",
+          }) as Promise<boolean>,
+          publicClient.readContract({
+            address: vaultAddress,
+            abi: ArbitrageVaultABI as Abi,
+            functionName: "owner",
+          }) as Promise<Address>,
         ]);
         const p = parseFloat(formatUnits(principalWei as bigint, assetDecimals));
         const c = parseFloat(formatUnits(assetsWei as bigint, assetDecimals));
         setPrincipal(p);
         setCurrentAssets(c);
+        setIsPaused(pausedState);
+        setIsOwner(contractOwner.toLowerCase() === owner.toLowerCase());
         
         // 计算收益总额：当前资产 - 本金
         const profit = c - p;
@@ -228,11 +242,37 @@ export function useEthVault(
     } catch {}
   }, [publicClient, owner, vaultAddress, assetDecimals]);
 
+  const setPaused = useCallback(async (shouldPause: boolean): Promise<TxResult> => {
+    if (!walletClient || !publicClient || !chain) throw new Error("钱包未连接");
+    setLoading(true);
+    setError(null);
+    try {
+      const owner = ((walletClient as any).account?.address ?? (walletClient as any).account) as Address;
+      const { request } = await publicClient.simulateContract({
+        address: vaultAddress,
+        abi: ArbitrageVaultABI as Abi,
+        functionName: "setPaused",
+        args: [shouldPause],
+        chain: chain as Chain,
+        account: owner,
+      } as any);
+      const hash = await walletClient.writeContract(request);
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      setLoading(false);
+      refreshStats(); // 刷新状态
+      return { hash, receipt };
+    } catch (e: any) {
+      setLoading(false);
+      setError(e?.message || String(e));
+      throw e;
+    }
+  }, [walletClient, publicClient, chain, vaultAddress, refreshStats]);
+
   useEffect(() => {
     refreshStats();
     const id = setInterval(refreshStats, 5000);
     return () => clearInterval(id);
   }, [refreshStats]);
 
-  return { deposit, withdraw, loading, error, principal, currentAssets, totalProfit, apy, walletEth, refreshStats };
+  return { deposit, withdraw, loading, error, principal, currentAssets, totalProfit, apy, walletEth, refreshStats, isPaused, setPaused, isOwner };
 }
