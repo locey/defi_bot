@@ -18,13 +18,13 @@ database:
 # 区块链配置（Sepolia 测试网）
 blockchain:
   # 选项1：使用 Infura 公共端点（需要替换 YOUR_INFURA_KEY）
-  rpc_url: https://sepolia.infura.io/v3/3bbd17e943844442bd02357af9292ebe
+  # rpc_url: https://sepolia.infura.io/v3/3bbd17e943844442bd02357af9292ebe
   
   # 选项2：使用 Cloudflare 公共端点（无需 API Key，但有速率限制）
   # rpc_url: https://cloudflare-eth.com
   
-  # 选项3：使用 Ankr 公共端点（备用）
-  # rpc_url: https://rpc.ankr.com/eth_sepolia
+  # 选项3：使用公共 Sepolia RPC
+  rpc_url: https://ethereum-sepolia-rpc.publicnode.com
   
   chain_id: 11155111  # Sepolia 测试网
   timeout: 60  # 公共 RPC 可能较慢，增加超时时间
