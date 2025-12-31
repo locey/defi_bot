@@ -33,6 +33,7 @@ contract ConfigManage is IConfigManager, Initializable, OwnableUpgradeable, UUPS
     address public uniswapV3Router;
     address public sushiSwapRouter;
     address public arbitrageVault;
+    address public uniswapV3Quoter;
 
     event Upgrade(address indexed implemetation, uint256 version);
     event DepositFeeUpdated(uint256 newFee);
@@ -49,7 +50,8 @@ contract ConfigManage is IConfigManager, Initializable, OwnableUpgradeable, UUPS
         address _uniswapV2Router,
         address _uniswapV3Router,
         address _sushiSwapRouter,
-        address _arbitrageVault
+        address _arbitrageVault,
+        address _uniswapV3Quoter
     ) public initializer {
         __Ownable_init(msg.sender);
         __UUPSUpgradeable_init();
@@ -64,6 +66,7 @@ contract ConfigManage is IConfigManager, Initializable, OwnableUpgradeable, UUPS
         uniswapV3Router = _uniswapV3Router;
         sushiSwapRouter = _sushiSwapRouter;
         arbitrageVault = _arbitrageVault;
+        uniswapV3Quoter = _uniswapV3Quoter;
         version = 1;
         // 默认滑点300（3%）
         slippageTolerance = 300;

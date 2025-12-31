@@ -2,8 +2,8 @@
 pragma solidity ^0.8.20;
 
 import "../interfaces/ISpotArbitrage.sol";
-import "../interfaces/IDoubleRouterIntegration.sol";
-import "../interfaces/IUniswapV2Integration.sol";
+import "../integrations/DoubleRouterIntegration.sol";
+import "../integrations/UniswapV2Integration.sol";
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -12,18 +12,18 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 contract SpotArbitrage is ISpotArbitrage {
     using SafeERC20 for IERC20;
     address public immutable arbitrageCore;
-    IDoubleRouterIntegration private doubleRouterIntegration;
-    IUniswapV2Integration private uniswapV2Integration;
+    DoubleRouterIntegration private doubleRouterIntegration;
+    UniswapV2Integration private uniswapV2Integration;
 
     constructor(
         address _doubleRouterIntegration,
         address _uniswapV2Integration,
         address _arbitrageCore
     ) {
-        doubleRouterIntegration = IDoubleRouterIntegration(
+        doubleRouterIntegration = DoubleRouterIntegration(
             _doubleRouterIntegration
         );
-        uniswapV2Integration = IUniswapV2Integration(_uniswapV2Integration);
+        uniswapV2Integration = UniswapV2Integration(_uniswapV2Integration);
         arbitrageCore = _arbitrageCore;
     }
 
@@ -49,18 +49,18 @@ contract SpotArbitrage is ISpotArbitrage {
             IERC20(asset).balanceOf(address(arbitrageCore)) >= amountIn,
             "Spot: no received"
         );
-
+        DoubleRouterIntegration.DoubleRouterSwapParam memory param = DoubleRouterIntegration.DoubleRouterSwapParam({
+            spot: address(this),
+            tokenIn: asset,
+            tokenOut: tokenOut,
+            amountIn: amountIn,
+            swapPath: swapPath,
+            dexes: dexes,
+            expectProfit: expectProfit,
+            minProfit: minProfit
+        });
         // 执行套利操作
-        amountOut = doubleRouterIntegration.doubleRouterSwap(
-            address(this),
-            asset,
-            tokenOut,
-            amountIn,
-            swapPath,
-            dexes,
-            expectProfit,
-            minProfit
-        );
+        amountOut = doubleRouterIntegration.doubleRouterSwap(param);
 
         // 将结果转回 ArbitrageCore
         IERC20(asset).safeTransfer(address(arbitrageCore), amountOut);
