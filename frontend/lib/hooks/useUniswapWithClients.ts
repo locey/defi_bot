@@ -57,49 +57,49 @@ export const useUniswapWithClients = () => {
     if (!publicClient) {
       throw new Error('PublicClient 未初始化');
     }
-    return store.fetchPoolInfo(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs });
+    return store.fetchPoolInfo(publicClient as unknown as PublicClient & { getLogs: typeof publicClient.getLogs });
   }, [publicClient, store.fetchPoolInfo]);
 
   const fetchUserBalance = useCallback(async () => {
     if (!publicClient || !address) {
       throw new Error('PublicClient 未初始化或钱包未连接');
     }
-    return store.fetchUserBalance(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
+    return store.fetchUserBalance(publicClient as unknown as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
   }, [publicClient, store.fetchUserBalance, address]);
 
   const fetchUserPositions = useCallback(async () => {
     if (!publicClient || !address) {
       throw new Error('PublicClient 未初始化或钱包未连接');
     }
-    return store.fetchUserPositions(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
+    return store.fetchUserPositions(publicClient as unknown as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
   }, [publicClient, store.fetchUserPositions, address]);
 
   const fetchUserUSDTBalance = useCallback(async () => {
     if (!publicClient || !address) {
       throw new Error('PublicClient 未初始化或钱包未连接');
     }
-    return store.fetchUserUSDTBalance(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
+    return store.fetchUserUSDTBalance(publicClient as unknown as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
   }, [publicClient, store.fetchUserUSDTBalance, address]);
 
   const fetchUserWETHBalance = useCallback(async () => {
     if (!publicClient || !address) {
       throw new Error('PublicClient 未初始化或钱包未连接');
     }
-    return store.fetchUserWETHBalance(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
+    return store.fetchUserWETHBalance(publicClient as unknown as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
   }, [publicClient, store.fetchUserWETHBalance, address]);
 
   const fetchAllowances = useCallback(async () => {
     if (!publicClient || !address) {
       throw new Error('PublicClient 未初始化或钱包未连接');
     }
-    return store.fetchAllowances(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
+    return store.fetchAllowances(publicClient as unknown as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
   }, [publicClient, store.fetchAllowances, address]);
 
   const fetchFeeRate = useCallback(async () => {
     if (!publicClient) {
       throw new Error('PublicClient 未初始化');
     }
-    return store.fetchFeeRate(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs });
+    return store.fetchFeeRate(publicClient as unknown as PublicClient & { getLogs: typeof publicClient.getLogs });
   }, [publicClient, store.fetchFeeRate]);
 
   // 包装写入方法
@@ -136,8 +136,8 @@ export const useUniswapWithClients = () => {
     };
 
     return store.approveUSDT(
-      publicClient as PublicClient & { getLogs: typeof publicClient.getLogs },
-      wc as WalletClient,
+      publicClient as unknown as PublicClient & { getLogs: typeof publicClient.getLogs },
+      wc as unknown as WalletClient,
       chain,
       amountBigInt,
       address,
@@ -179,8 +179,8 @@ export const useUniswapWithClients = () => {
     };
 
     return store.approveWETH(
-      publicClient as PublicClient & { getLogs: typeof publicClient.getLogs },
-      wc as WalletClient,
+      publicClient as unknown as PublicClient & { getLogs: typeof publicClient.getLogs },
+      wc as unknown as WalletClient,
       chain,
       amountBigInt,
       address,
@@ -220,8 +220,8 @@ export const useUniswapWithClients = () => {
     };
 
     return store.approveNFT(
-      publicClient as PublicClient & { getLogs: typeof publicClient.getLogs },
-      wc as WalletClient,
+      publicClient as unknown as PublicClient & { getLogs: typeof publicClient.getLogs },
+      wc as unknown as WalletClient,
       chain,
       tokenId,
       address,
@@ -260,8 +260,8 @@ export const useUniswapWithClients = () => {
     };
 
     return store.approveAllNFT(
-      publicClient as PublicClient & { getLogs: typeof publicClient.getLogs },
-      wc as WalletClient,
+      publicClient as unknown as PublicClient & { getLogs: typeof publicClient.getLogs },
+      wc as unknown as WalletClient,
       chain,
       address,
       address,
@@ -311,8 +311,8 @@ export const useUniswapWithClients = () => {
     };
 
     return store.addLiquidity(
-      publicClient as PublicClient & { getLogs: typeof publicClient.getLogs },
-      wc as WalletClient,
+      publicClient as unknown as PublicClient & { getLogs: typeof publicClient.getLogs },
+      wc as unknown as WalletClient,
       chain,
       {
         ...params,
@@ -358,8 +358,8 @@ export const useUniswapWithClients = () => {
     };
 
     return store.removeLiquidity(
-      publicClient as PublicClient & { getLogs: typeof publicClient.getLogs },
-      wc as WalletClient,
+      publicClient as unknown as PublicClient & { getLogs: typeof publicClient.getLogs },
+      wc as unknown as WalletClient,
       chain,
       {
         ...params,
@@ -405,8 +405,8 @@ export const useUniswapWithClients = () => {
     };
 
     return store.collectFees(
-      publicClient as PublicClient & { getLogs: typeof publicClient.getLogs },
-      wc as WalletClient,
+      publicClient as unknown as PublicClient & { getLogs: typeof publicClient.getLogs },
+      wc as unknown as WalletClient,
       chain,
       {
         ...params,

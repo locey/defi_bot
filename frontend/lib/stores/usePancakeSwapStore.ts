@@ -20,7 +20,7 @@ import MockPancakeRouterABI from '@/lib/abi/MockPancakeRouter.json';
 import PancakeDeploymentInfo from '@/lib/abi/deployments-pancake-adapter-sepolia.json';
 
 // 导入 USDT 地址配置，与其他模块保持一致
-import { getContractAddresses } from "@/app/pool/page";
+import { getContractAddresses } from "@/lib/utils/contracts";
 const { USDT_ADDRESS } = getContractAddresses() as { USDT_ADDRESS: Address };
 
 // ==================== 类型定义 ====================

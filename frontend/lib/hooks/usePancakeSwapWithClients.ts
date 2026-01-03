@@ -25,7 +25,7 @@ import MockERC20ABI from '@/lib/abi/MockERC20.json';
 import MockPancakeRouterABI from '@/lib/abi/MockPancakeRouter.json';
 
 // 导入 USDT 地址配置，与其他模块保持一致
-import { getContractAddresses } from "@/app/pool/page";
+import { getContractAddresses } from "@/lib/utils/contracts";
 const { USDT_ADDRESS } = getContractAddresses() as { USDT_ADDRESS: Address };
 
 // 类型化 ABI
@@ -75,7 +75,7 @@ export const usePancakeSwapWithClients = () => {
     if (!publicClient || !address) {
       throw new Error('PublicClient 未初始化或钱包未连接');
     }
-    await store.fetchUserBalance(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
+    await store.fetchUserBalance(publicClient as unknown as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
   }, [publicClient, address]);
 
   // 获取授权信息（包含客户端） - 直接使用 store
@@ -83,7 +83,7 @@ export const usePancakeSwapWithClients = () => {
     if (!publicClient || !address) {
       throw new Error('PublicClient 未初始化或钱包未连接');
     }
-    await store.fetchAllowances(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
+    await store.fetchAllowances(publicClient as unknown as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
   }, [publicClient, address]);
 
   // 获取汇率信息（包含客户端） - 直接使用 store
@@ -91,7 +91,7 @@ export const usePancakeSwapWithClients = () => {
     if (!publicClient) {
       throw new Error('PublicClient 未初始化');
     }
-    await store.fetchExchangeRate(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs }, tokenIn, tokenOut);
+    await store.fetchExchangeRate(publicClient as unknown as PublicClient & { getLogs: typeof publicClient.getLogs }, tokenIn, tokenOut);
   }, [publicClient]);
 
   // 预估交换

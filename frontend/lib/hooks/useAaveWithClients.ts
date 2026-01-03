@@ -55,42 +55,42 @@ export const useAaveWithClients = () => {
     if (!publicClient) {
       throw new Error('PublicClient 未初始化');
     }
-    return store.fetchPoolInfo(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs });
+    return store.fetchPoolInfo(publicClient as unknown as unknown as PublicClient & { getLogs: typeof publicClient.getLogs });
   }, [publicClient, store.fetchPoolInfo]);
 
   const fetchUserBalance = useCallback(async () => {
     if (!publicClient || !address) {
       throw new Error('PublicClient 未初始化或钱包未连接');
     }
-    return store.fetchUserBalance(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
+    return store.fetchUserBalance(publicClient as unknown as unknown as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
   }, [publicClient, store.fetchUserBalance, address]);
 
   const fetchUserUSDTBalance = useCallback(async () => {
     if (!publicClient || !address) {
       throw new Error('PublicClient 未初始化或钱包未连接');
     }
-    return store.fetchUserUSDTBalance(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
+    return store.fetchUserUSDTBalance(publicClient as unknown as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
   }, [publicClient, store.fetchUserUSDTBalance, address]);
 
   const fetchUserAUSDTBalance = useCallback(async () => {
     if (!publicClient || !address) {
       throw new Error('PublicClient 未初始化或钱包未连接');
     }
-    return store.fetchUserAUSDTBalance(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
+    return store.fetchUserAUSDTBalance(publicClient as unknown as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
   }, [publicClient, store.fetchUserAUSDTBalance, address]);
 
   const fetchAllowances = useCallback(async () => {
     if (!publicClient || !address) {
       throw new Error('PublicClient 未初始化或钱包未连接');
     }
-    return store.fetchAllowances(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
+    return store.fetchAllowances(publicClient as unknown as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
   }, [publicClient, store.fetchAllowances, address]);
 
   const fetchFeeRate = useCallback(async () => {
     if (!publicClient) {
       throw new Error('PublicClient 未初始化');
     }
-    return store.fetchFeeRate(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs });
+    return store.fetchFeeRate(publicClient as unknown as PublicClient & { getLogs: typeof publicClient.getLogs });
   }, [publicClient, store.fetchFeeRate]);
 
   // 包装写入方法
@@ -127,8 +127,8 @@ export const useAaveWithClients = () => {
     };
 
     return store.approveUSDT(
-      publicClient as PublicClient & { getLogs: typeof publicClient.getLogs },
-      wc as WalletClient,
+      publicClient as unknown as PublicClient & { getLogs: typeof publicClient.getLogs },
+      wc as unknown as WalletClient,
       chain,
       amountBigInt,
       address,
@@ -170,8 +170,8 @@ export const useAaveWithClients = () => {
     };
 
     return store.approveAUSDT(
-      publicClient as PublicClient & { getLogs: typeof publicClient.getLogs },
-      wc as WalletClient,
+      publicClient as unknown as PublicClient & { getLogs: typeof publicClient.getLogs },
+      wc as unknown as WalletClient,
       chain,
       amountBigInt,
       address,
@@ -212,8 +212,8 @@ export const useAaveWithClients = () => {
     };
 
     return store.supplyUSDT(
-      publicClient as PublicClient & { getLogs: typeof publicClient.getLogs },
-      wc as WalletClient,
+      publicClient as unknown as PublicClient & { getLogs: typeof publicClient.getLogs },
+      wc as unknown as WalletClient,
       chain,
       amountBigInt,
       address,
@@ -254,8 +254,8 @@ export const useAaveWithClients = () => {
     };
 
     return store.withdrawUSDT(
-      publicClient as PublicClient & { getLogs: typeof publicClient.getLogs },
-      wc as WalletClient,
+      publicClient as unknown as PublicClient & { getLogs: typeof publicClient.getLogs },
+      wc as unknown as WalletClient,
       chain,
       amountBigInt,
       address,
@@ -296,8 +296,8 @@ export const useAaveWithClients = () => {
     };
 
     return store.sellUSDT(
-      publicClient as PublicClient & { getLogs: typeof publicClient.getLogs },
-      wc as WalletClient,
+      publicClient as unknown as PublicClient & { getLogs: typeof publicClient.getLogs },
+      wc as unknown as WalletClient,
       chain,
       amountBigInt,
       address,

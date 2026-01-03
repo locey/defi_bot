@@ -17,17 +17,8 @@ import {
   formatMarketCap,
 } from "@/lib/utils/format";
 import useTokenFactoryStore from "@/lib/stores/useTokenFactoryStore";
-import { DEFAULT_CONFIG, getNetworkConfig } from "@/lib/contracts";
 import { TokenData } from "@/types/token";
-
-// 使用动态合约地址
-export function getContractAddresses() {
-  // 使用 Sepolia 测试网配置
-  return {
-    ORACLE_AGGREGATOR_ADDRESS: DEFAULT_CONFIG.contracts.oracleAggregator,
-    USDT_ADDRESS: DEFAULT_CONFIG.contracts.usdt,
-  };
-}
+import { getContractAddresses } from "@/lib/utils/contracts";
 
 const { ORACLE_AGGREGATOR_ADDRESS, USDT_ADDRESS } = getContractAddresses();
 

@@ -53,21 +53,21 @@ export const useCurveWithClients = () => {
     if (!publicClient) {
       throw new Error('PublicClient 未初始化');
     }
-    return store.fetchPoolInfo(publicClient as PublicClient);
+    return store.fetchPoolInfo(publicClient as unknown as PublicClient);
   }, [publicClient, store.fetchPoolInfo]);
 
   const fetchUserBalance = useCallback(async () => {
     if (!publicClient || !address) {
       throw new Error('PublicClient 未初始化或钱包未连接');
     }
-    return store.fetchUserBalance(publicClient as PublicClient, address);
+    return store.fetchUserBalance(publicClient as unknown as PublicClient, address);
   }, [publicClient, store.fetchUserBalance, address]);
 
   const fetchAllowances = useCallback(async () => {
     if (!publicClient || !address) {
       throw new Error('PublicClient 未初始化或钱包未连接');
     }
-    return store.fetchAllowances(publicClient as PublicClient, address);
+    return store.fetchAllowances(publicClient as unknown as PublicClient, address);
   }, [publicClient, store.fetchAllowances, address]);
 
   const previewAddLiquidity = useCallback(async (amounts: [string, string, string]) => {
@@ -82,7 +82,7 @@ export const useCurveWithClients = () => {
       parseUnits(amounts[2], 18),  // DAI 18位小数
     ];
 
-    return store.previewAddLiquidity(publicClient as PublicClient, bigintAmounts);
+    return store.previewAddLiquidity(publicClient as unknown as PublicClient, bigintAmounts);
   }, [publicClient, store.previewAddLiquidity]);
 
   const previewRemoveLiquidity = useCallback(async (lpAmount: string) => {
@@ -91,7 +91,7 @@ export const useCurveWithClients = () => {
     }
 
     const bigintAmount = parseUnits(lpAmount, 18); // LP Token 18位小数
-    return store.previewRemoveLiquidity(publicClient as PublicClient, bigintAmount);
+    return store.previewRemoveLiquidity(publicClient as unknown as PublicClient, bigintAmount);
   }, [publicClient, store.previewRemoveLiquidity]);
 
   // 包装授权方法
@@ -123,8 +123,8 @@ export const useCurveWithClients = () => {
     };
 
     return store.approveUSDC(
-      publicClient as PublicClient,
-      wc as WalletClient,
+      publicClient as unknown as PublicClient,
+      wc as unknown as WalletClient,
       chain,
       address,
       amountBigInt
@@ -159,8 +159,8 @@ export const useCurveWithClients = () => {
     };
 
     return store.approveUSDT(
-      publicClient as PublicClient,
-      wc as WalletClient,
+      publicClient as unknown as PublicClient,
+      wc as unknown as WalletClient,
       chain,
       address,
       amountBigInt
@@ -195,8 +195,8 @@ export const useCurveWithClients = () => {
     };
 
     return store.approveDAI(
-      publicClient as PublicClient,
-      wc as WalletClient,
+      publicClient as unknown as PublicClient,
+      wc as unknown as WalletClient,
       chain,
       address,
       amountBigInt
@@ -231,8 +231,8 @@ export const useCurveWithClients = () => {
     };
 
     return store.approveLPToken(
-      publicClient as PublicClient,
-      wc as WalletClient,
+      publicClient as unknown as PublicClient,
+      wc as unknown as WalletClient,
       chain,
       address,
       amountBigInt
@@ -270,8 +270,8 @@ export const useCurveWithClients = () => {
     };
 
     return store.addLiquidity(
-      publicClient as PublicClient,
-      wc as WalletClient,
+      publicClient as unknown as PublicClient,
+      wc as unknown as WalletClient,
       chain,
       address,
       {
@@ -311,8 +311,8 @@ export const useCurveWithClients = () => {
     };
 
     return store.removeLiquidity(
-      publicClient as PublicClient,
-      wc as WalletClient,
+      publicClient as unknown as PublicClient,
+      wc as unknown as WalletClient,
       chain,
       address,
       {

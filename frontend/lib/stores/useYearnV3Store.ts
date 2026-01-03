@@ -20,7 +20,7 @@ import MockYearnV3VaultABI from '@/lib/abi/MockYearnV3Vault.json';
 import YearnDeploymentInfo from '@/lib/abi/deployments-yearnv3-adapter-sepolia.json';
 
 // 导入 USDT 地址配置，与 Aave 保持一致
-import { getContractAddresses } from "@/app/pool/page";
+import { getContractAddresses } from "@/lib/utils/contracts";
 const { USDT_ADDRESS } = getContractAddresses() as { USDT_ADDRESS: Address };
 
 // ==================== 类型定义 ====================

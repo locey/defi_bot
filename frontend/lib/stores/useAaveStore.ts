@@ -16,7 +16,7 @@ import AaveAdapterABI from '@/lib/abi/AaveAdapter.json';
 import AaveDeploymentInfo from '@/lib/abi/deployments-aave-adapter-sepolia.json';
 
 // usdt 地址
-import {getContractAddresses} from "@/app/pool/page"
+import { getContractAddresses } from "@/lib/utils/contracts";
 
 // 获取合约地址
 const { USDT_ADDRESS } = getContractAddresses() as { USDT_ADDRESS: Address };

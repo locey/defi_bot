@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
+import apiClient, { Execution, StatsData, DailyStats } from "@/lib/api/client";
 
 export interface ArbitrageStats {
   // 投入资金
@@ -29,190 +30,194 @@ export interface RevenueFlow {
   timestamp: number;
   date: string;
   type: "arbitrage" | "lending" | "lp_fee" | "harvest";
-  protocol: string; // 'Aave', 'Uniswap', 'Curve', 'Compound'
-  strategy: string; // 交易所内套利、跨交易所套利、闪电贷套利
-  amount: number; // 收益金额（ETH）
-  profit: number; // 利润
-  profitRate: number; // 利润率
+  protocol: string;
+  strategy: string;
+  amount: number;
+  profit: number;
+  profitRate: number;
   txHash?: string;
   status: "success" | "pending" | "failed";
 }
 
-// 生成每日收益数据（直观展示）
-const generateDailyRevenueData = (): DailyRevenuePoint[] => {
-  const data: DailyRevenuePoint[] = [];
-  let cumulativeProfit = 0;
+// Convert API execution to RevenueFlow
+function executionToRevenueFlow(exec: Execution): RevenueFlow {
+  let protocol = "Unknown";
+  let strategy = "跨DEX套利";
 
-  // 使用正弦波模拟真实的收益波动（有高有低，但总体上升）
-  for (let i = 0; i < 30; i++) {
-    const date = new Date();
-    date.setDate(date.getDate() - (29 - i)); // 30天前到今天
-    const dateStr = date.toLocaleDateString("zh-CN", {
-      month: "short",
-      day: "numeric",
-    });
-
-    // 基础收益 + 波动 + 噪声
-    const baseDailyProfit = 0.0048; // 平均每天 0.0048 ETH
-    const waveFactor = Math.sin((i / 30) * Math.PI * 4) * 0.0015; // 波动因子
-    const noise = (Math.random() - 0.5) * 0.0008; // 噪声
-    const randomFactor = Math.random() > 0.2 ? 1 : 0.4; // 20% 的日子收益较低
-
-    let dailyProfit = (baseDailyProfit + waveFactor + noise) * randomFactor;
-    dailyProfit = Math.max(0.0001, dailyProfit); // 至少 0.0001 ETH
-
-    cumulativeProfit += dailyProfit;
-
-    data.push({
-      date: dateStr,
-      daily: dailyProfit,
-      cumulative: cumulativeProfit,
-    });
-  }
-
-  return data;
-};
-
-// Mock 数据生成
-const generateMockRevenueFlows = (
-  dailyData: DailyRevenuePoint[]
-): RevenueFlow[] => {
-  const now = Date.now();
-  const flows: RevenueFlow[] = [];
-
-  const strategies = [
-    {
-      type: "arbitrage" as const,
-      protocol: "Uniswap",
-      strategy: "交易所内套利",
-    },
-    { type: "arbitrage" as const, protocol: "Curve", strategy: "跨交易所套利" },
-    { type: "lending" as const, protocol: "Aave", strategy: "闪电贷套利" },
-    { type: "lp_fee" as const, protocol: "Uniswap", strategy: "LP 费用" },
-    { type: "harvest" as const, protocol: "Aave", strategy: "借贷收益" },
-    { type: "harvest" as const, protocol: "Compound", strategy: "借贷收益" },
-  ];
-
-  // 根据每日数据生成交易流水
-  for (let i = 0; i < 30; i++) {
-    const daysAgo = 29 - i;
-    const dayData = dailyData[i];
-
-    // 根据每日总收益，分成 3-5 笔交易
-    const txCount = Math.floor(Math.random() * 3) + 3;
-    let remainingProfit = dayData.daily;
-
-    for (let j = 0; j < txCount; j++) {
-      const strategy =
-        strategies[Math.floor(Math.random() * strategies.length)];
-
-      // 将当日收益分配到各笔交易
-      const profit =
-        j === txCount - 1
-          ? remainingProfit
-          : Math.random() * remainingProfit * 0.5;
-
-      remainingProfit -= profit;
-
-      const txTimestamp =
-        now -
-        daysAgo * 24 * 60 * 60 * 1000 -
-        Math.random() * 24 * 60 * 60 * 1000;
-
-      flows.push({
-        id: `flow-${i}-${j}`,
-        timestamp: txTimestamp,
-        date: dayData.date,
-        type: strategy.type,
-        protocol: strategy.protocol,
-        strategy: strategy.strategy,
-        amount: profit,
-        profit: profit,
-        profitRate: (profit / 1) * 100, // 相对于1ETH投入的收益率
-        txHash: `0x${Math.random().toString(16).substr(2, 64)}`,
-        status: Math.random() > 0.05 ? "success" : "pending",
-      });
+  try {
+    const dexPath = JSON.parse(exec.dex_path || "[]");
+    if (dexPath.length > 0) {
+      protocol = dexPath[0];
+      strategy = dexPath.length > 1 ? "跨DEX套利" : "交易所内套利";
     }
+  } catch {
+    // Keep defaults
   }
 
-  return flows.sort((a, b) => b.timestamp - a.timestamp);
-};
+  const timestamp = new Date(exec.timestamp).getTime();
+  const date = new Date(exec.timestamp).toLocaleDateString("zh-CN", {
+    month: "short",
+    day: "numeric",
+  });
 
-// 在模块级别生成一次数据（不在hook内部）
-let cachedDailyRevenueData: DailyRevenuePoint[] | null = null;
+  // Convert from wei to ETH (assuming 18 decimals)
+  const amountIn = parseFloat(exec.amount_in) / 1e18;
+  const profit = parseFloat(exec.actual_profit) / 1e18;
 
-const getCachedDailyRevenueData = (): DailyRevenuePoint[] => {
-  if (!cachedDailyRevenueData) {
-    cachedDailyRevenueData = generateDailyRevenueData();
-    console.log(
-      "✅ Generated dailyRevenueData:",
-      cachedDailyRevenueData.length,
-      "items"
-    );
+  return {
+    id: exec.id.toString(),
+    timestamp,
+    date,
+    type: "arbitrage",
+    protocol,
+    strategy,
+    amount: amountIn,
+    profit,
+    profitRate: exec.profit_rate,
+    txHash: exec.tx_hash,
+    status: exec.status as "success" | "pending" | "failed",
+  };
+}
+
+// Convert API daily stats to DailyRevenuePoint
+function dailyStatsToRevenuePoints(dailyStats: DailyStats[]): DailyRevenuePoint[] {
+  let cumulative = 0;
+  
+  return dailyStats
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .map((stat) => {
+      const daily = parseFloat(stat.profit) / 1e18;
+      cumulative += daily;
+      
+      return {
+        date: new Date(stat.date).toLocaleDateString("zh-CN", {
+          month: "short",
+          day: "numeric",
+        }),
+        daily,
+        cumulative,
+      };
+    });
+}
+
+// Calculate APY from stats
+function calculateAPY(stats: StatsData): number {
+  const profit24h = parseFloat(stats.last_24h_profit || "0") / 1e18;
+  const totalProfit = parseFloat(stats.total_profit || "0") / 1e18;
+  
+  // If we have 24h profit, use it to estimate APY
+  if (profit24h > 0) {
+    // Assume 1 ETH principal for calculation
+    return profit24h * 365 * 100;
   }
-  return cachedDailyRevenueData;
-};
+  
+  // Otherwise use total profit over 30 days
+  if (totalProfit > 0) {
+    return (totalProfit / 30) * 365 * 100;
+  }
+  
+  return 0;
+}
 
 export const useArbitrageStats = () => {
-  // 获取缓存的数据
-  const dailyRevenueData = getCachedDailyRevenueData();
-
-  // 初始化统计数据
-  const [stats, setStats] = useState<ArbitrageStats>(() => {
-    if (!dailyRevenueData || dailyRevenueData.length === 0) {
-      return {
-        principal: 1,
-        currentBalance: 1,
-        totalProfit: 0,
-        profitRate: 0,
-        profit24h: 0,
-        apy: 0,
-      };
-    }
-
-    const totalProfit =
-      dailyRevenueData[dailyRevenueData.length - 1]?.cumulative || 0;
-    const lastTwoDays = dailyRevenueData.slice(-2);
-    const profit24h = lastTwoDays[lastTwoDays.length - 1]?.daily || 0;
-
-    return {
-      principal: 1,
-      currentBalance: 1 + totalProfit,
-      totalProfit: totalProfit,
-      profitRate: (totalProfit / 1) * 100,
-      profit24h: profit24h,
-      apy: (totalProfit / 1) * (365 / 30) * 100,
-    };
+  const [stats, setStats] = useState<ArbitrageStats>({
+    principal: 0,
+    currentBalance: 0,
+    totalProfit: 0,
+    profitRate: 0,
+    profit24h: 0,
+    apy: 0,
   });
 
   const [revenueFlows, setRevenueFlows] = useState<RevenueFlow[]>([]);
+  const [dailyRevenueData, setDailyRevenueData] = useState<DailyRevenuePoint[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // 模拟获取数据
-  useEffect(() => {
-    setIsLoading(true);
-    // 模拟网络延迟
-    const timer = setTimeout(() => {
-      const flows = generateMockRevenueFlows(dailyRevenueData);
-      setRevenueFlows(flows);
+  // Fetch all data from API
+  const fetchData = useCallback(async () => {
+    try {
+      setError(null);
+
+      // Fetch stats, executions, and daily stats in parallel
+      const [statsData, executions, dailyStats] = await Promise.all([
+        apiClient.getStats().catch(() => null),
+        apiClient.getExecutions({ limit: 100 }).catch(() => []),
+        apiClient.getDailyStats().catch(() => []),
+      ]);
+
+      // Process stats
+      if (statsData) {
+        const totalProfit = parseFloat(statsData.total_profit || "0") / 1e18;
+        const profit24h = parseFloat(statsData.last_24h_profit || "0") / 1e18;
+        const apy = calculateAPY(statsData);
+
+        setStats({
+          principal: 1, // Default, will be overridden by vault data if available
+          currentBalance: 1 + totalProfit,
+          totalProfit,
+          profitRate: statsData.avg_profit_rate || 0,
+          profit24h,
+          apy,
+        });
+      }
+
+      // Process executions to revenue flows
+      if (executions && executions.length > 0) {
+        const flows = executions.map(executionToRevenueFlow);
+        setRevenueFlows(flows);
+      }
+
+      // Process daily stats
+      if (dailyStats && dailyStats.length > 0) {
+        const revenuePoints = dailyStatsToRevenuePoints(dailyStats);
+        setDailyRevenueData(revenuePoints);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to fetch data";
+      setError(message);
+      console.error("Failed to fetch arbitrage data:", err);
+    } finally {
       setIsLoading(false);
-    }, 100);
+    }
+  }, []);
 
-    return () => clearTimeout(timer);
-  }, [dailyRevenueData]);
+  // Initial load
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
-  // 模拟实时更新（每5秒更新一次，会有小幅波动）
+  // Auto refresh every 30 seconds
   useEffect(() => {
     const interval = setInterval(() => {
-      setStats((prev) => ({
-        ...prev,
-        currentBalance: prev.currentBalance + (Math.random() - 0.45) * 0.0001,
-        profit24h: prev.profit24h + (Math.random() - 0.45) * 0.00001,
-      }));
-    }, 5000);
+      // Only refresh stats, not full data
+      apiClient.getStats()
+        .then((statsData) => {
+          const totalProfit = parseFloat(statsData.total_profit || "0") / 1e18;
+          const profit24h = parseFloat(statsData.last_24h_profit || "0") / 1e18;
+          const apy = calculateAPY(statsData);
+
+          setStats((prev) => ({
+            ...prev,
+            totalProfit,
+            profitRate: statsData.avg_profit_rate || 0,
+            profit24h,
+            apy,
+            currentBalance: prev.principal + totalProfit,
+          }));
+        })
+        .catch((err) => {
+          console.error("Failed to refresh stats:", err);
+        });
+    }, 30000);
 
     return () => clearInterval(interval);
   }, []);
+
+  const refreshData = useCallback(async () => {
+    setIsLoading(true);
+    await fetchData();
+  }, [fetchData]);
 
   const addDeposit = useCallback((amount: number) => {
     setStats((prev) => ({
@@ -232,8 +237,10 @@ export const useArbitrageStats = () => {
   return {
     stats,
     revenueFlows,
-    isLoading,
     dailyRevenueData,
+    isLoading,
+    error,
+    refreshData,
     addDeposit,
     addWithdraw,
   };

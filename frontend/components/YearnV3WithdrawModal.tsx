@@ -5,7 +5,7 @@ import { X, DollarSign, TrendingUp, AlertCircle, Check, Wallet, Zap, ArrowUpRigh
 import { useYearnV3WithClients } from '@/lib/hooks/useYearnV3WithClients'
 import useYearnV3Store from '@/lib/stores/useYearnV3Store'
 import { parseUnits } from 'viem'
-import { getContractAddresses } from "@/app/pool/page"
+import { getContractAddresses } from "@/lib/utils/contracts";
 
 // 获取合约地址
 const { USDT_ADDRESS } = getContractAddresses() as { USDT_ADDRESS: `0x${string}` };

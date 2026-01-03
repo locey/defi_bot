@@ -24,7 +24,7 @@ import MockERC20ABI from '@/lib/abi/MockERC20.json';
 import MockYearnV3VaultABI from '@/lib/abi/MockYearnV3Vault.json';
 
 // 导入 USDT 地址配置，与 Aave 保持一致
-import { getContractAddresses } from "@/app/pool/page";
+import { getContractAddresses } from "@/lib/utils/contracts";
 const { USDT_ADDRESS } = getContractAddresses() as { USDT_ADDRESS: Address };
 
 // 类型化 ABI
@@ -70,7 +70,7 @@ export const useYearnV3WithClients = () => {
     if (!publicClient || !address) {
       throw new Error('PublicClient 未初始化或钱包未连接');
     }
-    await store.fetchUserBalance(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
+    await store.fetchUserBalance(publicClient as unknown as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
   }, [publicClient, address]);
 
   // 获取授权信息（包含客户端） - 直接使用 store
@@ -78,7 +78,7 @@ export const useYearnV3WithClients = () => {
     if (!publicClient || !address) {
       throw new Error('PublicClient 未初始化或钱包未连接');
     }
-    await store.fetchAllowances(publicClient as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
+    await store.fetchAllowances(publicClient as unknown as PublicClient & { getLogs: typeof publicClient.getLogs }, address);
   }, [publicClient, address]);
 
   // 获取用户当前价值

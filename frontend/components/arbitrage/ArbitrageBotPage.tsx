@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
 export function ArbitrageBotPage() {
-  const { stats, revenueFlows, isLoading, addDeposit, addWithdraw } =
+  const { stats, revenueFlows, isLoading, error, refreshData, addDeposit, addWithdraw } =
     useArbitrageStats();
   const [depositOpen, setDepositOpen] = React.useState(false);
   const [withdrawOpen, setWithdrawOpen] = React.useState(false);
@@ -57,6 +57,29 @@ export function ArbitrageBotPage() {
         <Card className="h-72 bg-slate-800 border-slate-700 animate-pulse" />
         <Card className="h-96 bg-slate-800 border-slate-700 animate-pulse" />
         <Card className="h-96 bg-slate-800 border-slate-700 animate-pulse" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <Card className="p-6 bg-red-900/20 border-red-500/50">
+          <div className="flex items-center gap-3 mb-4">
+            <span className="text-2xl">⚠️</span>
+            <div>
+              <p className="text-red-400 font-medium">无法连接后端 API</p>
+              <p className="text-sm text-red-400/70">{error}</p>
+            </div>
+          </div>
+          <Button 
+            onClick={refreshData} 
+            variant="outline"
+            className="border-red-500/50 text-red-400 hover:bg-red-500/10"
+          >
+            重试
+          </Button>
+        </Card>
       </div>
     );
   }
