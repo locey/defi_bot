@@ -7,10 +7,10 @@ import (
 // ArbitrageExecution 套利执行记录表
 type ArbitrageExecution struct {
 	ID              uint      `gorm:"primaryKey" json:"id"`
-	OpportunityID   uint      `gorm:"index" json:"opportunity_id"`                    // 套利机会 ID（可为空，手动执行时）
+	OpportunityID   *uint     `gorm:"index" json:"opportunity_id"`                    // 套利机会 ID（可为空）
 	VaultAddress    string    `gorm:"index;size:42" json:"vault_address"`             // 金库地址
-	TokenInID       uint      `gorm:"index;not null" json:"token_in_id"`              // 输入代币 ID
-	TokenOutID      uint      `gorm:"not null" json:"token_out_id"`                   // 输出代币 ID
+	TokenInID       *uint     `gorm:"index" json:"token_in_id"`                       // 输入代币 ID（可为空）
+	TokenOutID      *uint     `json:"token_out_id"`                                   // 输出代币 ID（可为空）
 	AmountIn        string    `gorm:"type:varchar(78);not null" json:"amount_in"`     // 输入金额
 	AmountOut       string    `gorm:"type:varchar(78);not null" json:"amount_out"`    // 输出金额
 	ActualProfit    string    `gorm:"type:varchar(78);not null" json:"actual_profit"` // 实际利润

@@ -6,9 +6,9 @@ import (
 
 // ArbitrageOpportunity 套利机会表
 type ArbitrageOpportunity struct {
-	ID         uint `gorm:"primaryKey" json:"id"`
-	TokenInID  uint `gorm:"index;not null" json:"token_in_id"` // 输入代币 ID
-	TokenOutID uint `gorm:"not null" json:"token_out_id"`      // 输出代币 ID（中间代币）
+	ID         uint  `gorm:"primaryKey" json:"id"`
+	TokenInID  *uint `gorm:"index" json:"token_in_id"`  // 输入代币 ID（可为空）
+	TokenOutID *uint `json:"token_out_id"`              // 输出代币 ID（可为空）
 
 	// === 套利类型标识 ===
 	ArbitrageType string `gorm:"index;size:20;not null;default:'cross_dex'" json:"arbitrage_type"`

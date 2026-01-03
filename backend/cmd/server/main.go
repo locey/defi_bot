@@ -3,13 +3,14 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/defi-bot/backend/internal/api"
 	"github.com/defi-bot/backend/internal/collector"
 	"github.com/defi-bot/backend/internal/config"
 	"github.com/defi-bot/backend/internal/database"
@@ -19,6 +20,7 @@ import (
 	"github.com/defi-bot/backend/pkg/cache"
 	"github.com/defi-bot/backend/pkg/cex"
 	"github.com/defi-bot/backend/pkg/web3"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 var (
@@ -153,7 +155,7 @@ func main() {
 		}
 		strategyConfig.SupportedDexes = append(strategyConfig.SupportedDexes, dexCfg)
 	}
-	
+
 	db := database.GetDB()
 	strategyEngine := strategy.NewStrategyEngine(
 		strategyConfig,
@@ -161,7 +163,7 @@ func main() {
 		db,
 		redisCache,
 	)
-	
+
 	// 启动策略引擎
 	ctx := context.Background()
 	if err := strategyEngine.Start(ctx); err != nil {
@@ -177,6 +179,8 @@ func main() {
 			common.HexToAddress(cfg.Contracts.ArbitrageCore),
 			cfg.Keeper.PrivateKey,
 		)
+		// 设置数据库连接，用于保存执行记录
+		arbitrageExecutor.SetDB(db)
 		log.Println("✅ 套利执行器已初始化（自动执行模式）")
 	} else {
 		log.Println("⚠️  未配置 Keeper 私钥或合约地址，仅分析模式（不会自动执行）")
@@ -202,7 +206,21 @@ func main() {
 		log.Printf("初始数据采集失败: %v", err)
 	}
 
-	// 14. 等待退出信号
+	// 14. 启动 API 服务器
+	apiPort := cfg.Server.APIPort
+	if apiPort == 0 {
+		apiPort = 8080 // 默认端口
+	}
+	apiServer := api.NewAPIServer(db)
+	go func() {
+		apiAddr := fmt.Sprintf(":%d", apiPort)
+		log.Printf("🚀 启动 API 服务器: %s", apiAddr)
+		if err := apiServer.Run(apiAddr); err != nil {
+			log.Printf("⚠️  API 服务器启动失败: %v", err)
+		}
+	}()
+
+	// 15. 等待退出信号
 	log.Println("========================================")
 	log.Println("服务已启动，按 Ctrl+C 退出")
 	log.Println("========================================")

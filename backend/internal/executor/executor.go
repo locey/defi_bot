@@ -3,23 +3,27 @@ package executor
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math/big"
 	"sync"
 	"time"
 
+	"github.com/defi-bot/backend/internal/models"
 	"github.com/defi-bot/backend/internal/strategy"
 	"github.com/defi-bot/backend/pkg/web3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"gorm.io/gorm"
 )
 
 // ArbitrageExecutor 套利执行器
 type ArbitrageExecutor struct {
     web3Client     *web3.Client
     contractCaller *ContractCaller
+    db             *gorm.DB  // 数据库连接
     
     // 配置
     arbitrageCoreAddress common.Address
@@ -54,6 +58,11 @@ func NewArbitrageExecutor(
     executor.contractCaller = NewContractCaller(web3Client, arbitrageCoreAddress)
     
     return executor
+}
+
+// SetDB 设置数据库连接
+func (e *ArbitrageExecutor) SetDB(db *gorm.DB) {
+    e.db = db
 }
 
 // Execute 执行套利机会
@@ -123,7 +132,12 @@ func (e *ArbitrageExecutor) Execute(
         e.totalGasSpent.Add(e.totalGasSpent, result.GasCost)
     }
     
-    // 9. 清理待确认交易
+    // 9. 保存执行记录到数据库
+    if err := e.saveExecutionRecord(opp, result); err != nil {
+        log.Printf("Save execution record failed: %v", err)
+    }
+    
+    // 10. 清理待确认交易
     e.pendingTxMu.Lock()
     delete(e.pendingTx, tx.Hash().Hex())
     e.pendingTxMu.Unlock()
@@ -276,4 +290,130 @@ type ExecutorStats struct {
     TotalProfit   *big.Int `json:"total_profit"`
     TotalGasSpent *big.Int `json:"total_gas_spent"`
     PendingTxs    int      `json:"pending_txs"`
+}
+
+// ============================================================
+// P1: 执行记录数据库保存
+// ============================================================
+
+// saveExecutionRecord 保存执行记录到数据库
+func (e *ArbitrageExecutor) saveExecutionRecord(
+    opp *strategy.ArbitrageOpportunity,
+    result *ExecutionResult,
+) error {
+    if e.db == nil {
+        return fmt.Errorf("db is nil")
+    }
+    
+    // 查找代币 ID
+    var tokenIn, tokenOut models.Token
+    if len(opp.SwapPath) > 0 {
+        e.db.Where("LOWER(address) = LOWER(?)", opp.SwapPath[0].Hex()).First(&tokenIn)
+    }
+    if len(opp.SwapPath) > 1 {
+        e.db.Where("LOWER(address) = LOWER(?)", opp.SwapPath[len(opp.SwapPath)-1].Hex()).First(&tokenOut)
+    }
+    
+    // 序列化路径
+    swapPathJSON, _ := json.Marshal(addressesToStrings(opp.SwapPath))
+    dexPathJSON, _ := json.Marshal(opp.DexNames)
+    
+    // 确定状态
+    status := "failed"
+    if result.Success {
+        status = "success"
+    }
+    
+    // 计算实际输出金额
+    amountOut := "0"
+    if result.ActualProfit != nil && opp.AmountIn != nil {
+        amountOutBig := new(big.Int).Add(opp.AmountIn, result.ActualProfit)
+        amountOut = amountOutBig.String()
+    }
+    
+    // 计算利润率
+    profitRate := 0.0
+    if result.ActualProfit != nil && opp.AmountIn != nil && opp.AmountIn.Sign() > 0 {
+        profitRateFloat := new(big.Float).Quo(
+            new(big.Float).SetInt(result.ActualProfit),
+            new(big.Float).SetInt(opp.AmountIn),
+        )
+        profitRate, _ = profitRateFloat.Float64()
+        profitRate = profitRate * 100 // 转换为百分比
+    }
+    
+    // 实际利润
+    actualProfit := "0"
+    if result.ActualProfit != nil {
+        actualProfit = result.ActualProfit.String()
+    }
+    
+    // Gas 价格
+    gasPrice := "0"
+    if result.GasPrice != nil {
+        gasPrice = result.GasPrice.String()
+    }
+    
+    // 查找对应的套利机会 ID
+    var opportunityID *uint
+    var dbOpp models.ArbitrageOpportunity
+    if err := e.db.Where("swap_path = ? AND status = ?", string(swapPathJSON), "pending").
+        Order("created_at DESC").First(&dbOpp).Error; err == nil {
+        opportunityID = &dbOpp.ID
+        // 更新套利机会状态
+        newStatus := "executed"
+        if !result.Success {
+            newStatus = "failed"
+        }
+        e.db.Model(&dbOpp).Update("status", newStatus)
+    }
+    
+    // 准备 TokenID 指针
+    var tokenInIDPtr, tokenOutIDPtr *uint
+    if tokenIn.ID > 0 {
+        tokenInIDPtr = &tokenIn.ID
+    }
+    if tokenOut.ID > 0 {
+        tokenOutIDPtr = &tokenOut.ID
+    }
+    
+    // 创建执行记录
+    execution := &models.ArbitrageExecution{
+        OpportunityID:   opportunityID,
+        VaultAddress:    e.arbitrageCoreAddress.Hex(),
+        TokenInID:       tokenInIDPtr,
+        TokenOutID:      tokenOutIDPtr,
+        AmountIn:        opp.AmountIn.String(),
+        AmountOut:       amountOut,
+        ActualProfit:    actualProfit,
+        ProfitRate:      profitRate,
+        SwapPath:        string(swapPathJSON),
+        DexPath:         string(dexPathJSON),
+        GasUsed:         result.GasUsed,
+        GasPrice:        gasPrice,
+        TxHash:          result.TxHash,
+        BlockNumber:     result.BlockNumber,
+        Status:          status,
+        ErrorMessage:    result.Error,
+        ExecutionTimeMs: result.ExecutionTime.Milliseconds(),
+        Timestamp:       result.Timestamp,
+    }
+    
+    if err := e.db.Create(execution).Error; err != nil {
+        return fmt.Errorf("create execution record failed: %w", err)
+    }
+    
+    log.Printf("✅ Saved execution record: txHash=%s, status=%s, profit=%s", 
+        result.TxHash, status, actualProfit)
+    
+    return nil
+}
+
+// addressesToStrings 将地址数组转换为字符串数组
+func addressesToStrings(addrs []common.Address) []string {
+    result := make([]string, len(addrs))
+    for i, addr := range addrs {
+        result[i] = addr.Hex()
+    }
+    return result
 }

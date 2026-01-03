@@ -112,8 +112,9 @@ type LogConfig struct {
 
 // ServerConfig 服务器配置
 type ServerConfig struct {
-	Port int    `mapstructure:"port"`
-	Mode string `mapstructure:"mode"`
+	Port    int    `mapstructure:"port"`
+	Mode    string `mapstructure:"mode"`
+	APIPort int    `mapstructure:"api_port"` // API 服务端口
 }
 
 // RedisConfig Redis 配置
