@@ -2,16 +2,26 @@
 
 # 数据库配置
 database:
-  host: ${DB_HOST:localhost}
-  port: ${DB_PORT:5432}
-  user: ${DB_USER:defi_user}
-  password: ${DB_PASSWORD:defi_pass123}
-  dbname: ${DB_NAME:defi_arbitrage}
+  # host: ${DB_HOST:localhost}
+  # port: ${DB_PORT:5432}
+  # user: ${DB_USER:defi_user}
+  # password: ${DB_PASSWORD:defi_pass123}
+  # dbname: ${DB_NAME:defi_arbitrage}
+  # sslmode: disable
+  # timezone: Asia/Shanghai
+  # max_idle_conns: 10
+  # max_open_conns: 100
+  # conn_max_lifetime: 3600  # 秒
+  host: 127.0.0.1
+  port: 5432
+  user: defi_user
+  password: defi_pass123
+  dbname: defi_arbitrage
   sslmode: disable
   timezone: Asia/Shanghai
-  max_idle_conns: 10
-  max_open_conns: 100
-  conn_max_lifetime: 3600  # 秒
+  max_idle_conns: 5
+  max_open_conns: 20
+  conn_max_lifetime: 3600
 
 # 区块链配置
 blockchain:
@@ -162,6 +172,67 @@ tokens:
   - symbol: "DAI"
     address: "0x6B175474E89094C44Da98b954EedeAC495271d0F"
     decimals: 18
+  - symbol: "UNI"
+    address: "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984"
+    decimals: 18
+  - symbol: "AAVE"
+    address: "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9"
+    decimals: 18
+  - symbol: "CRV"
+    address: "0xD533a949740bb3306d119CC777fa900bA034cd52"
+    decimals: 18
+  - symbol: "MKR"
+    address: "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2"
+    decimals: 18
+  - symbol: "MATIC"
+    address: "0x7D1AfA7B718fb893dB30A3aBc0Cfc608AaCfeBB0"
+    decimals: 18
+  - symbol: "ARB"
+    address: "0xB50721BCf8d664c30412Cfbc6cf7a15145234ad1"
+    decimals: 18
+  - symbol: "OP"
+    address: "0x4200000000000000000000000000000000000042"
+    decimals: 18
+  - symbol: "IMX"
+    address: "0xF57e7e7C23978C3cAEC3C3548E3D615c346e79fF"
+    decimals: 18
+  - symbol: "LINK"
+    address: "0x514910771AF9Ca656af840dff83E8264EcF986CA"
+    decimals: 18
+  - symbol: "GRT"
+    address: "0xc944E90C64B2c07662A292be6244BDf05Cda44a7"
+    decimals: 18
+  - symbol: "LDO"
+    address: "0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32"
+    decimals: 18
+  - symbol: "RPL"
+    address: "0xD33526068D116cE69F19A9ee46F0bd304F21A51f"
+    decimals: 18
+  - symbol: "FXS"
+    address: "0x3432B6A60D23Ca0dFCa7761B7ab56459D9C964D0"
+    decimals: 18
+  - symbol: "ONDO"
+    address: "0xfAbA6f8e4a5E8Ab82F62fe7C39859FA577269BE3"
+    decimals: 18
+  - symbol: "PAXG"
+    address: "0x45804880De22913dAFE09f4980848ECE6EcbAf78"
+    decimals: 18
+  - symbol: "SAND"
+    address: "0x3845badAde8e6dFF049820680d1F14bD3903a5d0"
+    decimals: 18
+  - symbol: "AXS"
+    address: "0xBB0E17EF65F82Ab018d8EDd776e8DD940327B28b"
+    decimals: 18
+  - symbol: "ENJ"
+    address: "0xF629cBd94d3791C9250152BD8dfBDF380E2a3B9c"
+    decimals: 18
+  - symbol: "INJ"
+    address: "0xe28b3B32B6c345A34Ff64674606124Dd5Aceca30"
+    decimals: 18
+  - symbol: "FET"
+    address: "0xaea46A60368A7bD060eec7DF8CBa43b7EF41Ad85"
+    decimals: 18
+
 
 # 定时任务配置
 scheduler:
