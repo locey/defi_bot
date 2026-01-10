@@ -1,27 +1,14 @@
 {
   "network": "localhost",
-  "timestamp": "2025-12-13T09:08:42.170Z",
-  "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-  "contracts": {
-    "weth": {
-      "name": "MockERC20 (WETH)",
-      "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-      "symbol": "WETH",
-      "decimals": 18
-    },
-    "configManager": {
-      "name": "MockConfigManager",
-      "address": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
-      "depositFee": 0,
-      "withdrawFee": 10,
-      "performanceFee": 1000
-    },
-    "vault": {
-      "name": "ArbitrageVault",
-      "address": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
-      "symbol": "arbWETH",
-      "asset": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-      "configManager": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
-    }
-  }
+  "arbitrageVault": "0x38628490c3043E5D0bbB26d5a0a62fC77342e9d5",
+  "configManage": "0x05bB67cB592C1753425192bF8f34b95ca8649f09",
+  "doubleRouterIntegration": "0x8aAC5570d54306Bb395bf2385ad327b7b706016b",
+  "uniswapV2Integration": "0x64f5219563e28EeBAAd91Ca8D31fa3b36621FD4f",
+  "spotArbitrage": "0x6484EB0792c646A4827638Fc1B6F20461418eB00",
+  "flashLoanRouter": "0x1757a98c1333B9dc8D408b194B2279b5AFDF70Cc",
+  "arbitrageCore": "0xf201fFeA8447AB3d43c98Da3349e0749813C9009",
+  "mockRouter1": "0x1bEfE2d8417e22Da2E0432560ef9B2aB68Ab75Ad",
+  "mockRouter2": "0x04f1A5b9BD82a5020C49975ceAd160E98d8B77Af",
+  "mockUSDC": "0xD5bFeBDce5c91413E41cc7B24C8402c59A344f7c",
+  "mockWETH": "0x77AD263Cd578045105FBFC88A477CAd808d39Cf6"
 }

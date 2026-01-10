@@ -71,9 +71,9 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
         _;
     }
 
-    constructor () {
-        _disableInitializers();
-    }
+    // constructor () {
+    //     _disableInitializers();
+    // }
 
     function initialize(
         address _spotArbitrage,
@@ -138,6 +138,11 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
         paused = _paused;
     }
 
+    function setBackCaller(address _backCaller) external onlyOwner {
+        require(_backCaller != address(0), "Invalid backend Caller");
+        backCaller = _backCaller;
+    }
+
     //核心函数：实现套利的调用，并对盈利&分润计算
     /**
     *入参：
@@ -173,6 +178,7 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
         IArbitrage.ArbitrageParams calldata params
     ) private {
         address asset = params.asset;
+        address tokenOut = params.tokenOut;
         uint256 amountIn = params.amountIn;
         address[] calldata swapPath = params.swapPath;
         address[] calldata dexes = params.dexes;
@@ -182,6 +188,7 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
         //参数验证
         require(amountIn > 0, "amountIn > 0");
         require(swapPath.length >= 3, "swapPath need 3 at least");
+        require(tokenOut == swapPath[0], "First token = Last token");
         require(dexes.length == swapPath.length - 1, "dexes = swapPath -1");
         require(swapPath[0] == asset, "swapPath[0] is tokenIn");
         require(asset == swapPath[swapPath.length - 1], "tokenIn = tokenOut");
@@ -214,7 +221,10 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
         uint256 balanceAfter = ERC20Upgradeable(asset).balanceOf(address(this));
         
         //计算利润，分成（注意验证minProfit）
-        uint256 actProfit = balanceAfter - balanceBefore;
+        uint256 actProfit ;
+        unchecked {
+            actProfit = balanceAfter - balanceBefore;
+        }
         require(actProfit > minProfit, "Profit below minimum");
 
         //计算分润 分成比例由configManager管理
@@ -250,12 +260,13 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
         (   
             FlashLoanRouter.LendingPlatForm platform,
             address asset,
+            address tokenOut,
             uint256 amountIn,
             address[] memory swapPath,
             address[] memory dexes,
             uint256 expectProfit,
             uint256 minProfit
-        ) = abi.decode(paramsData, (FlashLoanRouter.LendingPlatForm, address, uint256, address[], address[], uint256, uint256));
+        ) = abi.decode(paramsData, (FlashLoanRouter.LendingPlatForm, address, address, uint256, address[], address[], uint256, uint256));
         //验证
         require(asset != address(0), "Invalid asset");
         require(amountIn > 0, "Amount must be > 0");
@@ -266,6 +277,7 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
         flashLoanArbitrage.executeFlashLoan(
             platform,
             asset,
+            tokenOut,
             amountIn,
             swapPath,
             dexes,

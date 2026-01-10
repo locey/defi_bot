@@ -1,0 +1,12 @@
+{
+  "network": "sepolia",
+  "arbitratorVault": "0x1F9B7d65B0529424206e0Fdbf05851eB8F2cd608",
+  "configManage": "0xdE73a9e7Ec32Ac92f2EA82b488Aa979e7DeeAc77",
+  "doubleRouterIntegration": "0xED824735190269714B08a19a7DCA9A8DE4DC6440",
+  "uniswapV2Integration": "0xb6d710940921A9F390536afae386Bdf5FFa8BE3e",
+  "spotArbitrage": "0xe81161A3f2c3d95D403DF6803c6736cBC32B3acf",
+  "flashLoanRouter": "0xbf247006b77E23c2924Cd3A6F7dDD525cF68fF47",
+  "arbitrageCore": "0xb961B5d696E56248612a4cb3Eb2bFD7E1C75c0bb",
+  "mockRouter1": "0x32CB60FDf0825B8BE9C7067DdF385e4F44B24b1f",
+  "mockRouter2": "0x1bca290c98F39fc70924a7594B3B53962E887058"
+}

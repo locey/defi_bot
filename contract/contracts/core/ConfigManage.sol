@@ -16,16 +16,15 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
  * - 滑点设置
  */
 contract ConfigManage is IConfigManager, Initializable, OwnableUpgradeable, UUPSUpgradeable {
-
     uint16 public version;
     uint256 private _profitShareFee;
 
-    // 可配置的费用参数
-    uint256 public depositFee = 0;              // 存款费（basis points）
-    uint256 public withdrawFee = 1;             // 提款费（basis points） 暂定0.01%
-    uint256 public performanceFee = 1000;       // 业绩费（basis points） 暂定10%
+    // 可配置的费用参数 - 不要在声明时赋初值！
+    uint256 public depositFee;              // 存款费（basis points）
+    uint256 public withdrawFee;             // 提款费（basis points） 暂定0.01%
+    uint256 public performanceFee;          // 业绩费（basis points） 暂定10%
 
-    // 滑点容忍度（basis points）
+    // 滑点容忍度（basis points） - 不要在声明时赋初值！
     uint256 public slippageTolerance;
 
     address public lendingPool;
@@ -40,9 +39,10 @@ contract ConfigManage is IConfigManager, Initializable, OwnableUpgradeable, UUPS
     event PerformanceFeeUpdated(uint256 newFee);
     event SlipageToleranceUpdated(uint256 newSlippage);
     
-    constructor() {
-        _disableInitializers();
-    }
+    
+    // constructor() {
+    //     _disableInitializers();
+    // }
 
     function initialize(
         address _lendingPool,
@@ -65,8 +65,13 @@ contract ConfigManage is IConfigManager, Initializable, OwnableUpgradeable, UUPS
         sushiSwapRouter = _sushiSwapRouter;
         arbitrageVault = _arbitrageVault;
         version = 1;
-        // 默认滑点300（3%）
-        slippageTolerance = 300;
+        
+        // 在 initialize 函数中赋初值，而不是在声明时
+        slippageTolerance = 300;        // 默认滑点300（3%）
+        depositFee = 0;                 // 存款费0%
+        withdrawFee = 1;                // 提款费0.01%
+        performanceFee = 1000;          // 业绩费10%
+        _profitShareFee = 0;            // 初始平台分成0%
     }
 
     //ArbitrageCore合约用到平台分成
@@ -160,5 +165,4 @@ contract ConfigManage is IConfigManager, Initializable, OwnableUpgradeable, UUPS
         version ++;
         emit Upgrade(newImplementation, version);
     }
-
 }

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "../interfaces/IFlashLoanSimpleReceiver.sol";
 import "../router/FlashLoanRouter.sol";
 import "../interfaces/ISpotArbitrage.sol";
 import "../interfaces/IConfigManager.sol";
@@ -11,9 +10,19 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
+interface IFlashLoanSimple {
+    // 核心回调函数：LendingPool 放款后，会自动调用这个函数
+    function executeOperation(
+        address asset,      // 借款的资产（如 USDT 地址）
+        uint256 amount,     // 借款金额
+        uint256 premium,    // 闪电贷手续费（平台收取，通常是借款额的 0.05%~0.3%）
+        address initiator,  // 借款发起者（我们的合约）
+        bytes calldata params  // 额外参数（可传递套利需要的信息）
+    ) external returns (bool); // 返回 true 表示操作成功，准备还款
+}
 
 // 修正接口继承顺序，规范命名
-contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownable, Pausable {
+contract FlashLoanArbitrage is IFlashLoanSimple, ReentrancyGuard, Ownable, Pausable {
     /**
      * 功能：集成闪电贷完成套利
      * 核心流程：
@@ -128,7 +137,7 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
         require(amountIn > 0, "FlashLoanArbitrage: amountIn must >0");
 
         try spotArbitrage.executeSwaps(
-            tokenIn,
+            asset,
             swapPath[swapPath.length - 1],
             amountIn,
             swapPath,
@@ -189,7 +198,7 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
     // ===================== 发起闪电贷 =====================
     function executeFlashLoan(
         FlashLoanRouter.LendingPlatForm platform,
-        address tokenIn,
+        address tokenOut,
         uint256 amountIn,
         address[] calldata swapPath,
         address[] calldata dexes,
@@ -205,7 +214,7 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
         // 构造回调参数
         bytes memory params = abi.encode(
             msg.sender, // initiator = ArbitrageCore
-            tokenIn,
+            tokenOut,
             amountIn,
             swapPath,
             dexes,
@@ -217,14 +226,14 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
         try flashLoanRouter.requestFlashLoan(
             platform,
             address(this),
-            tokenIn,
+            tokenOut,
             amountIn,
             params
         ) {
-            emit FlashLoanRequested(msg.sender, tokenIn, amountIn, platform);
+            emit FlashLoanRequested(msg.sender, tokenOut, amountIn, platform);
         } catch (bytes memory reason) {
             string memory errorReason = abi.decode(reason, (string));
-            emit FlashLoanFailed(msg.sender, tokenIn, errorReason);
+            emit FlashLoanFailed(msg.sender, tokenOut, errorReason);
             revert(string.concat("FlashLoanArbitrage: request flashLoan failed - " , errorReason));
         }
     }

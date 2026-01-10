@@ -15,7 +15,7 @@ pragma solidity ^0.8.20;
 interface IArbitrage {
     struct ArbitrageParams {
         address asset;
-        //address tokenOut;
+        address tokenOut;
         uint256 amountIn;
         address[] swapPath;
         address[] dexes;

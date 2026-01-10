@@ -11,7 +11,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract SpotArbitrage is ISpotArbitrage {
     using SafeERC20 for IERC20;
-    address public immutable arbitrageCore;
+    address public arbitrageCore;
     IDoubleRouterIntegration private doubleRouterIntegration;
     IUniswapV2Integration private uniswapV2Integration;
 
@@ -35,6 +35,32 @@ contract SpotArbitrage is ISpotArbitrage {
      *
      *本合约被ArbitrageCore调用
      */
+
+    function setDoubleRouterIntegration(address _doubleRouterIntegration)
+        external
+    {   require(_doubleRouterIntegration != address(0), "Spot: invalid doubleRouterIntegration");
+        doubleRouterIntegration = IDoubleRouterIntegration(
+            _doubleRouterIntegration
+        );
+    }
+
+    function setUniswapV2Integration(address _uniswapV2Integration)
+        external
+    {   require(_uniswapV2Integration != address(0), "Spot: invalid uniswapV2Integration");
+        uniswapV2Integration = IUniswapV2Integration(
+            _uniswapV2Integration
+        );
+    }
+
+    function setArbitrageCore(address _arbitrageCore) external {
+        require(
+            arbitrageCore == address(0),
+            "Spot: arbitrageCore already set"
+        );
+        require(_arbitrageCore != address(0), "Spot: invalid arbitrageCore");
+        arbitrageCore = _arbitrageCore;
+    }
+    
     function executeSwaps(
         address asset,
         address tokenOut,
@@ -46,9 +72,11 @@ contract SpotArbitrage is ISpotArbitrage {
     ) external returns (uint256 amountOut) {
         // 检查金额是否已收到
         require(
-            IERC20(asset).balanceOf(address(arbitrageCore)) >= amountIn,
+            IERC20(asset).balanceOf(address(this)) >= amountIn,
             "Spot: no received"
         );
+        IERC20(asset).approve(address(doubleRouterIntegration), amountIn);
+
 
         // 执行套利操作
         amountOut = doubleRouterIntegration.doubleRouterSwap(

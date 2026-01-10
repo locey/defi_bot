@@ -15,6 +15,7 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration {
     ConfigManage public configManage;
     uint256 public slippageTolerance;
     address public admin;
+    address[] public mrouters;
 
     constructor(address _configManage) {
         admin = msg.sender;
@@ -51,6 +52,17 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration {
      *      finalAmount：返回数量
      *      profit：利润（负数表示亏损）
      */
+
+    function setRouters(address[] calldata _routers) external {
+        require(msg.sender == admin, "Only admin");
+        require(_routers.length > 0 , "Empty routers");
+        mrouters = _routers;
+    }
+
+    function getRouters() external view returns(address[] memory) {
+        return mrouters;
+    }
+
     function doubleRouterArbCheck(
         uint amountIn,
         address[] calldata path,
@@ -161,15 +173,31 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration {
         // 计算预期输出
         uint[] memory amounts = IUniswapV2Router02(routerAddr).getAmountsOut(currentAmount, path);
         uint256 expectedOut = amounts[amounts.length - 1];
-        // 根据预期计算滑点容忍度，预期输出 - 输入 - 最小利润 = 最大容忍度
+        
+        // 检查预期输出是否合理
+        require(expectedOut > currentAmount, "No profit potential");
+        require(expectedOut >= currentAmount + aveProfit, "Insufficient profit margin");
+        
+        // 计算滑点容忍度
         uint256 maxLoss = expectedOut - currentAmount - aveProfit;
-        require(maxLoss > 0, "no slippage room");
-        uint256 slippageBps = (maxLoss * 10000) / expectedOut;
+        require(maxLoss > 0, "No slippage room");
+        
+        // 计算滑点百分比（使用unchecked避免溢出）
+        uint256 slippageBps;
+        unchecked {
+            slippageBps = (maxLoss * 10000) / expectedOut;
+        }
+        
         // slippageTolerance为默认的最大滑点容忍度，不得超过这个值
         if (slippageBps > slippageTolerance) {
             slippageBps = slippageTolerance;
         }
-        uint256 minOut = (expectedOut * (10000 - slippageBps)) / 10000;
+        
+        // 计算最小输出（使用unchecked避免溢出）
+        uint256 minOut;
+        unchecked {
+            minOut = (expectedOut * (10000 - slippageBps)) / 10000;
+        }
         minOut = minOut == 0 ? 1 : minOut;
 
         // 执行兑换
@@ -183,6 +211,6 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration {
 
         // 触发事件
         emit DoubleRouterSwap2(routerAddr, fromToken, toToken, currentAmount, outAmount);
-    }                               
+    }                         
 
 }

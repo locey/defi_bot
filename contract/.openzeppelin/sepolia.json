@@ -1,0 +1,661 @@
+{
+  "manifestVersion": "3.2",
+  "proxies": [
+    {
+      "address": "0x255439FbDB7a0334B4C0EFe7B5DE9Bdd98B920dB",
+      "txHash": "0x29b82b3cfdab6e8f23c0a8928b665b7f87301b9ccbe17de5473dbd2cb6600c25",
+      "kind": "uups"
+    },
+    {
+      "address": "0x8d7A799Fc0b869Da0599B5eca0ae8A06439C789D",
+      "txHash": "0xc24dca5421dff80626545af6f850744b1e48e3fae6f4ef40d52d68c0fbcc923b",
+      "kind": "uups"
+    },
+    {
+      "address": "0x553a8bF9CCaf10AbFfF9D71dcE15B25c4bf67E50",
+      "txHash": "0x3213e6e08070316813cccab2f1d4474360f005042688c5be3d400fd989dbfb4a",
+      "kind": "uups"
+    },
+    {
+      "address": "0x6961378c3464068F0cA50dA838fcb81D4c0aAF74",
+      "txHash": "0x542da4fdf5a689aae65fab76e7d8bb270f9a3400b810bb4816c4e65379b28152",
+      "kind": "uups"
+    },
+    {
+      "address": "0x88819a600A9c7aB52d6fad43e4df9f114abD4476",
+      "txHash": "0x47db82240d4bf92175758bd5d4d0729e1dbbbc3446f3b920173fc4e3347b00e9",
+      "kind": "uups"
+    },
+    {
+      "address": "0xf79d1aFc3c7EF5C2161Bf315d511E24C4EB302DF",
+      "txHash": "0xb5a6a41c43ce09a17d585d0506c05dccef73c1aaa0337b18d4595a62e3fc6b92",
+      "kind": "uups"
+    },
+    {
+      "address": "0x3830A529b01a3A07078A39Ce370e318081e402fF",
+      "txHash": "0x036be51678658ebd3cd706ae4804fd5fd072099ebb7a5f0bd417f3a2ac931161",
+      "kind": "uups"
+    },
+    {
+      "address": "0x08C3Ab4637EF3a2F64033242AC5a1B761eaCC435",
+      "txHash": "0x1f2992d0f7d41e7a87b97d677d156f785ccc0ef3a8016437afd4a92a7261299f",
+      "kind": "uups"
+    },
+    {
+      "address": "0x5D273dC0BD1DBF381b443e5064BE5e693b9fFe61",
+      "txHash": "0xcb2aec741b86c48f2a57f37ea512328c62bdfe62cc46dc6a8da408f5198abd80",
+      "kind": "uups"
+    },
+    {
+      "address": "0x00761054EEAd40F9a78b2d39F6ab0831Ff8F064E",
+      "txHash": "0x88d68b05658573022d8c7da2d94894d609742ba60c40b3f98fba371c0667f279",
+      "kind": "uups"
+    },
+    {
+      "address": "0xd37477835274f0c622c25b79168859B57B3BbcEF",
+      "txHash": "0xf33a6a29b9e6fbcc462e0417b980465aef9958b4fdc2b164b156fcbd0443ee7b",
+      "kind": "uups"
+    },
+    {
+      "address": "0xdE73a9e7Ec32Ac92f2EA82b488Aa979e7DeeAc77",
+      "txHash": "0xa68e501d73fef1399b7b0bdcb8ecae812f4a1e587675423e8dadda62514d9608",
+      "kind": "uups"
+    },
+    {
+      "address": "0xb961B5d696E56248612a4cb3Eb2bFD7E1C75c0bb",
+      "txHash": "0x0c17c53828b991aa68e050a7303eaefdfa62510369e4a071f44e24d87e5a080b",
+      "kind": "uups"
+    }
+  ],
+  "impls": {
+    "c3b7b68f8e4f64088e3a5f941af7c10536e55733417d7ef3c06d33dfec53bcb7": {
+      "address": "0x59b02abBaE07F7651D092Fc99F837bfe8dD3d807",
+      "txHash": "0x73b09cea2a02660524d95d936a614a50d0daccac04329699e8fbea550ea7f835",
+      "layout": {
+        "solcVersion": "0.8.28",
+        "storage": [
+          {
+            "label": "version",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint16",
+            "contract": "ConfigManage",
+            "src": "contracts\\core\\ConfigManage.sol:22"
+          },
+          {
+            "label": "_profitShareFee",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_uint256",
+            "contract": "ConfigManage",
+            "src": "contracts\\core\\ConfigManage.sol:23"
+          },
+          {
+            "label": "depositFee",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_uint256",
+            "contract": "ConfigManage",
+            "src": "contracts\\core\\ConfigManage.sol:24"
+          },
+          {
+            "label": "withdrawFee",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_uint256",
+            "contract": "ConfigManage",
+            "src": "contracts\\core\\ConfigManage.sol:25"
+          },
+          {
+            "label": "performanceFee",
+            "offset": 0,
+            "slot": "4",
+            "type": "t_uint256",
+            "contract": "ConfigManage",
+            "src": "contracts\\core\\ConfigManage.sol:28"
+          },
+          {
+            "label": "slippageTolerance",
+            "offset": 0,
+            "slot": "5",
+            "type": "t_uint256",
+            "contract": "ConfigManage",
+            "src": "contracts\\core\\ConfigManage.sol:34"
+          },
+          {
+            "label": "lendingPool",
+            "offset": 0,
+            "slot": "6",
+            "type": "t_address",
+            "contract": "ConfigManage",
+            "src": "contracts\\core\\ConfigManage.sol:36"
+          },
+          {
+            "label": "uniswapV2Router",
+            "offset": 0,
+            "slot": "7",
+            "type": "t_address",
+            "contract": "ConfigManage",
+            "src": "contracts\\core\\ConfigManage.sol:36"
+          },
+          {
+            "label": "uniswapV3Router",
+            "offset": 0,
+            "slot": "8",
+            "type": "t_address",
+            "contract": "ConfigManage",
+            "src": "contracts\\core\\ConfigManage.sol:37"
+          },
+          {
+            "label": "sushiSwapRouter",
+            "offset": 0,
+            "slot": "9",
+            "type": "t_address",
+            "contract": "ConfigManage",
+            "src": "contracts\\core\\ConfigManage.sol:38"
+          },
+          {
+            "label": "arbitrageVault",
+            "offset": 0,
+            "slot": "10",
+            "type": "t_address",
+            "contract": "ConfigManage",
+            "src": "contracts\\core\\ConfigManage.sol:38"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_struct(InitializableStorage)73_storage": {
+            "label": "struct Initializable.InitializableStorage",
+            "members": [
+              {
+                "label": "_initialized",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "_initializing",
+                "type": "t_bool",
+                "offset": 8,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(OwnableStorage)13_storage": {
+            "label": "struct OwnableUpgradeable.OwnableStorage",
+            "members": [
+              {
+                "label": "_owner",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_uint16": {
+            "label": "uint16",
+            "numberOfBytes": "2"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        "namespaces": {
+          "erc7201:openzeppelin.storage.Ownable": [
+            {
+              "contract": "OwnableUpgradeable",
+              "label": "_owner",
+              "type": "t_address",
+              "src": "@openzeppelin\\contracts-upgradeable\\access\\OwnableUpgradeable.sol:24",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Initializable": [
+            {
+              "contract": "Initializable",
+              "label": "_initialized",
+              "type": "t_uint64",
+              "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:69",
+              "offset": 0,
+              "slot": "0"
+            },
+            {
+              "contract": "Initializable",
+              "label": "_initializing",
+              "type": "t_bool",
+              "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:73",
+              "offset": 8,
+              "slot": "0"
+            }
+          ]
+        }
+      }
+    },
+    "3a79a0e834dc5182c979ba3aa6ea5cf38c1bfd961806d61f09bc215337bc3047": {
+      "address": "0x3144a24Ea3ffda8DFC865Ae44c427089fCBF201e",
+      "txHash": "0x543029947f6e6b476b08612aacd93c1c8cb653e6a2582d417b5a4b537d78bb4d",
+      "layout": {
+        "solcVersion": "0.8.28",
+        "storage": [
+          {
+            "label": "spotArbitrage",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_contract(ISpotArbitrage)9023",
+            "contract": "ArbitrageCore",
+            "src": "contracts\\core\\ArbitrageCore.sol:33"
+          },
+          {
+            "label": "flashLoanArbitrage",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_contract(IFlashLoanSimpleReceiver)8999",
+            "contract": "ArbitrageCore",
+            "src": "contracts\\core\\ArbitrageCore.sol:33"
+          },
+          {
+            "label": "configManager",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_contract(IConfigManager)8882",
+            "contract": "ArbitrageCore",
+            "src": "contracts\\core\\ArbitrageCore.sol:35"
+          },
+          {
+            "label": "spotArbImp",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_address",
+            "contract": "ArbitrageCore",
+            "src": "contracts\\core\\ArbitrageCore.sol:39"
+          },
+          {
+            "label": "platFormWallet",
+            "offset": 0,
+            "slot": "4",
+            "type": "t_address",
+            "contract": "ArbitrageCore",
+            "src": "contracts\\core\\ArbitrageCore.sol:42"
+          },
+          {
+            "label": "backCaller",
+            "offset": 0,
+            "slot": "5",
+            "type": "t_address",
+            "contract": "ArbitrageCore",
+            "src": "contracts\\core\\ArbitrageCore.sol:44"
+          },
+          {
+            "label": "supportAssets",
+            "offset": 0,
+            "slot": "6",
+            "type": "t_array(t_address)dyn_storage",
+            "contract": "ArbitrageCore",
+            "src": "contracts\\core\\ArbitrageCore.sol:45"
+          },
+          {
+            "label": "paused",
+            "offset": 0,
+            "slot": "7",
+            "type": "t_bool",
+            "contract": "ArbitrageCore",
+            "src": "contracts\\core\\ArbitrageCore.sol:47"
+          },
+          {
+            "label": "vaults",
+            "offset": 0,
+            "slot": "8",
+            "type": "t_mapping(t_address,t_contract(IArbitrageVault)8853)",
+            "contract": "ArbitrageCore",
+            "src": "contracts\\core\\ArbitrageCore.sol:48"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_struct(InitializableStorage)73_storage": {
+            "label": "struct Initializable.InitializableStorage",
+            "members": [
+              {
+                "label": "_initialized",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "_initializing",
+                "type": "t_bool",
+                "offset": 8,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(OwnableStorage)13_storage": {
+            "label": "struct OwnableUpgradeable.OwnableStorage",
+            "members": [
+              {
+                "label": "_owner",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(ReentrancyGuardStorage)419_storage": {
+            "label": "struct ReentrancyGuardUpgradeable.ReentrancyGuardStorage",
+            "members": [
+              {
+                "label": "_status",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_array(t_address)dyn_storage": {
+            "label": "address[]",
+            "numberOfBytes": "32"
+          },
+          "t_contract(IArbitrageVault)8853": {
+            "label": "contract IArbitrageVault",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IConfigManager)8882": {
+            "label": "contract IConfigManager",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IFlashLoanSimpleReceiver)8999": {
+            "label": "contract IFlashLoanSimpleReceiver",
+            "numberOfBytes": "20"
+          },
+          "t_contract(ISpotArbitrage)9023": {
+            "label": "contract ISpotArbitrage",
+            "numberOfBytes": "20"
+          },
+          "t_mapping(t_address,t_contract(IArbitrageVault)8853)": {
+            "label": "mapping(address => contract IArbitrageVault)",
+            "numberOfBytes": "32"
+          }
+        },
+        "namespaces": {
+          "erc7201:openzeppelin.storage.ReentrancyGuard": [
+            {
+              "contract": "ReentrancyGuardUpgradeable",
+              "label": "_status",
+              "type": "t_uint256",
+              "src": "@openzeppelin\\contracts-upgradeable\\utils\\ReentrancyGuardUpgradeable.sol:43",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Ownable": [
+            {
+              "contract": "OwnableUpgradeable",
+              "label": "_owner",
+              "type": "t_address",
+              "src": "@openzeppelin\\contracts-upgradeable\\access\\OwnableUpgradeable.sol:24",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Initializable": [
+            {
+              "contract": "Initializable",
+              "label": "_initialized",
+              "type": "t_uint64",
+              "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:69",
+              "offset": 0,
+              "slot": "0"
+            },
+            {
+              "contract": "Initializable",
+              "label": "_initializing",
+              "type": "t_bool",
+              "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:73",
+              "offset": 8,
+              "slot": "0"
+            }
+          ]
+        }
+      }
+    },
+    "a6f25620ddeecc08556e1229d75d7e2b37866858e0fd67ebd62bdd3fd5013fa9": {
+      "address": "0xb7893136975C43Bc1B2751AA9866cdEc14D82883",
+      "txHash": "0x5afb99313d0302d15f3a35e5830aa62c8b88c92527723784e1b84a2b3faab871",
+      "layout": {
+        "solcVersion": "0.8.28",
+        "storage": [
+          {
+            "label": "spotArbitrage",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_contract(ISpotArbitrage)9045",
+            "contract": "ArbitrageCore",
+            "src": "contracts\\core\\ArbitrageCore.sol:33"
+          },
+          {
+            "label": "flashLoanArbitrage",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_contract(IFlashLoanSimpleReceiver)9021",
+            "contract": "ArbitrageCore",
+            "src": "contracts\\core\\ArbitrageCore.sol:33"
+          },
+          {
+            "label": "configManager",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_contract(IConfigManager)8904",
+            "contract": "ArbitrageCore",
+            "src": "contracts\\core\\ArbitrageCore.sol:35"
+          },
+          {
+            "label": "spotArbImp",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_address",
+            "contract": "ArbitrageCore",
+            "src": "contracts\\core\\ArbitrageCore.sol:39"
+          },
+          {
+            "label": "platFormWallet",
+            "offset": 0,
+            "slot": "4",
+            "type": "t_address",
+            "contract": "ArbitrageCore",
+            "src": "contracts\\core\\ArbitrageCore.sol:42"
+          },
+          {
+            "label": "backCaller",
+            "offset": 0,
+            "slot": "5",
+            "type": "t_address",
+            "contract": "ArbitrageCore",
+            "src": "contracts\\core\\ArbitrageCore.sol:44"
+          },
+          {
+            "label": "supportAssets",
+            "offset": 0,
+            "slot": "6",
+            "type": "t_array(t_address)dyn_storage",
+            "contract": "ArbitrageCore",
+            "src": "contracts\\core\\ArbitrageCore.sol:45"
+          },
+          {
+            "label": "paused",
+            "offset": 0,
+            "slot": "7",
+            "type": "t_bool",
+            "contract": "ArbitrageCore",
+            "src": "contracts\\core\\ArbitrageCore.sol:47"
+          },
+          {
+            "label": "vaults",
+            "offset": 0,
+            "slot": "8",
+            "type": "t_mapping(t_address,t_contract(IArbitrageVault)8875)",
+            "contract": "ArbitrageCore",
+            "src": "contracts\\core\\ArbitrageCore.sol:48"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_struct(InitializableStorage)73_storage": {
+            "label": "struct Initializable.InitializableStorage",
+            "members": [
+              {
+                "label": "_initialized",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "_initializing",
+                "type": "t_bool",
+                "offset": 8,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(OwnableStorage)13_storage": {
+            "label": "struct OwnableUpgradeable.OwnableStorage",
+            "members": [
+              {
+                "label": "_owner",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(ReentrancyGuardStorage)419_storage": {
+            "label": "struct ReentrancyGuardUpgradeable.ReentrancyGuardStorage",
+            "members": [
+              {
+                "label": "_status",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_array(t_address)dyn_storage": {
+            "label": "address[]",
+            "numberOfBytes": "32"
+          },
+          "t_contract(IArbitrageVault)8875": {
+            "label": "contract IArbitrageVault",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IConfigManager)8904": {
+            "label": "contract IConfigManager",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IFlashLoanSimpleReceiver)9021": {
+            "label": "contract IFlashLoanSimpleReceiver",
+            "numberOfBytes": "20"
+          },
+          "t_contract(ISpotArbitrage)9045": {
+            "label": "contract ISpotArbitrage",
+            "numberOfBytes": "20"
+          },
+          "t_mapping(t_address,t_contract(IArbitrageVault)8875)": {
+            "label": "mapping(address => contract IArbitrageVault)",
+            "numberOfBytes": "32"
+          }
+        },
+        "namespaces": {
+          "erc7201:openzeppelin.storage.ReentrancyGuard": [
+            {
+              "contract": "ReentrancyGuardUpgradeable",
+              "label": "_status",
+              "type": "t_uint256",
+              "src": "@openzeppelin\\contracts-upgradeable\\utils\\ReentrancyGuardUpgradeable.sol:43",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Ownable": [
+            {
+              "contract": "OwnableUpgradeable",
+              "label": "_owner",
+              "type": "t_address",
+              "src": "@openzeppelin\\contracts-upgradeable\\access\\OwnableUpgradeable.sol:24",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Initializable": [
+            {
+              "contract": "Initializable",
+              "label": "_initialized",
+              "type": "t_uint64",
+              "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:69",
+              "offset": 0,
+              "slot": "0"
+            },
+            {
+              "contract": "Initializable",
+              "label": "_initializing",
+              "type": "t_bool",
+              "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:73",
+              "offset": 8,
+              "slot": "0"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
