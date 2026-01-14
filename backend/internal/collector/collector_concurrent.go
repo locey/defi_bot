@@ -2,26 +2,27 @@ package collector
 
 import (
 	"fmt"
-	"log"
+
 	"sync"
 	"time"
 
-	"github.com/shopspring/decimal"
 	"github.com/defi-bot/backend/internal/database"
 	"github.com/defi-bot/backend/internal/models"
+	"github.com/defi-bot/backend/pkg/log"
 	"github.com/defi-bot/backend/pkg/validation"
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
 
 // PriceData 价格数据结构（用于并发采集）- 优化版
 type PriceData struct {
-	PairID       uint
-	Token0Symbol string
-	Token1Symbol string
-	Token0Decimals int  // 新增：用于价格计算
-	Token1Decimals int  // 新增：用于价格计算
-	DexName      string
-	DexProtocol  string
+	PairID         uint
+	Token0Symbol   string
+	Token1Symbol   string
+	Token0Decimals int // 新增：用于价格计算
+	Token1Decimals int // 新增：用于价格计算
+	DexName        string
+	DexProtocol    string
 
 	// === 原始值（Wei 单位）===
 	Reserve0 string
@@ -53,11 +54,11 @@ func (c *Collector) CollectPricesConcurrent(blockNumber uint64) error {
 	}
 
 	if len(pairs) == 0 {
-		log.Println("没有活跃的交易对")
+		log.Info("没有活跃的交易对")
 		return nil
 	}
 
-	log.Printf("开始并发采集 %d 个交易对的价格数据...", len(pairs))
+	log.Info("开始并发采集 %d 个交易对的价格数据...", len(pairs))
 	startTime := time.Now()
 
 	// 并发控制
@@ -102,7 +103,7 @@ func (c *Collector) CollectPricesConcurrent(blockNumber uint64) error {
 	err := c.batchInsertResults(resultsChan, errorsChan)
 
 	duration := time.Since(startTime)
-	log.Printf("并发采集完成，耗时: %v", duration)
+	log.Info("并发采集完成，耗时: %v", duration)
 
 	return err
 }
@@ -116,7 +117,7 @@ func (c *Collector) fetchPairDataWithRetry(pair models.TradingPair, blockNumber 
 		if err := c.cache.Get(cacheKey, &cachedData); err == nil {
 			// 检查缓存是否过期（60秒内有效）
 			if time.Since(cachedData.Timestamp) < 60*time.Second {
-				log.Printf("🔥 从缓存获取: %s/%s @ %s", pair.Token0.Symbol, pair.Token1.Symbol, pair.Dex.Name)
+				log.Info("🔥 从缓存获取: %s/%s @ %s", pair.Token0.Symbol, pair.Token1.Symbol, pair.Dex.Name)
 				cachedData.BlockNumber = blockNumber // 更新区块号
 				cachedData.Timestamp = timestamp     // 更新时间戳
 				return &cachedData, nil
@@ -152,14 +153,14 @@ func (c *Collector) fetchPairDataWithRetry(pair models.TradingPair, blockNumber 
 			priceInfo.Reserve0, priceInfo.Reserve1,
 			pair.Token0.Decimals, pair.Token1.Decimals,
 		)
-		
+
 		// 验证价格合理性
 		validator := validation.NewPriceValidator()
 		pairType := validation.DeterminePairType(pair.Token0.Symbol, pair.Token1.Symbol)
 		pairKey := fmt.Sprintf("%s/%s@%s", pair.Token0.Symbol, pair.Token1.Symbol, pair.Dex.Name)
-		
+
 		if err := validator.Validate(pairKey, price, pairType); err != nil {
-			log.Printf("⚠️  价格验证失败 %s: %v", pairKey, err)
+			log.Info("⚠️  价格验证失败 %s: %v", pairKey, err)
 			// 继续处理，但记录警告
 		}
 
@@ -176,8 +177,8 @@ func (c *Collector) fetchPairDataWithRetry(pair models.TradingPair, blockNumber 
 			Reserve1:       priceInfo.Reserve1.String(),
 			Price:          price,        // decimal.Decimal
 			InversePrice:   inversePrice, // decimal.Decimal
-			BlockNumber:  blockNumber,
-			Timestamp:    timestamp,
+			BlockNumber:    blockNumber,
+			Timestamp:      timestamp,
 		}
 
 		// === ✅ V3 数据（如果是V3池）===
@@ -191,7 +192,7 @@ func (c *Collector) fetchPairDataWithRetry(pair models.TradingPair, blockNumber 
 		if c.cache != nil {
 			cacheKey := fmt.Sprintf("price:%s", pair.PairAddress)
 			if err := c.cache.Set(cacheKey, priceData, 5*time.Minute); err != nil {
-				log.Printf("⚠️  缓存写入失败: %v", err)
+				log.Info("⚠️  缓存写入失败: %v", err)
 			}
 		}
 
@@ -253,7 +254,7 @@ func (c *Collector) batchInsertResults(resultsChan chan *PriceData, errorsChan c
 
 		prices = append(prices, priceRecord)
 
-		log.Printf("✅ 采集成功: %s/%s @ %s - Price: %s",
+		log.Info("✅ 采集成功: %s/%s @ %s - Price: %s",
 			data.Token0Symbol, data.Token1Symbol, data.DexName,
 			data.Price.StringFixed(8)) // 显示8位小数
 
@@ -262,19 +263,19 @@ func (c *Collector) batchInsertResults(resultsChan chan *PriceData, errorsChan c
 
 	// 收集错误
 	for err := range errorsChan {
-		log.Printf("⚠️  %v", err)
+		log.Info("⚠️  %v", err)
 		errorCount++
 	}
 
-	log.Printf("采集统计: 成功=%d, 失败=%d", successCount, errorCount)
+	log.Info("采集统计: 成功=%d, 失败=%d", successCount, errorCount)
 
 	// 批量插入（使用事务）
 	if len(reserves) == 0 {
-		log.Println("没有数据需要写入")
+		log.Info("没有数据需要写入")
 		return nil
 	}
 
-	log.Printf("开始批量写入 %d 条记录...", len(reserves))
+	log.Info("开始批量写入 %d 条记录...", len(reserves))
 
 	err := db.Transaction(func(tx *gorm.DB) error {
 		// 批量插入储备量（每次1000条）
@@ -307,7 +308,7 @@ func (c *Collector) batchInsertResults(resultsChan chan *PriceData, errorsChan c
 		return fmt.Errorf("数据库写入失败: %w", err)
 	}
 
-	log.Printf("✅ 批量写入完成: %d 条储备量, %d 条价格记录", len(reserves), len(prices))
+	log.Info("✅ 批量写入完成: %d 条储备量, %d 条价格记录", len(reserves), len(prices))
 	return nil
 }
 

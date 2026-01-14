@@ -4,12 +4,12 @@ package strategy
 import (
 	"context"
 	"fmt"
-	"log"
 	"math/big"
 	"strings"
 	"time"
 
 	"github.com/defi-bot/backend/internal/models"
+	"github.com/defi-bot/backend/pkg/log"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -90,7 +90,7 @@ func (e *StrategyEngine) FindCexDexOpportunities(ctx context.Context) ([]*CexDex
 	}
 
 	if len(cexPrices) == 0 {
-		log.Printf("No CEX prices available")
+		log.Error("No CEX prices available")
 		return nil, nil
 	}
 
@@ -101,7 +101,7 @@ func (e *StrategyEngine) FindCexDexOpportunities(ctx context.Context) ([]*CexDex
 	}
 
 	if len(dexPrices) == 0 {
-		log.Printf("No DEX prices available")
+		log.Error("No DEX prices available")
 		return nil, nil
 	}
 
@@ -126,7 +126,7 @@ func (e *StrategyEngine) FindCexDexOpportunities(ctx context.Context) ([]*CexDex
 			continue // 价差太小，不值得套利
 		}
 		if absSpread > config.MaxSpread {
-			log.Printf("⚠️ Abnormal spread for %s: %.2f%% (skipped)", pair, absSpread)
+			log.Error("⚠️ Abnormal spread for %s: %.2f%% (skipped)", pair, absSpread)
 			continue // 价差太大，可能是异常数据
 		}
 
@@ -160,7 +160,7 @@ func (e *StrategyEngine) FindCexDexOpportunities(ctx context.Context) ([]*CexDex
 		}
 	}
 
-	log.Printf("Found %d CEX-DEX opportunities", len(opportunities))
+	log.Info("Found %d CEX-DEX opportunities", len(opportunities))
 
 	// 保存到数据库
 	if len(opportunities) > 0 {
@@ -435,10 +435,10 @@ func (e *StrategyEngine) saveCexDexOpportunitiesToDB(opps []*CexDexOpportunity) 
 		}
 
 		if err := e.db.Create(dbOpp).Error; err != nil {
-			log.Printf("Save CEX-DEX opportunity failed: %v", err)
+			log.Error("Save CEX-DEX opportunity failed: %v", err)
 			continue
 		}
-		log.Printf("✅ Saved CEX-DEX opportunity: %s (spread=%.2f%%)", opp.TokenPair, opp.PriceSpread)
+		log.Info("✅ Saved CEX-DEX opportunity: %s (spread=%.2f%%)", opp.TokenPair, opp.PriceSpread)
 	}
 }
 

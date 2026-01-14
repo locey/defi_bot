@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"math/big"
 	"sort"
 	"strings"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/defi-bot/backend/internal/models"
 	"github.com/defi-bot/backend/pkg/cache"
+	"github.com/defi-bot/backend/pkg/log"
 	"github.com/defi-bot/backend/pkg/web3"
 	"github.com/ethereum/go-ethereum/common"
 	"gorm.io/gorm"
@@ -68,7 +68,7 @@ func NewStrategyEngine(
 // Start 启动策略引擎
 func (e *StrategyEngine) Start(ctx context.Context) error {
 	e.running = true
-	log.Println("Strategy engine started")
+	log.Info("Strategy engine started")
 
 	// 启动池子信息更新
 	go e.poolUpdateLoop(ctx)
@@ -80,7 +80,7 @@ func (e *StrategyEngine) Start(ctx context.Context) error {
 func (e *StrategyEngine) Stop() {
 	e.running = false
 	close(e.stopCh)
-	log.Println("Strategy engine stopped")
+	log.Info("Strategy engine stopped")
 }
 
 // FindOpportunities 查找套利机会
@@ -89,7 +89,7 @@ func (e *StrategyEngine) FindOpportunities(ctx context.Context) ([]*ArbitrageOpp
 
 	// 0. 从 DB 读取最新池子数据并构建 token graph（否则 FindAllPaths 永远找不到路径）
 	if len(e.config.BaseTokens) == 0 || len(e.config.SupportedDexes) == 0 {
-		log.Printf("⚠️  StrategyConfig missing BaseTokens or SupportedDexes (baseTokens=%d, dexes=%d) - likely no paths will be found",
+		log.Info("⚠️  StrategyConfig missing BaseTokens or SupportedDexes (baseTokens=%d, dexes=%d) - likely no paths will be found",
 			len(e.config.BaseTokens), len(e.config.SupportedDexes))
 	}
 	pools, err := e.loadPoolsFromDB(ctx)
@@ -97,7 +97,7 @@ func (e *StrategyEngine) FindOpportunities(ctx context.Context) ([]*ArbitrageOpp
 		return nil, fmt.Errorf("load pools from db failed: %w", err)
 	}
 	if len(pools) == 0 {
-		log.Printf("No pools found in DB (need trading_pairs + pair_reserves). Skip analysis.")
+		log.Info("No pools found in DB (need trading_pairs + pair_reserves). Skip analysis.")
 		return nil, nil
 	}
 	e.pathFinder.BuildTokenGraph(ctx, pools)
@@ -108,7 +108,7 @@ func (e *StrategyEngine) FindOpportunities(ctx context.Context) ([]*ArbitrageOpp
 		return nil, fmt.Errorf("find paths failed: %w", err)
 	}
 
-	log.Printf("Found %d potential paths in %v", len(paths), time.Since(startTime))
+	log.Info("Found %d potential paths in %v", len(paths), time.Since(startTime))
 
 	// 2. 并发计算每条路径的利润
 	opportunities := e.evaluatePathsConcurrently(ctx, paths)
@@ -121,13 +121,13 @@ func (e *StrategyEngine) FindOpportunities(ctx context.Context) ([]*ArbitrageOpp
 		return profitable[i].ProfitRate > profitable[j].ProfitRate
 	})
 
-	log.Printf("Found %d profitable opportunities in %v",
+	log.Info("Found %d profitable opportunities in %v",
 		len(profitable), time.Since(startTime))
 
 	// ✅ 新增：保存套利机会到数据库
 	if len(profitable) > 0 {
 		if err := e.SaveOpportunitiesToDB(ctx, profitable); err != nil {
-			log.Printf("Save opportunities to DB failed: %v", err)
+			log.Error("Save opportunities to DB failed: %v", err)
 		}
 	}
 
@@ -194,7 +194,7 @@ func (e *StrategyEngine) loadPoolsFromDB(ctx context.Context) ([]*PoolInfo, erro
 			Order("timestamp DESC").
 			Limit(1).
 			Scan(&r).Error; err != nil {
-			log.Printf("Load reserves failed for pair_id=%d: %v", p.ID, err)
+			log.Error("Load reserves failed for pair_id=%d: %v", p.ID, err)
 			continue
 		}
 
@@ -204,12 +204,12 @@ func (e *StrategyEngine) loadPoolsFromDB(ctx context.Context) ([]*PoolInfo, erro
 
 		r0, ok := new(big.Int).SetString(r.Reserve0, 10)
 		if !ok {
-			log.Printf("Invalid reserve0 for pair_id=%d: %s", p.ID, r.Reserve0)
+			log.Error("Invalid reserve0 for pair_id=%d: %s", p.ID, r.Reserve0)
 			continue
 		}
 		r1, ok := new(big.Int).SetString(r.Reserve1, 10)
 		if !ok {
-			log.Printf("Invalid reserve1 for pair_id=%d: %s", p.ID, r.Reserve1)
+			log.Error("Invalid reserve1 for pair_id=%d: %s", p.ID, r.Reserve1)
 			continue
 		}
 
@@ -259,7 +259,7 @@ func (e *StrategyEngine) evaluatePathsConcurrently(
 			if err != nil {
 				// 这类错误在大规模路径枚举时非常常见（例如流动性不足/无正利润），属于正常过滤，不要刷屏。
 				if !isExpectedPathEvalError(err) {
-					log.Printf("Evaluate path failed: %v", err)
+					log.Error("Evaluate path failed: %v", err)
 				}
 				return
 			}
@@ -483,7 +483,7 @@ func (e *StrategyEngine) updateAllPools() {
 	for _, addr := range addresses {
 		pool, err := e.fetchPoolFromChain(addr)
 		if err != nil {
-			log.Printf("Update pool %s failed: %v", addr.Hex(), err)
+			log.Info("Update pool %s failed: %v", addr.Hex(), err)
 			continue
 		}
 
@@ -563,7 +563,7 @@ func (e *StrategyEngine) SaveOpportunitiesToDB(ctx context.Context, opps []*Arbi
 	for _, opp := range opps {
 		dbOpp, err := e.convertToDBModel(opp)
 		if err != nil {
-			log.Printf("Convert opportunity failed: %v", err)
+			log.Error("Convert opportunity failed: %v", err)
 			continue
 		}
 
@@ -586,10 +586,10 @@ func (e *StrategyEngine) SaveOpportunitiesToDB(ctx context.Context, opps []*Arbi
 
 		// 创建新记录
 		if err := e.db.Create(dbOpp).Error; err != nil {
-			log.Printf("Save opportunity failed: %v", err)
+			log.Error("Save opportunity failed: %v", err)
 			continue
 		}
-		log.Printf("✅ Saved opportunity: %s (profit_rate=%.4f%%)", dbOpp.SwapPath, dbOpp.ProfitRate)
+		log.Info("✅ Saved opportunity: %s (profit_rate=%.4f%%)", dbOpp.SwapPath, dbOpp.ProfitRate)
 	}
 
 	return nil
@@ -608,12 +608,12 @@ func (e *StrategyEngine) convertToDBModel(opp *ArbitrageOpportunity) (*models.Ar
 	tokenOutAddr := opp.SwapPath[len(opp.SwapPath)-1].Hex()
 
 	if err := e.db.Where("LOWER(address) = LOWER(?)", tokenInAddr).First(&tokenIn).Error; err != nil {
-		log.Printf("Token not found for address: %s", tokenInAddr)
+		log.Error("Token not found for address: %s", tokenInAddr)
 		// 创建临时记录，避免外键约束失败
 		tokenIn.ID = 0
 	}
 	if err := e.db.Where("LOWER(address) = LOWER(?)", tokenOutAddr).First(&tokenOut).Error; err != nil {
-		log.Printf("Token not found for address: %s", tokenOutAddr)
+		log.Error("Token not found for address: %s", tokenOutAddr)
 		tokenOut.ID = 0
 	}
 

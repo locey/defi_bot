@@ -2,12 +2,12 @@ package collector
 
 import (
 	"fmt"
-	"log"
 	"math/big"
 	"time"
 
 	"github.com/defi-bot/backend/internal/database"
 	"github.com/defi-bot/backend/internal/models"
+	"github.com/defi-bot/backend/pkg/log"
 )
 
 // CollectV3Depths 采集 V3 流动性深度数据
@@ -30,12 +30,11 @@ func (c *Collector) CollectV3Depths() error {
 	}
 
 	if len(pairs) == 0 {
-		log.Println("没有V3交易对需要采集深度")
+		log.Info("没有V3交易对需要采集深度")
 		return nil
 	}
 
-	log.Printf("开始采集 %d 个 V3 池的流动性深度...", len(pairs))
-
+	log.Info("开始采集 %d 个 V3 池的流动性深度...", len(pairs))
 	// 定义测试金额（业界标准）
 	testAmounts := []*big.Int{
 		parseEther("0.1"), // 0.1 ETH - 小额交易
@@ -57,7 +56,7 @@ func (c *Collector) CollectV3Depths() error {
 
 		depths, err := c.collectPairDepth(pair, testAmounts, blockNumber, timestamp)
 		if err != nil {
-			log.Printf("⚠️  采集深度失败 %s/%s @ %s: %v",
+			log.Warn("⚠️  采集深度失败 %s/%s @ %s: %v",
 				pair.Token0.Symbol, pair.Token1.Symbol, pair.Exchange.Name, err)
 			continue
 		}
@@ -65,16 +64,16 @@ func (c *Collector) CollectV3Depths() error {
 		// 批量插入
 		if len(depths) > 0 {
 			if err := db.CreateInBatches(depths, 100).Error; err != nil {
-				log.Printf("⚠️  写入深度数据失败: %v", err)
+				log.Warn("⚠️  写入深度数据失败: %v", err)
 			} else {
 				totalDepths += len(depths)
-				log.Printf("✅ 采集深度: %s/%s @ %s - %d 个测试点",
+				log.Info("✅ 采集深度: %s/%s @ %s - %d 个测试点",
 					pair.Token0.Symbol, pair.Token1.Symbol, pair.Exchange.Name, len(depths))
 			}
 		}
 	}
 
-	log.Printf("✅ 深度采集完成: 共 %d 条记录", totalDepths)
+	log.Info("✅ 深度采集完成: 共 %d 条记录", totalDepths)
 	return nil
 }
 
@@ -205,4 +204,3 @@ func pow10(n int) float64 {
 	}
 	return result
 }
-
