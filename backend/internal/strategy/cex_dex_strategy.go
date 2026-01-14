@@ -155,7 +155,7 @@ func (e *StrategyEngine) FindCexDexOpportunities(ctx context.Context) ([]*CexDex
 		}
 
 		// 评估可行性和计算利润
-		if e.evaluateCexDexFeasibility(ctx, opp, config) {
+		if e.evaluateCexDexFeasibility(opp, config) {
 			opportunities = append(opportunities, opp)
 		}
 	}
@@ -164,7 +164,7 @@ func (e *StrategyEngine) FindCexDexOpportunities(ctx context.Context) ([]*CexDex
 
 	// 保存到数据库
 	if len(opportunities) > 0 {
-		e.saveCexDexOpportunitiesToDB(ctx, opportunities)
+		e.saveCexDexOpportunitiesToDB(opportunities)
 	}
 
 	return opportunities, nil
@@ -336,11 +336,7 @@ func calculateSpread(cexPrice, dexPrice *big.Float) float64 {
 }
 
 // evaluateCexDexFeasibility 评估 CEX-DEX 套利可行性
-func (e *StrategyEngine) evaluateCexDexFeasibility(
-	ctx context.Context,
-	opp *CexDexOpportunity,
-	config *CexDexConfig,
-) bool {
+func (e *StrategyEngine) evaluateCexDexFeasibility(opp *CexDexOpportunity, config *CexDexConfig) bool {
 	// 1. 计算总成本
 	// - CEX 手续费
 	// - DEX Gas 费用
@@ -399,7 +395,7 @@ func (e *StrategyEngine) evaluateCexDexFeasibility(
 }
 
 // saveCexDexOpportunitiesToDB 保存 CEX-DEX 套利机会到数据库
-func (e *StrategyEngine) saveCexDexOpportunitiesToDB(ctx context.Context, opps []*CexDexOpportunity) {
+func (e *StrategyEngine) saveCexDexOpportunitiesToDB(opps []*CexDexOpportunity) {
 	if e.db == nil {
 		return
 	}

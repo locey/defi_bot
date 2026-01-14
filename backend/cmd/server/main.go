@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -19,6 +18,7 @@ import (
 	"github.com/defi-bot/backend/internal/strategy"
 	"github.com/defi-bot/backend/pkg/cache"
 	"github.com/defi-bot/backend/pkg/cex"
+	"github.com/defi-bot/backend/pkg/log" // 导入自定义log包
 	"github.com/defi-bot/backend/pkg/web3"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -33,29 +33,36 @@ func main() {
 	flag.Parse()
 
 	// 1. 加载配置
-	log.Println("========================================")
-	log.Println("DeFi 套利机器人后端服务")
-	log.Println("========================================")
-
 	cfg, err := config.LoadConfig(*configPath)
 	if err != nil {
-		log.Fatalf("加载配置失败: %v", err)
+		fmt.Printf("加载配置失败: %v\n", err)
+		os.Exit(1)
 	}
 
-	// 2. 初始化数据库
-	log.Println("初始化数据库...")
+	// 2. 初始化日志
+	if err := log.Init(&cfg.Log); err != nil {
+		fmt.Printf("日志初始化失败: %v\n", err)
+		os.Exit(1)
+	}
+
+	log.Info("========================================")
+	log.Info("DeFi 套利机器人后端服务")
+	log.Info("========================================")
+
+	// 3. 初始化数据库
+	log.Info("初始化数据库...")
 	if err := database.InitDB(&cfg.Database); err != nil {
-		log.Fatalf("数据库初始化失败: %v", err)
+		log.Fatal("数据库初始化失败: %v", err)
 	}
 	defer database.CloseDB()
 
 	// 3. 执行数据库迁移
 	if *migrate {
-		log.Println("执行数据库迁移...")
+		log.Info("执行数据库迁移...")
 		if err := database.AutoMigrate(); err != nil {
-			log.Fatalf("数据库迁移失败: %v", err)
+			log.Fatal("数据库迁移失败: %v", err)
 		}
-		log.Println("数据库迁移完成")
+		log.Info("数据库迁移完成")
 
 		if !*seed {
 			return
@@ -64,29 +71,29 @@ func main() {
 
 	// 4. 初始化种子数据
 	if *seed {
-		log.Println("初始化种子数据...")
+		log.Info("初始化种子数据...")
 		if err := database.SeedData(cfg); err != nil {
-			log.Fatalf("种子数据初始化失败: %v", err)
+			log.Fatal("种子数据初始化失败: %v", err)
 		}
 		return
 	}
 
 	// 5. 初始化 Web3 客户端
-	log.Println("初始化 Web3 客户端...")
+	log.Info("初始化 Web3 客户端...")
 	web3Client, err := web3.NewClient(
 		cfg.Blockchain.RPCURL,
 		cfg.Blockchain.ChainID,
 		cfg.Blockchain.Timeout,
 	)
 	if err != nil {
-		log.Fatalf("Web3 客户端初始化失败: %v", err)
+		log.Fatal("Web3 客户端初始化失败: %v", err)
 	}
 	defer web3Client.Close()
 
 	// 6. 初始化 Redis 缓存（可选）
 	var redisCache *cache.RedisCache
 	if cfg.Redis.Enabled {
-		log.Println("初始化 Redis 缓存...")
+		log.Info("初始化 Redis 缓存...")
 		var err error
 		redisCache, err = cache.NewRedisCache(&cache.RedisConfig{
 			Host:     cfg.Redis.Host,
@@ -96,7 +103,7 @@ func main() {
 			TTL:      time.Duration(cfg.Redis.TTL) * time.Second,
 		})
 		if err != nil {
-			log.Printf("⚠️  Redis 初始化失败（将不使用缓存）: %v", err)
+			log.Warn("Redis 初始化失败（将不使用缓存）: %v", err)
 			redisCache = nil
 		} else {
 			defer redisCache.Close()
@@ -106,7 +113,7 @@ func main() {
 	// 7. 初始化 CEX 采集器（如果启用）
 	var cexCollector *collector.CexCollector
 	if cfg.Cex.Enabled && cfg.Cex.Binance.Enabled {
-		log.Println("初始化 CEX 采集器（币安）...")
+		log.Info("初始化 CEX 采集器（币安）...")
 		cexCollector = collector.NewCexCollector(
 			&cex.BinanceConfig{
 				APIEndpoint: cfg.Cex.Binance.APIEndpoint,
@@ -120,11 +127,11 @@ func main() {
 	}
 
 	// 8. 创建数据采集器（集成 DEX + CEX）
-	log.Println("创建数据采集器...")
+	log.Info("创建数据采集器...")
 	dataCollector := collector.NewCollector(web3Client, cexCollector, redisCache)
 
 	// 9. 初始化策略引擎
-	log.Println("初始化策略引擎...")
+	log.Info("初始化策略引擎...")
 	strategyConfig := &strategy.StrategyConfig{
 		MinProfitRate:      cfg.Arbitrage.MinProfitRate / 100.0, // 转换为小数
 		MaxPathLength:      5,
@@ -167,13 +174,13 @@ func main() {
 	// 启动策略引擎
 	ctx := context.Background()
 	if err := strategyEngine.Start(ctx); err != nil {
-		log.Printf("⚠️  策略引擎启动失败: %v", err)
+		log.Warn("策略引擎启动失败: %v", err)
 	}
 
 	// 10. 初始化执行器（如果配置了 Keeper 私钥）
 	var arbitrageExecutor *executor.ArbitrageExecutor
 	if cfg.Keeper.PrivateKey != "" && cfg.Contracts.ArbitrageCore != "" {
-		log.Println("初始化套利执行器...")
+		log.Info("初始化套利执行器...")
 		arbitrageExecutor = executor.NewArbitrageExecutor(
 			web3Client,
 			common.HexToAddress(cfg.Contracts.ArbitrageCore),
@@ -181,13 +188,13 @@ func main() {
 		)
 		// 设置数据库连接，用于保存执行记录
 		arbitrageExecutor.SetDB(db)
-		log.Println("✅ 套利执行器已初始化（自动执行模式）")
+		log.Info("✅ 套利执行器已初始化（自动执行模式）")
 	} else {
-		log.Println("⚠️  未配置 Keeper 私钥或合约地址，仅分析模式（不会自动执行）")
+		log.Warn("未配置 Keeper 私钥或合约地址，仅分析模式（不会自动执行）")
 	}
 
 	// 11. 创建定时任务调度器
-	log.Println("创建定时任务调度器...")
+	log.Info("创建定时任务调度器...")
 	taskScheduler := scheduler.NewScheduler(
 		dataCollector,
 		strategyEngine,
@@ -197,13 +204,13 @@ func main() {
 
 	// 12. 启动调度器
 	if err := taskScheduler.Start(ctx); err != nil {
-		log.Fatalf("启动调度器失败: %v", err)
+		log.Fatal("启动调度器失败: %v", err)
 	}
 
 	// 13. 立即执行一次数据采集（DEX + CEX）
-	log.Println("执行初始数据采集...")
+	log.Info("执行初始数据采集...")
 	if err := dataCollector.CollectAllData(); err != nil {
-		log.Printf("初始数据采集失败: %v", err)
+		log.Warn("初始数据采集失败: %v", err)
 	}
 
 	// 14. 启动 API 服务器
@@ -214,24 +221,24 @@ func main() {
 	apiServer := api.NewAPIServer(db)
 	go func() {
 		apiAddr := fmt.Sprintf(":%d", apiPort)
-		log.Printf("🚀 启动 API 服务器: %s", apiAddr)
+		log.Info("🚀 启动 API 服务器: %s", apiAddr)
 		if err := apiServer.Run(apiAddr); err != nil {
-			log.Printf("⚠️  API 服务器启动失败: %v", err)
+			log.Warn("API 服务器启动失败: %v", err)
 		}
 	}()
 
 	// 15. 等待退出信号
-	log.Println("========================================")
-	log.Println("服务已启动，按 Ctrl+C 退出")
-	log.Println("========================================")
+	log.Info("========================================")
+	log.Info("服务已启动，按 Ctrl+C 退出")
+	log.Info("========================================")
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
 	// 15. 优雅关闭
-	log.Println("\n正在关闭服务...")
+	log.Info("\n正在关闭服务...")
 	taskScheduler.Stop()
 	strategyEngine.Stop()
-	log.Println("服务已关闭")
+	log.Info("服务已关闭")
 }

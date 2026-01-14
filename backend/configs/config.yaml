@@ -2,16 +2,6 @@
 
 # 数据库配置
 database:
-  # host: ${DB_HOST:localhost}
-  # port: ${DB_PORT:5432}
-  # user: ${DB_USER:defi_user}
-  # password: ${DB_PASSWORD:defi_pass123}
-  # dbname: ${DB_NAME:defi_arbitrage}
-  # sslmode: disable
-  # timezone: Asia/Shanghai
-  # max_idle_conns: 10
-  # max_open_conns: 100
-  # conn_max_lifetime: 3600  # 秒
   host: 127.0.0.1
   port: 5432
   user: defi_user
@@ -25,29 +15,30 @@ database:
 
 # 区块链配置
 blockchain:
-  # 主 RPC URL（Sepolia 测试网）
-  rpc_url: ${RPC_URL:https://rpc.ankr.com/eth_sepolia}
+  # 主 RPC URL（以太坊主网）
+  rpc_url: https://eth-mainnet.g.alchemy.com/v2/iGC_zO4j3r7_XTNytucjy
   
   # 多 RPC URL（池模式，启用后会使用负载均衡和故障转移）
   rpc_urls:
-    - https://rpc.ankr.com/eth_sepolia
-    - https://ethereum-sepolia.publicnode.com
-    - https://rpc.sepolia.org
+    - https://eth-mainnet.g.alchemy.com/v2/iGC_zO4j3r7_XTNytucjy
+    - https://rpc.ankr.com/eth
+    - https://ethereum.publicnode.com
+    - https://rpc.eth.gateway.fm
   
-  chain_id: ${CHAIN_ID:11155111}
+  chain_id: 1
   timeout: 30  # 秒
   retry: 3
-  use_pool: false  # 生产环境建议启用 RPC 池
+  use_pool: true  # 生产环境建议启用 RPC 池
 
-# 合约地址
+# 合约地址（如果只是寻找套利机会而不执行交易，可以留空）
 contracts:
-  arbitrage_core: ${ARBITRAGE_CORE_ADDRESS:}
-  config_manager: ${CONFIG_MANAGER_ADDRESS:}
+  arbitrage_core: ""
+  config_manager: ""
 
 # Keeper 配置（用于自动执行套利）
 keeper:
-  private_key: ${KEEPER_PRIVATE_KEY:}  # Keeper 私钥（用于签名交易）
-  address: ${KEEPER_ADDRESS:}          # Keeper 地址
+  private_key: ""
+  address: ""
 
 # DEX 配置
 dexes:
@@ -139,24 +130,6 @@ dexes:
     support_multi_hop: true
     support_v3_ticks: true
     priority: 95
-  
-  # ============ 聚合器类型（可选，开发中）============
-  
-  # 1inch Aggregator（主网）
-  # - name: "1inch"
-  #   dex_type: "aggregator"
-  #   protocol: "1inch"
-  #   router: "0x1111111254EEB25477B68fb85Ed929f73A960582"  # 1inch v6 Router
-  #   factory: ""  # 聚合器没有 factory
-  #   quoter: ""   # 使用 API 报价
-  #   fee: 0       # 动态费用
-  #   dynamic_fee: true
-  #   version: "v6"
-  #   chain_id: 1
-  #   support_flash_loan: false
-  #   support_multi_hop: true
-  #   support_v3_ticks: false
-  #   priority: 50  # 聚合器优先级最高（通常价格最优）
 
 # 代币配置（常用代币）
 tokens:
@@ -256,38 +229,38 @@ arbitrage:
 
 # 日志配置
 log:
-  level: ${LOG_LEVEL:info}
-  file: ${LOG_FILE:logs/app.log}
+  level: info
+  file: logs/app.log
   max_size: 100  # MB
   max_backups: 10
   max_age: 30  # 天
 
 # 服务器配置
 server:
-  port: ${SERVER_PORT:8080}
-  api_port: ${API_PORT:8080}  # REST API 端口
+  port: 8080
+  api_port: 8080  # REST API 端口
   mode: release  # debug, release
 
 # Redis 配置（可选）
 redis:
-  enabled: ${REDIS_ENABLED:true}  # 启用 Redis 缓存
-  host: ${REDIS_HOST:localhost}
-  port: ${REDIS_PORT:6379}
-  password: ${REDIS_PASSWORD:}
-  db: ${REDIS_DB:0}
+  enabled: true  # 启用 Redis 缓存
+  host: localhost
+  port: 6379
+  password: ""
+  db: 0
   ttl: 300  # 默认过期时间 5 分钟
 
 # ============ CEX 配置（中心化交易所）============
 cex:
-  enabled: ${CEX_ENABLED:true}  # 是否启用 CEX 数据采集
+  enabled: true  # 是否启用 CEX 数据采集
   
   # 币安配置
   binance:
-    enabled: ${BINANCE_ENABLED:true}
+    enabled: true
     api_endpoint: "https://api.binance.com"
     ws_endpoint: "wss://stream.binance.com:9443"
-    api_key: ${BINANCE_API_KEY:}       # API Key（可选，读取公开数据不需要）
-    api_secret: ${BINANCE_API_SECRET:} # API Secret（可选）
+    api_key: ""       # API Key（可选，读取公开数据不需要）
+    api_secret: "" # API Secret（可选）
     rate_limit: 1200                   # 每分钟请求限制
     symbols:  # 要采集的交易对符号列表
       - "ETHUSDT"   # ETH/USDT
@@ -295,4 +268,3 @@ cex:
       - "ETHBTC"    # ETH/BTC
       - "USDCUSDT"  # USDC/USDT
       - "DAIUSDT"   # DAI/USDT
-

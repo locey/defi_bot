@@ -197,6 +197,7 @@ backend/
 │   ├── database/               # 数据库连接
 │   ├── models/                 # 数据模型（7个表）
 │   └── scheduler/              # 定时任务
+│       └── scheduler.go
 │
 ├── pkg/                        # 公共包
 │   ├── cache/                  # Redis 缓存

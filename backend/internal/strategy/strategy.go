@@ -331,6 +331,11 @@ func (e *StrategyEngine) evaluatePath(
 	// 4. 计算预期利润
 	expectProfit := new(big.Int).Sub(expectedOut, optimalAmount)
 
+	// 明确检查利润是否为正
+	if expectProfit.Sign() <= 0 {
+		return nil, nil // 利润为负或零，直接返回
+	}
+
 	// 5. 检查是否满足最小利润要求
 	if expectProfit.Cmp(minProfit) < 0 {
 		return nil, nil // 利润不足
@@ -341,7 +346,13 @@ func (e *StrategyEngine) evaluatePath(
 		new(big.Float).SetInt(expectProfit),
 		new(big.Float).SetInt(optimalAmount),
 	)
-	profitRateFloat, _ := profitRate.Float64()
+	profitRateFloat, accuracy := profitRate.Float64()
+	_ = accuracy
+
+	// 过滤异常利润率
+	if profitRateFloat > 1.0 { // 过滤超过100%的利润率
+		return nil, nil
+	}
 
 	// 7. 检查最小利润率
 	if profitRateFloat < e.config.MinProfitRate {
@@ -358,7 +369,7 @@ func (e *StrategyEngine) evaluatePath(
 		ExpectedOut:  expectedOut,
 		ExpectProfit: expectProfit,
 		MinProfit:    minProfit,
-		ProfitRate:   profitRateFloat,
+		ProfitRate:   profitRateFloat * 100, // 转为百分比
 		GasEstimate:  gasEstimate,
 		GasPrice:     gasPrice,
 		GasCost:      gasCost,
@@ -455,13 +466,13 @@ func (e *StrategyEngine) poolUpdateLoop(ctx context.Context) {
 		case <-e.stopCh:
 			return
 		case <-ticker.C:
-			e.updateAllPools(ctx)
+			e.updateAllPools()
 		}
 	}
 }
 
 // updateAllPools 更新所有池子
-func (e *StrategyEngine) updateAllPools(ctx context.Context) {
+func (e *StrategyEngine) updateAllPools() {
 	e.poolCacheMu.RLock()
 	addresses := make([]common.Address, 0, len(e.poolCache))
 	for addr := range e.poolCache {
@@ -483,7 +494,7 @@ func (e *StrategyEngine) updateAllPools(ctx context.Context) {
 }
 
 // fetchPoolFromChain 从链上获取池子信息
-func (e *StrategyEngine) fetchPoolFromChain(address common.Address) (*PoolInfo, error) {
+func (e *StrategyEngine) fetchPoolFromChain(_ common.Address) (*PoolInfo, error) {
 	// 这里调用web3Client获取池子信息
 	// 需要根据你的实际实现来完成
 	return nil, fmt.Errorf("not implemented")
