@@ -14,6 +14,7 @@ import (
 	"github.com/defi-bot/backend/internal/config"
 	"github.com/defi-bot/backend/internal/database"
 	"github.com/defi-bot/backend/internal/executor"
+	"github.com/defi-bot/backend/internal/models"
 	"github.com/defi-bot/backend/internal/scheduler"
 	"github.com/defi-bot/backend/internal/strategy"
 	"github.com/defi-bot/backend/pkg/cache"
@@ -45,24 +46,24 @@ func main() {
 		os.Exit(1)
 	}
 
-	log.Info("========================================")
-	log.Info("DeFi 套利机器人后端服务")
-	log.Info("========================================")
+	log.Main().Info().Msg("========================================")
+	log.Main().Info().Msg("DeFi 套利机器人后端服务")
+	log.Main().Info().Msg("========================================")
 
 	// 3. 初始化数据库
-	log.Info("初始化数据库...")
+	log.Main().Info().Msg("初始化数据库...")
 	if err := database.InitDB(&cfg.Database); err != nil {
-		log.Fatal("数据库初始化失败: %v", err)
+		log.Main().Fatal().Err(err).Msg("数据库初始化失败")
 	}
 	defer database.CloseDB()
 
 	// 3. 执行数据库迁移
 	if *migrate {
-		log.Info("执行数据库迁移...")
+		log.Main().Info().Msg("执行数据库迁移...")
 		if err := database.AutoMigrate(); err != nil {
-			log.Fatal("数据库迁移失败: %v", err)
+			log.Main().Fatal().Err(err).Msg("数据库迁移失败")
 		}
-		log.Info("数据库迁移完成")
+		log.Main().Info().Msg("数据库迁移完成")
 
 		if !*seed {
 			return
@@ -71,29 +72,46 @@ func main() {
 
 	// 4. 初始化种子数据
 	if *seed {
-		log.Info("初始化种子数据...")
+		log.Main().Info().Msg("初始化种子数据...")
 		if err := database.SeedData(cfg); err != nil {
-			log.Fatal("种子数据初始化失败: %v", err)
+			log.Main().Fatal().Err(err).Msg("种子数据初始化失败")
 		}
 		return
 	}
 
+	// 4.1 ✅ 自动检测：如果数据库没有基础数据，自动初始化
+	db := database.GetDB()
+	var tokenCount, dexCount int64
+	db.Model(&models.Token{}).Count(&tokenCount)
+	db.Model(&models.Exchange{}).Where("exchange_type = ?", "dex").Count(&dexCount)
+
+	if tokenCount == 0 || dexCount == 0 {
+		log.Main().Warn().Int64("tokens", tokenCount).Int64("dexes", dexCount).Msg("⚠️  检测到数据库缺少基础数据")
+		log.Main().Info().Msg("🔧 自动初始化种子数据...")
+		if err := database.SeedData(cfg); err != nil {
+			log.Main().Fatal().Err(err).Msg("自动种子数据初始化失败")
+		}
+		log.Main().Info().Msg("✅ 种子数据初始化完成")
+	} else {
+		log.Main().Info().Int64("tokens", tokenCount).Int64("dexes", dexCount).Msg("✅ 数据库检查通过")
+	}
+
 	// 5. 初始化 Web3 客户端
-	log.Info("初始化 Web3 客户端...")
+	log.Main().Info().Msg("初始化 Web3 客户端...")
 	web3Client, err := web3.NewClient(
 		cfg.Blockchain.RPCURL,
 		cfg.Blockchain.ChainID,
 		cfg.Blockchain.Timeout,
 	)
 	if err != nil {
-		log.Fatal("Web3 客户端初始化失败: %v", err)
+		log.Main().Fatal().Err(err).Msg("Web3 客户端初始化失败")
 	}
 	defer web3Client.Close()
 
 	// 6. 初始化 Redis 缓存（可选）
 	var redisCache *cache.RedisCache
 	if cfg.Redis.Enabled {
-		log.Info("初始化 Redis 缓存...")
+		log.Main().Info().Msg("初始化 Redis 缓存...")
 		var err error
 		redisCache, err = cache.NewRedisCache(&cache.RedisConfig{
 			Host:     cfg.Redis.Host,
@@ -103,7 +121,7 @@ func main() {
 			TTL:      time.Duration(cfg.Redis.TTL) * time.Second,
 		})
 		if err != nil {
-			log.Warn("Redis 初始化失败（将不使用缓存）: %v", err)
+			log.Main().Warn().Err(err).Msg("Redis 初始化失败（将不使用缓存）")
 			redisCache = nil
 		} else {
 			defer redisCache.Close()
@@ -113,7 +131,7 @@ func main() {
 	// 7. 初始化 CEX 采集器（如果启用）
 	var cexCollector *collector.CexCollector
 	if cfg.Cex.Enabled && cfg.Cex.Binance.Enabled {
-		log.Info("初始化 CEX 采集器（币安）...")
+		log.Main().Info().Msg("初始化 CEX 采集器（币安）...")
 		cexCollector = collector.NewCexCollector(
 			&cex.BinanceConfig{
 				APIEndpoint: cfg.Cex.Binance.APIEndpoint,
@@ -127,11 +145,11 @@ func main() {
 	}
 
 	// 8. 创建数据采集器（集成 DEX + CEX）
-	log.Info("创建数据采集器...")
+	log.Main().Info().Msg("创建数据采集器...")
 	dataCollector := collector.NewCollector(web3Client, cexCollector, redisCache)
 
 	// 9. 初始化策略引擎
-	log.Info("初始化策略引擎...")
+	log.Main().Info().Msg("初始化策略引擎...")
 	strategyConfig := &strategy.StrategyConfig{
 		MinProfitRate:      cfg.Arbitrage.MinProfitRate / 100.0, // 转换为小数
 		MaxPathLength:      5,
@@ -163,7 +181,6 @@ func main() {
 		strategyConfig.SupportedDexes = append(strategyConfig.SupportedDexes, dexCfg)
 	}
 
-	db := database.GetDB()
 	strategyEngine := strategy.NewStrategyEngine(
 		strategyConfig,
 		web3Client,
@@ -174,13 +191,13 @@ func main() {
 	// 启动策略引擎
 	ctx := context.Background()
 	if err := strategyEngine.Start(ctx); err != nil {
-		log.Warn("策略引擎启动失败: %v", err)
+		log.Main().Warn().Err(err).Msg("策略引擎启动失败")
 	}
 
 	// 10. 初始化执行器（如果配置了 Keeper 私钥）
 	var arbitrageExecutor *executor.ArbitrageExecutor
 	if cfg.Keeper.PrivateKey != "" && cfg.Contracts.ArbitrageCore != "" {
-		log.Info("初始化套利执行器...")
+		log.Main().Info().Msg("初始化套利执行器...")
 		arbitrageExecutor = executor.NewArbitrageExecutor(
 			web3Client,
 			common.HexToAddress(cfg.Contracts.ArbitrageCore),
@@ -188,13 +205,13 @@ func main() {
 		)
 		// 设置数据库连接，用于保存执行记录
 		arbitrageExecutor.SetDB(db)
-		log.Info("✅ 套利执行器已初始化（自动执行模式）")
+		log.Main().Info().Msg("✅ 套利执行器已初始化（自动执行模式）")
 	} else {
-		log.Warn("未配置 Keeper 私钥或合约地址，仅分析模式（不会自动执行）")
+		log.Main().Warn().Msg("未配置 Keeper 私钥或合约地址，仅分析模式（不会自动执行）")
 	}
 
 	// 11. 创建定时任务调度器
-	log.Info("创建定时任务调度器...")
+	log.Main().Info().Msg("创建定时任务调度器...")
 	taskScheduler := scheduler.NewScheduler(
 		dataCollector,
 		strategyEngine,
@@ -204,13 +221,13 @@ func main() {
 
 	// 12. 启动调度器
 	if err := taskScheduler.Start(ctx); err != nil {
-		log.Fatal("启动调度器失败: %v", err)
+		log.Main().Fatal().Err(err).Msg("启动调度器失败")
 	}
 
 	// 13. 立即执行一次数据采集（DEX + CEX）
-	log.Info("执行初始数据采集...")
+	log.Main().Info().Msg("执行初始数据采集...")
 	if err := dataCollector.CollectAllData(); err != nil {
-		log.Warn("初始数据采集失败: %v", err)
+		log.Main().Warn().Err(err).Msg("初始数据采集失败")
 	}
 
 	// 14. 启动 API 服务器
@@ -221,24 +238,25 @@ func main() {
 	apiServer := api.NewAPIServer(db)
 	go func() {
 		apiAddr := fmt.Sprintf(":%d", apiPort)
-		log.Info("🚀 启动 API 服务器: %s", apiAddr)
+		log.API().Info().Str("addr", apiAddr).Msg("🚀 启动 API 服务器")
 		if err := apiServer.Run(apiAddr); err != nil {
-			log.Warn("API 服务器启动失败: %v", err)
+			log.API().Warn().Err(err).Msg("API 服务器启动失败")
 		}
 	}()
 
 	// 15. 等待退出信号
-	log.Info("========================================")
-	log.Info("服务已启动，按 Ctrl+C 退出")
-	log.Info("========================================")
+	log.Main().Info().Msg("========================================")
+	log.Main().Info().Msg("服务已启动，按 Ctrl+C 退出")
+	log.Main().Info().Msg("========================================")
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
 	// 15. 优雅关闭
-	log.Info("\n正在关闭服务...")
+	log.Main().Info().Msg("正在关闭服务...")
 	taskScheduler.Stop()
 	strategyEngine.Stop()
-	log.Info("服务已关闭")
+	log.Main().Info().Msg("服务已关闭")
+	log.Close() // 关闭日志系统
 }
