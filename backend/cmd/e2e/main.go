@@ -23,9 +23,12 @@ var (
 	configPath = flag.String("config", "configs/config.test.yaml", "配置文件路径")
 	migrate    = flag.Bool("migrate", false, "执行数据库迁移")
 	seed       = flag.Bool("seed", false, "初始化种子数据")
+	cleanup    = flag.Bool("cleanup", false, "清理其他链的残留数据（根据配置的 chain_id）")
 	executeTx  = flag.Bool("execute", false, "是否实际发送交易（需要 keeper 私钥 + 合约地址 + 合约 backCaller/owner 权限）")
 	minProfitRateOverride = flag.Float64("min-profit-rate", -1, "覆盖最小利润率阈值（百分比，例 0.5；-1 表示使用 config.arbitrage.min_profit_rate）")
 	gasMultiplierOverride = flag.Float64("gas-multiplier", 2.0, "minProfit = gasCost * multiplier（用于测试网调参）")
+	skipPairDiscovery = flag.Bool("skip-pairs", false, "跳过交易对发现（使用已有的交易对数据）")
+	skipDepth = flag.Bool("skip-depth", false, "跳过V3深度采集（加速测试）")
 )
 
 func main() {
@@ -62,6 +65,13 @@ func main() {
 			log.Fatalf("种子数据初始化失败: %v", err)
 		}
 		log.Println("种子数据初始化完成")
+	}
+
+	if *cleanup {
+		log.Printf("清理非 ChainID=%d 的残留数据...", cfg.Blockchain.ChainID)
+		if err := database.CleanupTestnetData(cfg.Blockchain.ChainID); err != nil {
+			log.Printf("⚠️ 数据清理失败: %v", err)
+		}
 	}
 
 	log.Println("初始化 Web3 客户端...")
@@ -149,8 +159,16 @@ func main() {
 	defer strategyEngine.Stop()
 
 	log.Println("执行一次数据采集（DEX + CEX）...")
-	if err := dataCollector.CollectAllData(); err != nil {
-		log.Printf("数据采集失败: %v", err)
+	if *skipPairDiscovery {
+		log.Println("⏭️  跳过交易对发现（使用已有数据）")
+		// 只采集价格数据
+		if err := dataCollector.CollectPriceOnly(*skipDepth); err != nil {
+			log.Printf("价格采集失败: %v", err)
+		}
+	} else {
+		if err := dataCollector.CollectAllData(); err != nil {
+			log.Printf("数据采集失败: %v", err)
+		}
 	}
 
 	log.Println("执行一次套利分析...")
