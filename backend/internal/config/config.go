@@ -10,18 +10,36 @@ import (
 
 // Config 全局配置结构
 type Config struct {
-	Database   DatabaseConfig   `mapstructure:"database"`
-	Blockchain BlockchainConfig `mapstructure:"blockchain"`
-	Contracts  ContractsConfig  `mapstructure:"contracts"`
-	Keeper     KeeperConfig     `mapstructure:"keeper"` // ← 新增: Keeper 配置
-	Dexes      []DexConfig      `mapstructure:"dexes"`
-	Cex        CexConfig        `mapstructure:"cex"` // CEX 配置
-	Tokens     []TokenConfig    `mapstructure:"tokens"`
-	Scheduler  SchedulerConfig  `mapstructure:"scheduler"`
-	Arbitrage  ArbitrageConfig  `mapstructure:"arbitrage"`
-	Log        LogConfig        `mapstructure:"log"`
-	Server     ServerConfig     `mapstructure:"server"`
-	Redis      RedisConfig      `mapstructure:"redis"`
+	Database   DatabaseConfig            `mapstructure:"database"`
+	Blockchain BlockchainConfig          `mapstructure:"blockchain"`
+	Contracts  ContractsConfig           `mapstructure:"contracts"`
+	Keeper     KeeperConfig              `mapstructure:"keeper"` // ← 新增: Keeper 配置
+	Dexes      []DexConfig               `mapstructure:"dexes"`
+	Cex        CexConfig                 `mapstructure:"cex"` // CEX 配置
+	Tokens     []TokenConfig             `mapstructure:"tokens"`
+	Scheduler  SchedulerConfig           `mapstructure:"scheduler"`
+	Arbitrage  ArbitrageConfig           `mapstructure:"arbitrage"`
+	Log        LogConfig                 `mapstructure:"log"`
+	Server     ServerConfig              `mapstructure:"server"`
+	Redis       RedisConfig              `mapstructure:"redis"`
+	Chains      map[string]ChainConfig   `mapstructure:"chains"`       // 多链配置
+	ActiveChain string                   `mapstructure:"active_chain"` // 当前活跃链名称
+}
+
+// ChainConfig 单链配置
+type ChainConfig struct {
+	Name        string          `mapstructure:"name"`         // 链名称
+	ChainID     int64           `mapstructure:"chain_id"`     // 链 ID
+	NativeToken string          `mapstructure:"native_token"` // 原生代币符号
+	BlockTime   float64         `mapstructure:"block_time"`   // 平均出块时间（秒）
+	IsL2        bool            `mapstructure:"is_l2"`        // 是否为 L2 链
+	RPCURL      string          `mapstructure:"rpc_url"`      // 主 RPC URL
+	RPCURLs     []string        `mapstructure:"rpc_urls"`     // 多个 RPC URL
+	WSURL       string          `mapstructure:"ws_url"`       // WebSocket URL
+	Timeout     int             `mapstructure:"timeout"`      // 请求超时（秒）
+	Contracts   ContractsConfig `mapstructure:"contracts"`    // 合约地址
+	Dexes       []DexConfig     `mapstructure:"dexes"`        // DEX 配置
+	Tokens      []TokenConfig   `mapstructure:"tokens"`       // 代币配置
 }
 
 // DatabaseConfig 数据库配置
@@ -40,12 +58,14 @@ type DatabaseConfig struct {
 
 // BlockchainConfig 区块链配置
 type BlockchainConfig struct {
-	RPCURL  string   `mapstructure:"rpc_url"`  // 主 RPC URL（向后兼容）
-	RPCURLs []string `mapstructure:"rpc_urls"` // 多个 RPC URL（用于负载均衡）
-	ChainID int64    `mapstructure:"chain_id"`
-	Timeout int      `mapstructure:"timeout"`
-	Retry   int      `mapstructure:"retry"`
-	UsePool bool     `mapstructure:"use_pool"` // 是否使用 RPC 池
+	RPCURL              string   `mapstructure:"rpc_url"`                // 主 RPC URL（向后兼容）
+	RPCURLs             []string `mapstructure:"rpc_urls"`               // 多个 RPC URL（用于负载均衡）
+	WSURL               string   `mapstructure:"ws_url"`                 // WebSocket URL（用于实时订阅）
+	ChainID             int64    `mapstructure:"chain_id"`
+	Timeout             int      `mapstructure:"timeout"`
+	Retry               int      `mapstructure:"retry"`
+	UsePool             bool     `mapstructure:"use_pool"`               // 是否使用 RPC 池
+	VerifyTokenDecimals bool     `mapstructure:"verify_token_decimals"`  // 是否验证代币精度
 }
 
 // ContractsConfig 合约配置
@@ -103,11 +123,15 @@ type ArbitrageConfig struct {
 
 // LogConfig 日志配置
 type LogConfig struct {
-	Level      string `mapstructure:"level"`
-	File       string `mapstructure:"file"`
-	MaxSize    int    `mapstructure:"max_size"`
-	MaxBackups int    `mapstructure:"max_backups"`
-	MaxAge     int    `mapstructure:"max_age"`
+	Level      string `mapstructure:"level"`       // 日志级别: debug, info, warn, error
+	Dir        string `mapstructure:"dir"`         // 日志根目录（按日期+小时自动创建子目录）
+	File       string `mapstructure:"file"`        // 向后兼容：单文件模式
+	MaxSize    int    `mapstructure:"max_size"`    // 单个文件最大大小 (MB)
+	MaxBackups int    `mapstructure:"max_backups"` // 最大备份数量
+	MaxAge     int    `mapstructure:"max_age"`     // 最大保存天数
+	Compress   bool   `mapstructure:"compress"`    // 是否压缩旧日志
+	Console    bool   `mapstructure:"console"`     // 是否输出到控制台
+	JSONFormat bool   `mapstructure:"json_format"` // 控制台是否使用 JSON 格式
 }
 
 // ServerConfig 服务器配置

@@ -1,34 +1,43 @@
 # 测试配置文件（使用公共 RPC 和测试网）
 
-# 数据库配置 - 连接到 WSL2 的 PostgreSQL 
-# ( 获取 Windows 主机的 IP（从 WSL 角度 看 docker desktop）
-# ip route | grep default | awk '{print go run scripts/utils/add_missing_data.go$3}'
+# 数据库配置（测试网环境）
+# 主网数据库: defi_arbitrage
+# 测试网数据库: defi_arbitrage_test
 database:
   host: 127.0.0.1
   port: 5432
   user: defi_user
   password: defi_pass123
-  dbname: defi_arbitrage
+  dbname: defi_arbitrage_test  # 测试环境使用独立数据库
   sslmode: disable
   timezone: Asia/Shanghai
-  max_idle_conns: 5
-  max_open_conns: 20
+  max_idle_conns: 10      # 优化：增加连接池
+  max_open_conns: 50      # 优化：增加最大连接数
   conn_max_lifetime: 3600
 
 # 区块链配置（Sepolia 测试网）
 blockchain:
-  # 选项1：使用 Infura 公共端点（需要替换 YOUR_INFURA_KEY）
-  # rpc_url: https://sepolia.infura.io/v3/3bbd17e943844442bd02357af9292ebe
-  
-  # 选项2：使用 Cloudflare 公共端点（无需 API Key，但有速率限制）
-  # rpc_url: https://cloudflare-eth.com
-  
-  # 选项3：使用公共 Sepolia RPC
+  # 主 RPC URL
   rpc_url: https://ethereum-sepolia-rpc.publicnode.com
   
+  # WebSocket URL（可选）
+  ws_url: ""  # 公共 RPC 不支持 WebSocket
+  
+  # 多 RPC URL 池（负载均衡和故障转移）
+  rpc_urls:
+    - https://ethereum-sepolia-rpc.publicnode.com
+    - https://rpc.sepolia.org
+    - https://eth-sepolia-public.unifra.io
+  
+  # Alchemy Sepolia（如果有 API Key）
+  # rpc_url: https://eth-sepolia.g.alchemy.com/v2/YOUR_API_KEY
+  # ws_url: wss://eth-sepolia.g.alchemy.com/v2/YOUR_API_KEY
+  
   chain_id: 11155111  # Sepolia 测试网
-  timeout: 60  # 公共 RPC 可能较慢，增加超时时间
+  timeout: 60
   retry: 3
+  use_pool: true  # 启用 RPC 池提高稳定性
+  verify_token_decimals: true
 
 # 合约地址
 contracts:
@@ -138,7 +147,9 @@ dexes:
   #   support_multi_hop: true
   #   priority: 50  # 聚合器优先级高（价格通常更优）
 
-# 代币配置（Sepolia 测试网常用代币）
+# ===================== 代币配置 =====================
+# 作用：定义套利路径的基础代币（白名单）
+# 注意：系统会在这些代币之间查找交易对，然后用分层监控筛选
 tokens:
   - symbol: "WETH"
     address: "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14"  # Sepolia WETH
@@ -210,11 +221,12 @@ tokens:
     address: "0xaea46A60368A7bD060eec7DF8CBa43b7EF41Ad85"
     decimals: 18
 
-# 定时任务配置（测试时使用较长的间隔）
+# 定时任务配置
 scheduler:
-  collect_interval: 300  # 5 分钟采集一次（避免频繁调用公共 RPC）
-  analyze_interval: 600  # 10 分钟分析一次
+  collect_interval: 30   # 30 秒采集一次
+  analyze_interval: 60   # 60 秒分析一次
   cleanup_interval: 24   # 24 小时清理一次
+  min_profit_rate: 0.5   # 最小利润率阈值 0.5%
 
 # 套利配置
 arbitrage:
@@ -222,25 +234,114 @@ arbitrage:
   max_slippage: 1.0
   max_gas_price: 100
 
+# ===================== 高性能采集器配置 =====================
+# 注意：分层监控基于"已发现的交易对"，根据TVL和交易量决定监控频率
+# 工作流程：tokens配置 → 发现交易对 → 获取TVL → 分层监控
+high_performance:
+  enabled: false  # 测试网暂不启用高性能模式（需要 WebSocket）
+  
+  # 分层监控配置（测试网TVL阈值降低以适应测试环境）
+  tiers:
+    # Tier 1 - 核心池
+    tier1:
+      min_tvl: 100000          # $100K TVL（测试网降低阈值）
+      min_volume_24h: 50000    # $50K 24h交易量
+      method: "multicall"      # 测试网用 Multicall 代替 WebSocket
+    
+    # Tier 2 - 活跃池
+    tier2:
+      min_tvl: 10000           # $10K TVL
+      min_volume_24h: 5000     # $5K 24h交易量
+      method: "multicall"
+      interval: "5s"           # 测试网减慢轮询
+    
+    # Tier 3 - 潜力池
+    tier3:
+      min_tvl: 1000            # $1K TVL
+      min_volume_24h: 500      # $500 24h交易量
+      method: "multicall"
+      interval: "10m"
+  
+  # Multicall配置（批量调用优化）
+  multicall:
+    address: "0xcA11bde05977b3631167028862bE2a173976CA11"  # Multicall3
+    batch_size: 100    # 测试网减少批次大小（避免限流）
+    timeout: "10s"
+  
+  # 价格缓存配置
+  price_cache:
+    change_threshold: 0.0001  # 价格变化0.01%才触发更新
+    subscriber_buffer: 1000
+
+# ===================== 策略引擎配置 =====================
+strategy:
+  precompute_paths: true   # 启动时预计算路径
+  min_path_length: 3       # 最小路径长度
+  max_path_length: 4       # 最大路径长度
+  max_concurrent_paths: 50 # 测试网减少并发数
+  
+  # 利润阈值
+  profit_thresholds:
+    length_3: 0.003  # 3跳：0.3%
+    length_4: 0.005  # 4跳：0.5%
+  
+  # 风险配置
+  risk:
+    max_slippage: 0.01
+    min_confidence: 0.7
+    gas_multiplier: 2.0
+  
+  execution_strategy: "balanced"  # profit_first, low_risk, balanced
+
+# ===================== 执行器配置 =====================
+executor:
+  enabled: false      # 测试网默认不自动执行
+  dry_run: true       # 干运行模式
+  max_concurrent: 1   # 测试网限制并发
+  timeout: "30s"
+  
+  # 安全限制
+  max_amount_per_trade: "0.1"    # 测试网单笔最大 0.1 ETH
+  daily_loss_limit: "0.5"        # 每日最大亏损 0.5 ETH
+  min_profit_usd: 1              # 最小 $1 利润
+
+# ===================== 监控配置 =====================
+monitoring:
+  stats_interval: "30s"  # 统计打印间隔
+  
+  prometheus:
+    enabled: false  # 测试网暂不启用
+    port: 9090
+
 # 日志配置
 log:
-  level: info
-  file: logs/test.log
-  max_size: 100
-  max_backups: 3
-  max_age: 7
+  level: debug          # 测试环境使用 debug 级别
+  dir: logs             # 日志根目录
+  max_size: 50          # 单个文件最大大小 (MB)
+  max_backups: 3        # 最大备份数量
+  max_age: 7            # 最大保存天数
+  compress: false       # 测试环境不压缩
+  console: true         # 输出到控制台
+  json_format: false    # 使用美化格式便于调试
 
 # 服务器配置
 server:
   port: 8080
+  api_port: 8080
   mode: debug
 
 # Redis 配置
 redis:
-  enabled: true  # 启用 Redis 缓存
+  enabled: true
   host: localhost
   port: 6379
   password: ""
-  db: 0
-  ttl: 300  # 默认过期时间 5 分钟
+  db: 1  # 测试网使用独立的 Redis DB
+  ttl: 300
+
+# CEX 配置
+cex:
+  enabled: false  # 测试网暂不启用 CEX
+  binance:
+    enabled: false
 
