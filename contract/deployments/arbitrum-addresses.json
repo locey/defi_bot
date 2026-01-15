@@ -1,0 +1,22 @@
+{
+  "network": "arbitrum",
+  "chainId": 42161,
+  "chainName": "Arbitrum One",
+  "deployer": "0x49278f7a39e619339b54eBe715ECc3D0dB66ac35",
+  "timestamp": "2026-01-15T18:14:37.854Z",
+  "addresses": {
+    "weth": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+    "configManager": "0x121D230710dc710f5AA29b73EFc8d403707173A3",
+    "vault": "0xB7e37Fb429795E10A8D25752fFC69Fbab71df677",
+    "doubleRouterIntegration": "0x67d905Da6b09733f1695db12A962066Ca85A95cC",
+    "uniswapV2Integration": "0xf9680677Da105F3B10538A55F6e214F9c72AA120",
+    "flashLoanRouter": "0x4A89d8B8B0376Fc8c7e2119445c828719BeC019E",
+    "spotArbitrage": "0x7e9eC412aF1f8657b99Df8f419c5D98F11F41bd5",
+    "arbitrageCore": "0x27ea15F931328474d75BE5B0a493278ba7041C74"
+  },
+  "routers": {
+    "uniswapV2": "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24",
+    "uniswapV3": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
+    "sushiswap": "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506"
+  }
+}
