@@ -3,7 +3,6 @@ package collector
 import (
 	"context"
 	"fmt"
-	"log"
 	"math/big"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/defi-bot/backend/internal/models"
 	"github.com/defi-bot/backend/pkg/cache"
 	"github.com/defi-bot/backend/pkg/dex"
+	"github.com/defi-bot/backend/pkg/log"
 	"github.com/defi-bot/backend/pkg/utils"
 	"github.com/defi-bot/backend/pkg/web3"
 )
@@ -36,53 +36,53 @@ func NewCollector(web3Client *web3.Client, cexCollector *CexCollector, redisCach
 
 // CollectAllData 采集所有数据（DEX + CEX，使用并发优化）
 func (c *Collector) CollectAllData() error {
-	log.Println("开始采集数据（DEX + CEX）...")
+	log.Collector().Info().Msg("开始采集数据（DEX + CEX）...")
 
 	startTime := time.Now()
 
 	// 1. DEX 数据采集
 	if err := c.CollectDexData(); err != nil {
-		log.Printf("DEX 数据采集失败: %v", err)
+		log.Collector().Error().Err(err).Msg("DEX 数据采集失败")
 	}
 
 	// 2. ✅ CEX 数据采集
 	if c.cexCollector != nil {
 		ctx := context.Background()
 		if err := c.cexCollector.CollectAllCexData(ctx); err != nil {
-			log.Printf("CEX 数据采集失败: %v", err)
+			log.Collector().Error().Err(err).Msg("CEX 数据采集失败")
 		}
 	}
 
 	duration := time.Since(startTime)
-	log.Printf("数据采集完成，耗时: %v", duration)
+	log.Collector().Info().Dur("duration", duration).Msg("数据采集完成")
 
 	return nil
 }
 
 // CollectDexData 采集 DEX 链上数据（原有逻辑）
 func (c *Collector) CollectDexData() error {
-	log.Println("开始采集 DEX 链上数据...")
+	log.Collector().Info().Msg("开始采集 DEX 链上数据...")
 
 	// 1. 获取当前区块号
 	blockNumber, err := c.web3Client.GetBlockNumber()
 	if err != nil {
 		return fmt.Errorf("获取区块号失败: %w", err)
 	}
-	log.Printf("当前区块号: %d", blockNumber)
+	log.Collector().Info().Uint64("block", blockNumber).Msg("当前区块号")
 
 	// 2. 采集交易对数据
 	if err := c.CollectTradingPairs(); err != nil {
-		log.Printf("采集交易对数据失败: %v", err)
+		log.Collector().Error().Err(err).Msg("采集交易对数据失败")
 	}
 
 	// 3. 采集价格数据（使用并发优化）
 	if err := c.CollectPricesConcurrent(blockNumber); err != nil {
-		log.Printf("采集价格数据失败: %v", err)
+		log.Collector().Error().Err(err).Msg("采集价格数据失败")
 	}
 
-	// 4. 采集 V3 流动性深度数据
-	if err := c.CollectV3Depths(); err != nil {
-		log.Printf("采集V3深度数据失败: %v", err)
+	// 4. 采集 V3 流动性深度数据（使用并发优化版）
+	if err := c.CollectV3DepthsConcurrent(); err != nil {
+		log.Collector().Error().Err(err).Msg("采集V3深度数据失败")
 	}
 
 	return nil
@@ -94,7 +94,38 @@ func (c *Collector) CollectGasData() error {
 	return gasCollector.CollectGasPrice()
 }
 
-// CollectTradingPairs 采集交易对数据
+// CollectPriceOnly 只采集价格数据（跳过交易对发现，用于快速测试）
+func (c *Collector) CollectPriceOnly(skipDepth bool) error {
+	log.Collector().Info().Msg("开始采集价格数据（快速模式）...")
+	startTime := time.Now()
+
+	// 1. 获取当前区块号
+	blockNumber, err := c.web3Client.GetBlockNumber()
+	if err != nil {
+		return fmt.Errorf("获取区块号失败: %w", err)
+	}
+	log.Collector().Info().Uint64("block", blockNumber).Msg("当前区块号")
+
+	// 2. 采集价格数据（使用并发优化）
+	if err := c.CollectPricesConcurrent(blockNumber); err != nil {
+		log.Collector().Error().Err(err).Msg("采集价格数据失败")
+	}
+
+	// 3. 采集 V3 流动性深度数据（可选）
+	if !skipDepth {
+		if err := c.CollectV3DepthsConcurrent(); err != nil {
+			log.Collector().Error().Err(err).Msg("采集V3深度数据失败")
+		}
+	} else {
+		log.Collector().Info().Msg("⏭️  跳过V3深度采集")
+	}
+
+	log.Collector().Info().Dur("duration", time.Since(startTime)).Msg("价格采集完成")
+	return nil
+}
+
+// CollectTradingPairs 采集交易对数据（优化版）
+// 只对数据库中不存在的组合进行 RPC 查询，避免重复调用
 func (c *Collector) CollectTradingPairs() error {
 	db := database.GetDB()
 
@@ -110,14 +141,36 @@ func (c *Collector) CollectTradingPairs() error {
 		return fmt.Errorf("查询代币失败: %w", err)
 	}
 
-	log.Printf("开始采集交易对数据: %d 个 DEX, %d 个代币", len(dexes), len(tokens))
+	// 🔧 优化：预加载已存在的交易对，避免重复 RPC 调用
+	var existingPairs []models.TradingPair
+	if err := db.Find(&existingPairs).Error; err != nil {
+		return fmt.Errorf("查询已有交易对失败: %w", err)
+	}
+
+	// 构建已存在的组合集合 (exchange_id + token0_id + token1_id)
+	existingSet := make(map[string]bool)
+	for _, p := range existingPairs {
+		// 两个方向都标记
+		key1 := fmt.Sprintf("%d_%d_%d", p.ExchangeID, p.Token0ID, p.Token1ID)
+		key2 := fmt.Sprintf("%d_%d_%d", p.ExchangeID, p.Token1ID, p.Token0ID)
+		existingSet[key1] = true
+		existingSet[key2] = true
+	}
+
+	log.Collector().Info().
+		Int("dex_count", len(dexes)).
+		Int("token_count", len(tokens)).
+		Int("existing_pairs", len(existingPairs)).
+		Msg("开始采集交易对数据")
+
+	newPairsCount := 0
 
 	// 遍历所有 DEX 和代币组合，查找交易对
 	for _, dexInfo := range dexes {
 		// 获取协议适配器
 		protocol, err := c.protocolFactory.CreateProtocol(dexInfo.Protocol)
 		if err != nil {
-			log.Printf("不支持的协议 %s: %v", dexInfo.Protocol, err)
+			log.Collector().Warn().Str("protocol", dexInfo.Protocol).Err(err).Msg("不支持的协议")
 			continue
 		}
 
@@ -125,6 +178,12 @@ func (c *Collector) CollectTradingPairs() error {
 			for j := i + 1; j < len(tokens); j++ {
 				token0 := tokens[i]
 				token1 := tokens[j]
+
+				// 🔧 优化：跳过已存在的组合
+				key := fmt.Sprintf("%d_%d_%d", dexInfo.ID, token0.ID, token1.ID)
+				if existingSet[key] {
+					continue // 已存在，跳过 RPC 调用
+				}
 
 				// 根据协议类型获取交易对地址
 				var pairAddress string
@@ -154,30 +213,34 @@ func (c *Collector) CollectTradingPairs() error {
 					continue
 				}
 
-				// 检查交易对是否已存在
-				var existingPair models.TradingPair
-				result := db.Where("pair_address = ?", pairAddress).First(&existingPair)
-
-				if result.Error != nil {
-					// 创建新的交易对记录
-					pair := models.TradingPair{
-						ExchangeID:  dexInfo.ID,
-						Token0ID:    token0.ID,
-						Token1ID:    token1.ID,
-						PairAddress: pairAddress,
-						IsActive:    true,
-					}
-
-					if err := db.Create(&pair).Error; err != nil {
-						log.Printf("创建交易对失败: %v", err)
-						continue
-					}
-
-					log.Printf("发现新交易对: %s/%s on %s (%s)",
-						token0.Symbol, token1.Symbol, dexInfo.Name, pairAddress)
+				// 创建新的交易对记录
+				pair := models.TradingPair{
+					ExchangeID:  dexInfo.ID,
+					Token0ID:    token0.ID,
+					Token1ID:    token1.ID,
+					PairAddress: pairAddress,
+					IsActive:    true,
 				}
+
+				if err := db.Create(&pair).Error; err != nil {
+					log.Collector().Error().Err(err).Msg("创建交易对失败")
+					continue
+				}
+
+				newPairsCount++
+				log.Collector().Info().
+					Str("pair", fmt.Sprintf("%s/%s", token0.Symbol, token1.Symbol)).
+					Str("dex", dexInfo.Name).
+					Str("address", pairAddress).
+					Msg("发现新交易对")
 			}
 		}
+	}
+
+	if newPairsCount > 0 {
+		log.Collector().Info().Int("count", newPairsCount).Msg("✅ 新发现交易对")
+	} else {
+		log.Collector().Info().Msg("✅ 交易对已是最新，无需更新")
 	}
 
 	return nil
@@ -215,28 +278,28 @@ func (c *Collector) CleanupOldData(keepDays int) error {
 
 	cutoffTime := time.Now().AddDate(0, 0, -keepDays)
 
-	log.Printf("清理 %d 天前的历史数据...", keepDays)
+	log.Collector().Info().Int("keep_days", keepDays).Msg("清理历史数据...")
 
 	// 清理过期的储备量记录
 	result := db.Where("timestamp < ?", cutoffTime).Delete(&models.PairReserve{})
 	if result.Error != nil {
 		return fmt.Errorf("清理储备量记录失败: %w", result.Error)
 	}
-	log.Printf("清理了 %d 条储备量记录", result.RowsAffected)
+	log.Collector().Info().Int64("count", result.RowsAffected).Msg("清理储备量记录")
 
 	// 清理过期的价格记录
 	result = db.Where("timestamp < ?", cutoffTime).Delete(&models.PriceRecord{})
 	if result.Error != nil {
 		return fmt.Errorf("清理价格记录失败: %w", result.Error)
 	}
-	log.Printf("清理了 %d 条价格记录", result.RowsAffected)
+	log.Collector().Info().Int64("count", result.RowsAffected).Msg("清理价格记录")
 
 	// 清理过期的套利机会
 	result = db.Where("expires_at < ?", time.Now()).Delete(&models.ArbitrageOpportunity{})
 	if result.Error != nil {
 		return fmt.Errorf("清理套利机会失败: %w", result.Error)
 	}
-	log.Printf("清理了 %d 条过期的套利机会", result.RowsAffected)
+	log.Collector().Info().Int64("count", result.RowsAffected).Msg("清理过期的套利机会")
 
 	return nil
 }

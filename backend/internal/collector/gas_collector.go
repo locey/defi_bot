@@ -3,12 +3,12 @@ package collector
 import (
 	"context"
 	"fmt"
-	"log"
 	"math/big"
 	"time"
 
 	"github.com/defi-bot/backend/internal/database"
 	"github.com/defi-bot/backend/internal/models"
+	"github.com/defi-bot/backend/pkg/log"
 	"github.com/defi-bot/backend/pkg/web3"
 )
 
@@ -78,8 +78,7 @@ func (g *GasCollector) CollectGasPrice() error {
 		return fmt.Errorf("保存 Gas 价格失败: %w", err)
 	}
 
-	log.Printf("✅ Gas 价格采集成功: %s Gwei (负载: %s)",
-		weiToGwei(gasPrice), networkLoad)
+	log.Collector().Info().Str("gas_gwei", weiToGwei(gasPrice)).Str("load", networkLoad).Msg("✅ Gas 价格采集成功")
 
 	return nil
 }

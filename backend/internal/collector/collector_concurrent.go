@@ -2,7 +2,7 @@ package collector
 
 import (
 	"fmt"
-
+	"strings"
 	"sync"
 	"time"
 
@@ -148,10 +148,31 @@ func (c *Collector) fetchPairDataWithRetry(pair models.TradingPair, blockNumber 
 			return nil, fmt.Errorf("无流动性")
 		}
 
-		// 计算标准化价格
+		// ✅ 修复：检查链上 token 顺序与数据库是否一致
+		// Uniswap V2/V3 池子中，token0 的地址总是小于 token1
+		// reserve0/reserve1 对应链上的 token0/token1
+		reserve0 := priceInfo.Reserve0
+		reserve1 := priceInfo.Reserve1
+
+		// 比较地址来判断是否需要交换 reserve
+		// 如果数据库中的 Token0 地址 > Token1 地址，说明链上顺序相反
+		dbToken0Addr := strings.ToLower(pair.Token0.Address)
+		dbToken1Addr := strings.ToLower(pair.Token1.Address)
+
+		if dbToken0Addr > dbToken1Addr {
+			// 链上 token0 实际是数据库的 Token1，需要交换 reserve
+			// 交换后 reserve0 对应数据库 Token0，reserve1 对应数据库 Token1
+			reserve0, reserve1 = reserve1, reserve0
+		}
+
+		// decimals 始终使用数据库中 Token 的精度（不需要交换）
+		decimals0 := pair.Token0.Decimals
+		decimals1 := pair.Token1.Decimals
+
+		// 计算标准化价格（使用正确对应的 reserve 和 decimals）
 		price, inversePrice := c.CalculatePrice(
-			priceInfo.Reserve0, priceInfo.Reserve1,
-			pair.Token0.Decimals, pair.Token1.Decimals,
+			reserve0, reserve1,
+			decimals0, decimals1,
 		)
 
 		// 验证价格合理性
@@ -164,7 +185,7 @@ func (c *Collector) fetchPairDataWithRetry(pair models.TradingPair, blockNumber 
 			// 继续处理，但记录警告
 		}
 
-		// 构造价格数据
+		// 构造价格数据（使用修正后的 reserve 值，对应数据库中的 Token0/Token1）
 		priceData := &PriceData{
 			PairID:         pair.ID,
 			Token0Decimals: pair.Token0.Decimals,
@@ -173,10 +194,10 @@ func (c *Collector) fetchPairDataWithRetry(pair models.TradingPair, blockNumber 
 			Token1Symbol:   pair.Token1.Symbol,
 			DexName:        pair.Dex.Name,
 			DexProtocol:    pair.Dex.Protocol,
-			Reserve0:       priceInfo.Reserve0.String(), // 保留原始 Wei 字符串
-			Reserve1:       priceInfo.Reserve1.String(),
-			Price:          price,        // decimal.Decimal
-			InversePrice:   inversePrice, // decimal.Decimal
+			Reserve0:       reserve0.String(), // 已修正：对应数据库中的 Token0
+			Reserve1:       reserve1.String(), // 已修正：对应数据库中的 Token1
+			Price:          price,             // decimal.Decimal
+			InversePrice:   inversePrice,      // decimal.Decimal
 			BlockNumber:    blockNumber,
 			Timestamp:      timestamp,
 		}

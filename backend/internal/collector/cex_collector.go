@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strconv"
 	"sync"
 	"time"
@@ -13,6 +12,7 @@ import (
 	"github.com/defi-bot/backend/internal/models"
 	"github.com/defi-bot/backend/pkg/cache"
 	"github.com/defi-bot/backend/pkg/cex"
+	"github.com/defi-bot/backend/pkg/log"
 	"github.com/defi-bot/backend/pkg/validation"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
@@ -37,13 +37,13 @@ func NewCexCollector(
 
 // CollectAllCexData 采集所有 CEX 数据
 func (cc *CexCollector) CollectAllCexData(ctx context.Context) error {
-	log.Println("开始采集 CEX 数据...")
+	log.CEX().Info().Msg("开始采集 CEX 数据...")
 
 	startTime := time.Now()
 
 	// 1. 采集币安行情数据
 	if err := cc.CollectBinanceTickers(ctx); err != nil {
-		log.Printf("采集币安行情失败: %v", err)
+		log.CEX().Error().Err(err).Msg("采集币安行情失败")
 		return err
 	}
 
@@ -53,7 +53,7 @@ func (cc *CexCollector) CollectAllCexData(ctx context.Context) error {
 	// }
 
 	duration := time.Since(startTime)
-	log.Printf("CEX 数据采集完成，耗时: %v", duration)
+	log.CEX().Info().Dur("duration", duration).Msg("CEX 数据采集完成")
 
 	return nil
 }
@@ -72,11 +72,11 @@ func (cc *CexCollector) CollectBinanceTickers(ctx context.Context) error {
 	}
 
 	if len(pairs) == 0 {
-		log.Println("没有活跃的币安交易对，跳过 CEX 采集")
+		log.CEX().Info().Msg("没有活跃的币安交易对，跳过 CEX 采集")
 		return nil
 	}
 
-	log.Printf("开始并发采集 %d 个币安交易对...", len(pairs))
+	log.CEX().Info().Int("count", len(pairs)).Msg("开始并发采集币安交易对")
 
 	// 2. 并发采集
 	var wg sync.WaitGroup
@@ -131,7 +131,7 @@ func (cc *CexCollector) fetchBinanceTicker(
 		var cachedData CexPriceData
 		if err := cc.cache.Get(cacheKey, &cachedData); err == nil {
 			if time.Since(cachedData.Timestamp) < 10*time.Second {
-				log.Printf("🔥 从缓存获取: %s (Binance)", pair.Symbol)
+				log.CEX().Debug().Str("symbol", pair.Symbol).Msg("🔥 从缓存获取")
 				cachedData.Timestamp = timestamp // 更新时间戳
 				return &cachedData, nil
 			}
@@ -159,7 +159,7 @@ func (cc *CexCollector) fetchBinanceTicker(
 	validator := validation.NewPriceValidator()
 	pairType := validation.DeterminePairType(pair.BaseAsset, pair.QuoteAsset)
 	if err := validator.Validate(pair.Symbol, lastPrice, pairType); err != nil {
-		log.Printf("⚠️  CEX 价格验证失败 %s: %v", pair.Symbol, err)
+		log.CEX().Warn().Str("symbol", pair.Symbol).Err(err).Msg("⚠️  CEX 价格验证失败")
 		// 继续处理，但记录警告
 	}
 
@@ -203,7 +203,7 @@ func (cc *CexCollector) fetchBinanceTicker(
 	if cc.cache != nil {
 		cacheKey := fmt.Sprintf("cex:binance:%s", pair.Symbol)
 		if err := cc.cache.Set(cacheKey, priceData, 10*time.Second); err != nil {
-			log.Printf("⚠️  缓存写入失败: %v", err)
+			log.CEX().Warn().Err(err).Msg("⚠️  缓存写入失败")
 		}
 	}
 
@@ -228,7 +228,7 @@ func (cc *CexCollector) CollectBinanceOrderBooks(ctx context.Context) error {
 		return nil
 	}
 
-	log.Printf("开始采集 %d 个币安订单簿...", len(pairs))
+	log.CEX().Info().Int("count", len(pairs)).Msg("开始采集币安订单簿")
 
 	var wg sync.WaitGroup
 	resultsChan := make(chan *OrderBookData, len(pairs))
@@ -351,25 +351,25 @@ func (cc *CexCollector) batchInsertCexResults(
 		}
 		priceRecords = append(priceRecords, priceRecord)
 
-		log.Printf("✅ 采集成功: %s @ Binance - Price: %s", data.Symbol, data.LastPrice.StringFixed(2))
+		log.CEX().Info().Str("symbol", data.Symbol).Str("price", data.LastPrice.StringFixed(2)).Msg("✅ 采集成功")
 		successCount++
 	}
 
 	// 收集错误
 	for err := range errorsChan {
-		log.Printf("⚠️  %v", err)
+		log.CEX().Warn().Err(err).Msg("⚠️  采集失败")
 		errorCount++
 	}
 
-	log.Printf("CEX 采集统计: 成功=%d, 失败=%d", successCount, errorCount)
+	log.CEX().Info().Int("success", successCount).Int("failed", errorCount).Msg("CEX 采集统计")
 
 	// 批量写入
 	if len(tickers) == 0 {
-		log.Println("没有 CEX 数据需要写入")
+		log.CEX().Info().Msg("没有 CEX 数据需要写入")
 		return nil
 	}
 
-	log.Printf("开始批量写入 %d 条 CEX 记录...", len(tickers))
+	log.CEX().Info().Int("count", len(tickers)).Msg("开始批量写入 CEX 记录")
 
 	err := db.Transaction(func(tx *gorm.DB) error {
 		// 批量插入 CEX Tickers
@@ -389,7 +389,7 @@ func (cc *CexCollector) batchInsertCexResults(
 		return fmt.Errorf("数据库写入失败: %w", err)
 	}
 
-	log.Printf("✅ 批量写入完成: %d 条 CEX Ticker, %d 条价格记录", len(tickers), len(priceRecords))
+	log.CEX().Info().Int("tickers", len(tickers)).Int("prices", len(priceRecords)).Msg("✅ 批量写入完成")
 	return nil
 }
 
@@ -425,16 +425,16 @@ func (cc *CexCollector) batchInsertOrderBooks(
 		}
 		orderbooks = append(orderbooks, orderbook)
 
-		log.Printf("✅ 订单簿: %s, Spread: %.4f%%", data.Symbol, data.Spread)
+		log.CEX().Info().Str("symbol", data.Symbol).Float64("spread", data.Spread).Msg("✅ 订单簿")
 		successCount++
 	}
 
 	for err := range errorsChan {
-		log.Printf("⚠️  %v", err)
+		log.CEX().Warn().Err(err).Msg("⚠️  采集失败")
 		errorCount++
 	}
 
-	log.Printf("订单簿采集统计: 成功=%d, 失败=%d", successCount, errorCount)
+	log.CEX().Info().Int("success", successCount).Int("failed", errorCount).Msg("订单簿采集统计")
 
 	if len(orderbooks) == 0 {
 		return nil
@@ -445,13 +445,13 @@ func (cc *CexCollector) batchInsertOrderBooks(
 		return fmt.Errorf("批量插入订单簿失败: %w", err)
 	}
 
-	log.Printf("✅ 订单簿写入完成: %d 条", len(orderbooks))
+	log.CEX().Info().Int("count", len(orderbooks)).Msg("✅ 订单簿写入完成")
 	return nil
 }
 
 // StartBinanceWebSocket 启动币安 WebSocket 实时流（后台任务）
 func (cc *CexCollector) StartBinanceWebSocket(ctx context.Context, symbols []string) error {
-	log.Printf("启动币安 WebSocket 实时流: %v", symbols)
+	log.CEX().Info().Interface("symbols", symbols).Msg("启动币安 WebSocket 实时流")
 
 	return cc.binanceClient.SubscribeTicker(ctx, symbols, func(update *cex.TickerUpdate) {
 		// 处理实时更新
@@ -497,7 +497,7 @@ func (cc *CexCollector) handleTickerUpdate(update *cex.TickerUpdate) {
 		}
 
 		cc.cache.Set(cacheKey, cacheData, 10*time.Second)
-		log.Printf("📡 实时更新: %s = %s", update.Symbol, lastPrice.StringFixed(2))
+		log.CEX().Debug().Str("symbol", update.Symbol).Str("price", lastPrice.StringFixed(2)).Msg("📡 实时更新")
 	}
 
 	// 2. 异步写入数据库（可选，避免频繁写入）
