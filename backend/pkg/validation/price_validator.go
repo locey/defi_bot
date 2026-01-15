@@ -3,10 +3,10 @@ package validation
 
 import (
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
+	"github.com/defi-bot/backend/pkg/log"
 	"github.com/shopspring/decimal"
 )
 
@@ -119,13 +119,14 @@ func (pv *PriceValidator) ValidateChangeRate(
 	changeRate := price.Sub(history.LastPrice).Div(history.LastPrice).Abs()
 
 	// 警告阈值: 10%
+	changePercent := changeRate.Mul(decimal.NewFromInt(100)).InexactFloat64()
 	if changeRate.GreaterThan(decimal.NewFromFloat(0.1)) {
-		log.Printf("⚠️  价格大幅变化 %s: %.2f%% (从 %s 到 %s)",
-			pair,
-			changeRate.Mul(decimal.NewFromInt(100)).InexactFloat64(),
-			history.LastPrice.StringFixed(2),
-			price.StringFixed(2),
-		)
+		log.Main().Warn().
+			Str("pair", pair).
+			Float64("change_pct", changePercent).
+			Str("old", history.LastPrice.StringFixed(2)).
+			Str("new", price.StringFixed(2)).
+			Msg("⚠️  价格大幅变化")
 	}
 
 	// 错误阈值: 50%

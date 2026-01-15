@@ -2,11 +2,11 @@
 package api
 
 import (
-	"log"
 	"net/http"
 
 	"github.com/defi-bot/backend/internal/api/handlers"
 	"github.com/defi-bot/backend/internal/api/middleware"
+	"github.com/defi-bot/backend/pkg/log"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -73,7 +73,7 @@ func (s *APIServer) setupRoutes() {
 
 // Run 启动服务器
 func (s *APIServer) Run(addr string) error {
-	log.Printf("🚀 API server starting on %s", addr)
+	log.API().Info().Str("addr", addr).Msg("🚀 API server starting")
 	return s.router.Run(addr)
 }
 
@@ -81,4 +81,3 @@ func (s *APIServer) Run(addr string) error {
 func (s *APIServer) GetRouter() *gin.Engine {
 	return s.router
 }
-

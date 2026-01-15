@@ -3,10 +3,10 @@ package web3
 import (
 	"context"
 	"fmt"
-	"log"
 	"math/big"
 	"time"
 
+	"github.com/defi-bot/backend/pkg/log"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -35,7 +35,7 @@ func NewClient(rpcURL string, chainID int64, timeout int) (*Client, error) {
 		return nil, fmt.Errorf("获取 ChainID 失败: %w", err)
 	}
 
-	log.Printf("Web3 客户端连接成功: %s (ChainID: %d)", rpcURL, chainID)
+	log.Web3().Info().Str("rpc", rpcURL).Int64("chain_id", chainID).Msg("Web3 客户端连接成功")
 
 	return &Client{
 		client:  client,

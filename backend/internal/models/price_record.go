@@ -16,9 +16,10 @@ type PriceRecord struct {
 	Reserve1 string `gorm:"type:varchar(78);not null;column:reserve1" json:"reserve1"` // 代币1储备量（Wei）
 
 	// === 标准化价格（用于显示和分析）===
-	Price        decimal.Decimal  `gorm:"type:numeric(36,18);not null" sql:"type:decimal(36,18) not null" json:"price"`         // 标准化价格（token1/token0）
-	InversePrice *decimal.Decimal `gorm:"type:numeric(36,18)" json:"inverse_price,omitempty"`          // 反向价格（token0/token1）
-	PriceUSD     *decimal.Decimal `gorm:"type:numeric(36,18)" json:"price_usd,omitempty"`    // USD 计价（可选）
+	// 注意：使用 numeric(78,18) 支持超大价格（如 WETH/USDC 由于 decimals 差异导致的极端值）
+	Price        decimal.Decimal  `gorm:"type:numeric(78,18);not null" json:"price"`                   // 标准化价格（token1/token0）
+	InversePrice *decimal.Decimal `gorm:"type:numeric(78,18)" json:"inverse_price,omitempty"`          // 反向价格（token0/token1）
+	PriceUSD     *decimal.Decimal `gorm:"type:numeric(78,18)" json:"price_usd,omitempty"`              // USD 计价（可选）
 
 	// === V3 核心数据 ===
 	SqrtPriceX96     string `gorm:"type:varchar(78)" json:"sqrt_price_x96"`      // V3 当前价格的平方根（96位定点数）

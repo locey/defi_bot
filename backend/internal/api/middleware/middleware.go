@@ -2,9 +2,9 @@
 package middleware
 
 import (
-	"log"
 	"time"
 
+	"github.com/defi-bot/backend/pkg/log"
 	"github.com/gin-gonic/gin"
 )
 
@@ -30,14 +30,13 @@ func Logger() gin.HandlerFunc {
 			path = path + "?" + raw
 		}
 
-		log.Printf("[API] %s | %3d | %13v | %15s | %-7s %s",
-			time.Now().Format("2006/01/02 - 15:04:05"),
-			statusCode,
-			latency,
-			clientIP,
-			method,
-			path,
-		)
+		log.API().Info().
+			Int("status", statusCode).
+			Dur("latency", latency).
+			Str("ip", clientIP).
+			Str("method", method).
+			Str("path", path).
+			Msg("HTTP request")
 	}
 }
 

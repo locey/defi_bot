@@ -3,9 +3,10 @@ package web3
 import (
 	"context"
 	"fmt"
-	"log"
 	"sync"
 	"time"
+
+	"github.com/defi-bot/backend/pkg/log"
 )
 
 // ClientPool RPC 客户端池
@@ -45,11 +46,11 @@ func NewClientPool(config *ClientPoolConfig) (*ClientPool, error) {
 	for i, rpcURL := range config.RPCURLs {
 		client, err := NewClient(rpcURL, config.ChainID, config.Timeout)
 		if err != nil {
-			log.Printf("⚠️  创建客户端失败 [%d/%d] %s: %v", i+1, len(config.RPCURLs), rpcURL, err)
+			log.Web3().Warn().Int("idx", i+1).Int("total", len(config.RPCURLs)).Str("url", rpcURL).Err(err).Msg("⚠️  创建客户端失败")
 			continue
 		}
 		pool.clients = append(pool.clients, client)
-		log.Printf("✅ 添加 RPC 节点 [%d/%d]: %s", i+1, len(config.RPCURLs), rpcURL)
+		log.Web3().Info().Int("idx", i+1).Int("total", len(config.RPCURLs)).Str("url", rpcURL).Msg("✅ 添加 RPC 节点")
 	}
 
 	if len(pool.clients) == 0 {
@@ -62,7 +63,7 @@ func NewClientPool(config *ClientPoolConfig) (*ClientPool, error) {
 		go pool.startHealthCheck()
 	}
 
-	log.Printf("✅ RPC 客户端池创建成功，共 %d 个节点", len(pool.clients))
+	log.Web3().Info().Int("count", len(pool.clients)).Msg("✅ RPC 客户端池创建成功")
 	return pool, nil
 }
 
@@ -112,7 +113,7 @@ func (p *ClientPool) GetClientWithRetry(ctx context.Context, maxRetries int) (*C
 		}
 
 		lastErr = err
-		log.Printf("⚠️  客户端不可用，尝试下一个 [%d/%d]: %v", i+1, maxRetries, err)
+		log.Web3().Warn().Int("retry", i+1).Int("max", maxRetries).Err(err).Msg("⚠️  客户端不可用，尝试下一个")
 	}
 
 	return nil, fmt.Errorf("所有客户端都不可用，最后错误: %w", lastErr)
@@ -152,7 +153,7 @@ func (p *ClientPool) ExecuteWithRetry(ctx context.Context, operation func(*Clien
 		}
 
 		lastErr = err
-		log.Printf("⚠️  操作失败，尝试下一个客户端 [%d/%d]: %v", i+1, maxRetries, err)
+		log.Web3().Warn().Int("retry", i+1).Int("max", maxRetries).Err(err).Msg("⚠️  操作失败，尝试下一个客户端")
 		time.Sleep(time.Millisecond * 100) // 短暂延迟
 	}
 
@@ -161,7 +162,7 @@ func (p *ClientPool) ExecuteWithRetry(ctx context.Context, operation func(*Clien
 
 // startHealthCheck 启动健康检查
 func (p *ClientPool) startHealthCheck() {
-	log.Println("启动 RPC 节点健康检查...")
+	log.Web3().Info().Msg("启动 RPC 节点健康检查...")
 
 	for {
 		select {
@@ -187,14 +188,14 @@ func (p *ClientPool) checkHealth() {
 		if err == nil {
 			healthyCount++
 		} else {
-			log.Printf("⚠️  RPC 节点 [%d/%d] 不健康: %v", i+1, len(clients), err)
+			log.Web3().Warn().Int("idx", i+1).Int("total", len(clients)).Err(err).Msg("⚠️  RPC 节点不健康")
 		}
 	}
 
 	if healthyCount == 0 {
-		log.Println("❌ 所有 RPC 节点都不可用！")
+		log.Web3().Error().Msg("❌ 所有 RPC 节点都不可用！")
 	} else {
-		log.Printf("✅ RPC 节点健康检查: %d/%d 节点可用", healthyCount, len(clients))
+		log.Web3().Info().Int("healthy", healthyCount).Int("total", len(clients)).Msg("✅ RPC 节点健康检查")
 	}
 }
 
@@ -221,5 +222,5 @@ func (p *ClientPool) Close() {
 	}
 	p.clients = nil
 
-	log.Println("RPC 客户端池已关闭")
+	log.Web3().Info().Msg("RPC 客户端池已关闭")
 }

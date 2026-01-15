@@ -2,11 +2,11 @@ package database
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/defi-bot/backend/internal/config"
 	"github.com/defi-bot/backend/internal/models"
+	"github.com/defi-bot/backend/pkg/log"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -50,21 +50,21 @@ func InitDB(cfg *config.DatabaseConfig) error {
 		return fmt.Errorf("数据库连接测试失败: %w", err)
 	}
 
-	log.Println("数据库连接成功")
+	log.Database().Info().Msg("数据库连接成功")
 	return nil
 }
 
 // GetDB 获取数据库实例
 func GetDB() *gorm.DB {
 	if db == nil {
-		log.Fatal("数据库未初始化")
+		log.Database().Fatal().Msg("数据库未初始化")
 	}
 	return db
 }
 
 // AutoMigrate 自动迁移数据库表
 func AutoMigrate() error {
-	log.Println("开始数据库迁移...")
+	log.Database().Info().Msg("开始数据库迁移...")
 
 	// 迁移所有模型
 	err := db.AutoMigrate(
@@ -85,8 +85,119 @@ func AutoMigrate() error {
 		return fmt.Errorf("数据库迁移失败: %w", err)
 	}
 
-	log.Println("数据库迁移完成")
+	// 执行额外的字段类型迁移（解决 numeric overflow 问题）
+	if err := migrateNumericFields(); err != nil {
+		log.Database().Warn().Err(err).Msg("⚠️ 字段类型迁移失败（可忽略）")
+	}
+
+	log.Database().Info().Msg("数据库迁移完成")
 	return nil
+}
+
+// migrateNumericFields 修改 numeric 字段类型以支持更大的数值
+func migrateNumericFields() error {
+	// 修改 price_records 表的价格字段类型
+	alterStatements := []string{
+		`ALTER TABLE price_records ALTER COLUMN price TYPE numeric(78,18)`,
+		`ALTER TABLE price_records ALTER COLUMN inverse_price TYPE numeric(78,18)`,
+		`ALTER TABLE price_records ALTER COLUMN price_usd TYPE numeric(78,18)`,
+	}
+
+	for _, stmt := range alterStatements {
+		if err := db.Exec(stmt).Error; err != nil {
+			// 忽略"已经是目标类型"的错误
+			log.Database().Warn().Err(err).Msg("字段迁移")
+		}
+	}
+
+	return nil
+}
+
+// CleanupTestnetData 清理测试网残留数据
+// 用于切换到主网时清理旧的测试网数据
+func CleanupTestnetData(targetChainID int64) error {
+	log.Database().Info().Int64("chain_id", targetChainID).Msg("开始清理非当前链的残留数据")
+
+	// 1. 获取需要保留的 token IDs（当前链的代币）
+	var validTokenIDs []uint
+	if err := db.Model(&models.Token{}).
+		Where("chain_id = ?", targetChainID).
+		Pluck("id", &validTokenIDs).Error; err != nil {
+		return fmt.Errorf("查询有效代币失败: %w", err)
+	}
+	log.Database().Info().Int("count", len(validTokenIDs)).Msg("当前链有效代币数")
+
+	if len(validTokenIDs) == 0 {
+		log.Database().Warn().Msg("⚠️ 没有找到当前链的代币，跳过清理")
+		return nil
+	}
+
+	// 2. 获取需要保留的 exchange IDs（当前链的交易所）
+	var validExchangeIDs []uint
+	if err := db.Model(&models.Exchange{}).
+		Where("chain_id = ?", targetChainID).
+		Pluck("id", &validExchangeIDs).Error; err != nil {
+		return fmt.Errorf("查询有效交易所失败: %w", err)
+	}
+	log.Database().Info().Int("count", len(validExchangeIDs)).Msg("当前链有效交易所数")
+
+	// 3. 获取需要保留的 trading_pair IDs
+	var validPairIDs []uint
+	if err := db.Model(&models.TradingPair{}).
+		Where("exchange_id IN ?", validExchangeIDs).
+		Where("token0_id IN ? AND token1_id IN ?", validTokenIDs, validTokenIDs).
+		Pluck("id", &validPairIDs).Error; err != nil {
+		return fmt.Errorf("查询有效交易对失败: %w", err)
+	}
+	log.Database().Info().Int("count", len(validPairIDs)).Msg("当前链有效交易对数")
+
+	// 4. 删除无效的交易对相关数据（使用事务）
+	return db.Transaction(func(tx *gorm.DB) error {
+		// 删除无效的 pair_reserves
+		result := tx.Where("pair_id NOT IN ?", validPairIDs).Delete(&models.PairReserve{})
+		if result.Error != nil {
+			return fmt.Errorf("删除无效储备量失败: %w", result.Error)
+		}
+		log.Database().Info().Int64("count", result.RowsAffected).Msg("删除无效储备量记录")
+
+		// 删除无效的 price_records
+		result = tx.Where("pair_id NOT IN ?", validPairIDs).Delete(&models.PriceRecord{})
+		if result.Error != nil {
+			return fmt.Errorf("删除无效价格记录失败: %w", result.Error)
+		}
+		log.Database().Info().Int64("count", result.RowsAffected).Msg("删除无效价格记录")
+
+		// 删除无效的 liquidity_depths
+		result = tx.Where("pair_id NOT IN ?", validPairIDs).Delete(&models.LiquidityDepth{})
+		if result.Error != nil {
+			return fmt.Errorf("删除无效深度记录失败: %w", result.Error)
+		}
+		log.Database().Info().Int64("count", result.RowsAffected).Msg("删除无效深度记录")
+
+		// 删除无效的 trading_pairs
+		result = tx.Where("id NOT IN ?", validPairIDs).Delete(&models.TradingPair{})
+		if result.Error != nil {
+			return fmt.Errorf("删除无效交易对失败: %w", result.Error)
+		}
+		log.Database().Info().Int64("count", result.RowsAffected).Msg("删除无效交易对")
+
+		// 删除无效的 tokens
+		result = tx.Where("chain_id != ?", targetChainID).Delete(&models.Token{})
+		if result.Error != nil {
+			return fmt.Errorf("删除无效代币失败: %w", result.Error)
+		}
+		log.Database().Info().Int64("count", result.RowsAffected).Msg("删除无效代币")
+
+		// 删除无效的 exchanges
+		result = tx.Where("chain_id != ?", targetChainID).Delete(&models.Exchange{})
+		if result.Error != nil {
+			return fmt.Errorf("删除无效交易所失败: %w", result.Error)
+		}
+		log.Database().Info().Int64("count", result.RowsAffected).Msg("删除无效交易所")
+
+		log.Database().Info().Msg("✅ 测试网数据清理完成")
+		return nil
+	})
 }
 
 // CloseDB 关闭数据库连接
@@ -103,7 +214,7 @@ func CloseDB() error {
 
 // SeedData 初始化种子数据
 func SeedData(cfg *config.Config) error {
-	log.Println("开始初始化种子数据...")
+	log.Database().Info().Msg("开始初始化种子数据...")
 
 	// 初始化代币数据
 	for _, tokenCfg := range cfg.Tokens {
@@ -121,10 +232,10 @@ func SeedData(cfg *config.Config) error {
 				IsActive: true,
 			}
 			if err := db.Create(&token).Error; err != nil {
-				log.Printf("创建代币 %s 失败: %v", tokenCfg.Symbol, err)
+				log.Database().Error().Str("symbol", tokenCfg.Symbol).Err(err).Msg("创建代币失败")
 				continue
 			}
-			log.Printf("创建代币: %s (%s)", tokenCfg.Symbol, tokenCfg.Address)
+			log.Database().Info().Str("symbol", tokenCfg.Symbol).Str("address", tokenCfg.Address).Msg("创建代币")
 		}
 	}
 
@@ -181,10 +292,10 @@ func SeedData(cfg *config.Config) error {
 				Priority:         priority,
 			}
 			if err := db.Create(&dex).Error; err != nil {
-				log.Printf("创建 DEX %s 失败: %v", dexCfg.Name, err)
+				log.Database().Error().Str("name", dexCfg.Name).Err(err).Msg("创建 DEX 失败")
 				continue
 			}
-			log.Printf("✅ 创建 DEX: %s (类型: %s, 协议: %s, 版本: %s)", dexCfg.Name, dexType, protocol, version)
+			log.Database().Info().Str("name", dexCfg.Name).Str("type", dexType).Str("protocol", protocol).Str("version", version).Msg("✅ 创建 DEX")
 		} else {
 			// DEX 已存在，更新配置
 			dex.DexType = dexType
@@ -203,10 +314,10 @@ func SeedData(cfg *config.Config) error {
 			dex.Priority = priority
 
 			if err := db.Save(&dex).Error; err != nil {
-				log.Printf("更新 DEX %s 失败: %v", dexCfg.Name, err)
+				log.Database().Error().Str("name", dexCfg.Name).Err(err).Msg("更新 DEX 失败")
 				continue
 			}
-			log.Printf("✅ 更新 DEX: %s (类型: %s, 协议: %s, 版本: %s)", dexCfg.Name, dexType, protocol, version)
+			log.Database().Info().Str("name", dexCfg.Name).Str("type", dexType).Str("protocol", protocol).Str("version", version).Msg("✅ 更新 DEX")
 		}
 	}
 
@@ -236,25 +347,25 @@ func SeedData(cfg *config.Config) error {
 			}
 
 			if err := db.Create(&binance).Error; err != nil {
-				log.Printf("创建 Binance 失败: %v", err)
+				log.Database().Error().Err(err).Msg("创建 Binance 失败")
 			} else {
-				log.Printf("✅ 创建 CEX: Binance (Spot)")
+				log.Database().Info().Msg("✅ 创建 CEX: Binance (Spot)")
 
 				// 创建币安交易对
 				createBinanceTradingPairs(db, binance.ID, cfg)
 			}
 		} else {
-			log.Printf("✅ 币安交易所已存在")
+			log.Database().Info().Msg("✅ 币安交易所已存在")
 		}
 	}
 
-	log.Println("种子数据初始化完成")
+	log.Database().Info().Msg("种子数据初始化完成")
 	return nil
 }
 
 // createBinanceTradingPairs 创建币安交易对
 func createBinanceTradingPairs(db *gorm.DB, binanceID uint, cfg *config.Config) {
-	log.Println("创建币安交易对...")
+	log.Database().Info().Msg("创建币安交易对...")
 
 	for _, symbol := range cfg.Cex.Binance.Symbols {
 		// 解析符号（如 "ETHUSDT" → base="ETH", quote="USDT"）
@@ -270,11 +381,11 @@ func createBinanceTradingPairs(db *gorm.DB, binanceID uint, cfg *config.Config) 
 		db.Where("symbol = ?", quote).First(&quoteToken)
 
 		if baseToken.ID == 0 {
-			log.Printf("⚠️  找不到基础代币: %s (映射自 %s)，跳过 %s", base, symbol[:len(symbol)-len(quote)], symbol)
+			log.Database().Warn().Str("base", base).Str("symbol", symbol).Msg("⚠️  找不到基础代币，跳过")
 			continue
 		}
 		if quoteToken.ID == 0 {
-			log.Printf("⚠️  找不到报价代币: %s，跳过 %s", quote, symbol)
+			log.Database().Warn().Str("quote", quote).Str("symbol", symbol).Msg("⚠️  找不到报价代币，跳过")
 			continue
 		}
 
@@ -295,11 +406,11 @@ func createBinanceTradingPairs(db *gorm.DB, binanceID uint, cfg *config.Config) 
 			}
 
 			if err := db.Create(&pair).Error; err != nil {
-				log.Printf("创建币安交易对失败 %s: %v", symbol, err)
+				log.Database().Error().Str("symbol", symbol).Err(err).Msg("创建币安交易对失败")
 				continue
 			}
 
-			log.Printf("✅ 创建币安交易对: %s (%s/%s)", symbol, base, quote)
+			log.Database().Info().Str("symbol", symbol).Str("base", base).Str("quote", quote).Msg("✅ 创建币安交易对")
 		}
 	}
 }

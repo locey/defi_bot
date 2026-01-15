@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"time"
 
+	"github.com/defi-bot/backend/pkg/log"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -40,7 +40,7 @@ func NewRedisCache(config *RedisConfig) (*RedisCache, error) {
 		return nil, fmt.Errorf("Redis 连接失败: %w", err)
 	}
 
-	log.Println("✅ Redis 连接成功")
+	log.Cache().Info().Msg("✅ Redis 连接成功")
 	return &RedisCache{
 		client: client,
 		ctx:    ctx,
@@ -161,7 +161,7 @@ func (c *RedisCache) FlushDB() error {
 
 // Close 关闭连接
 func (c *RedisCache) Close() error {
-	log.Println("关闭 Redis 连接")
+	log.Cache().Info().Msg("关闭 Redis 连接")
 	return c.client.Close()
 }
 
