@@ -118,16 +118,20 @@ func (pc *ProfitCalculator) calculateV2Output(
 	}
 
 	// 验证储备金数据的合理性
-	if reserveIn.Cmp(new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)) < 0 ||
-		reserveOut.Cmp(new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)) < 0 {
-		return nil, fmt.Errorf("reserves are too small, possible data error")
+	// 使用 10^6 作为最小阈值，适用于 6 位精度代币（如 USDC/USDT）
+	// 对于 18 位精度代币，这相当于 10^-12 个代币，仍然是合理的最小值
+	minReserve := new(big.Int).Exp(big.NewInt(10), big.NewInt(6), nil)
+	if reserveIn.Cmp(minReserve) < 0 || reserveOut.Cmp(minReserve) < 0 {
+		return nil, fmt.Errorf("reserves are too small (reserveIn=%s, reserveOut=%s, min=%s)", 
+			reserveIn.String(), reserveOut.String(), minReserve.String())
 	}
 
 	// 检查输入金额与储备金的比例，避免输出过小
 	// 如果输入金额超过储备金的 10%，返回错误
 	maxInputRatio := big.NewInt(10)
 	if new(big.Int).Mul(amountIn, maxInputRatio).Cmp(reserveIn) > 0 {
-		return nil, fmt.Errorf("amountIn exceeds maximum allowed ratio (10%% of reserveIn)")
+		return nil, fmt.Errorf("amountIn exceeds max ratio 10%% (amountIn=%s, reserveIn=%s)", 
+			amountIn.String(), reserveIn.String())
 	}
 
 	// 默认费率 0.3% = 30 bps
@@ -151,15 +155,14 @@ func (pc *ProfitCalculator) calculateV2Output(
 	// amountOut = numerator / denominator
 	amountOut := new(big.Int).Div(numerator, denominator)
 
-	maxOutputRatio := big.NewInt(100) // 输出不能超过输入的100倍
-	if new(big.Int).Mul(amountIn, maxOutputRatio).Cmp(amountOut) < 0 {
-		return nil, fmt.Errorf("output amount exceeds maximum allowed ratio (100x)")
-	}
+	// 注意：移除了基于比例的检查，因为不同精度的代币（如 WETH 18位 vs USDC 6位）
+	// 在 wei 级别的比例可能相差很大（最多 10^12 倍），这是正常的。
+	// 价格合理性应该在更上层通过价格验证来检查。
 
-	// 防止异常小的输出值
-	if amountOut.Cmp(new(big.Int).Div(amountIn, big.NewInt(100))) < 0 {
-		// 输出小于输入的 1%，可能是计算错误
-		return nil, fmt.Errorf("output amount too small, possible calculation error")
+	// 只检查输出是否为正数
+	if amountOut.Sign() <= 0 {
+		return nil, fmt.Errorf("output amount is zero or negative (amountIn=%s, reserveIn=%s, reserveOut=%s, fee=%d)", 
+			amountIn.String(), reserveIn.String(), reserveOut.String(), feeBps)
 	}
 
 	return amountOut, nil
@@ -213,7 +216,24 @@ func (pc *ProfitCalculator) SimulateSlippage(
 	// 计算小额交易的输出（作为基准）
 	smallAmount := new(big.Int).Div(amountIn, big.NewInt(100))
 	if smallAmount.Sign() <= 0 {
-		smallAmount = big.NewInt(1e15) // 最小0.001 ETH
+		// 业界标准：根据起始代币精度计算最小金额
+		// 0.001 token = 10^(decimals-3)
+		if len(path) > 0 && path[0].Pool != nil {
+			var decimals uint8
+			if path[0].Token == path[0].Pool.Token0 {
+				decimals = uint8(path[0].Pool.Decimals0)
+			} else {
+				decimals = uint8(path[0].Pool.Decimals1)
+			}
+			if decimals >= 3 {
+				smallAmount = new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(decimals-3)), nil)
+			} else {
+				smallAmount = big.NewInt(1)
+			}
+		} else {
+			// 后备方案
+			smallAmount = big.NewInt(1e15) // 默认0.001 ETH
+		}
 	}
 
 	smallOut, _, err := pc.CalculatePathOutput(ctx, path, smallAmount)

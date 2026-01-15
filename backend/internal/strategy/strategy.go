@@ -141,14 +141,16 @@ func (e *StrategyEngine) loadPoolsFromDB(ctx context.Context) ([]*PoolInfo, erro
 	}
 
 	type TradingPairRow struct {
-		ID             uint   `gorm:"column:id"`
-		PairAddress    string `gorm:"column:pair_address"`
-		Token0Address  string `gorm:"column:token0_address"`
-		Token1Address  string `gorm:"column:token1_address"`
-		ExchangeName   string `gorm:"column:exchange_name"`
-		ExchangeProto  string `gorm:"column:exchange_proto"`
-		ExchangeRouter string `gorm:"column:exchange_router"`
-		ExchangeFee    int    `gorm:"column:exchange_fee"`
+		ID              uint   `gorm:"column:id"`
+		PairAddress     string `gorm:"column:pair_address"`
+		Token0Address   string `gorm:"column:token0_address"`
+		Token1Address   string `gorm:"column:token1_address"`
+		Token0Decimals  int    `gorm:"column:token0_decimals"`
+		Token1Decimals  int    `gorm:"column:token1_decimals"`
+		ExchangeName    string `gorm:"column:exchange_name"`
+		ExchangeProto   string `gorm:"column:exchange_proto"`
+		ExchangeRouter  string `gorm:"column:exchange_router"`
+		ExchangeFee     int    `gorm:"column:exchange_fee"`
 	}
 
 	var pairs []TradingPairRow
@@ -159,6 +161,8 @@ func (e *StrategyEngine) loadPoolsFromDB(ctx context.Context) ([]*PoolInfo, erro
 			tp.pair_address as pair_address,
 			t0.address as token0_address,
 			t1.address as token1_address,
+			t0.decimals as token0_decimals,
+			t1.decimals as token1_decimals,
 			ex.name as exchange_name,
 			ex.protocol as exchange_proto,
 			ex.router_address as exchange_router,
@@ -218,10 +222,22 @@ func (e *StrategyEngine) loadPoolsFromDB(ctx context.Context) ([]*PoolInfo, erro
 			fee = 30
 		}
 
+		// 确保精度有效（默认为 18）
+		decimals0 := uint(p.Token0Decimals)
+		decimals1 := uint(p.Token1Decimals)
+		if decimals0 == 0 {
+			decimals0 = 18
+		}
+		if decimals1 == 0 {
+			decimals1 = 18
+		}
+
 		pools = append(pools, &PoolInfo{
 			Address:    common.HexToAddress(p.PairAddress),
 			Token0:     common.HexToAddress(p.Token0Address),
 			Token1:     common.HexToAddress(p.Token1Address),
+			Decimals0:  decimals0,
+			Decimals1:  decimals1,
 			Reserve0:   r0,
 			Reserve1:   r1,
 			Fee:        fee,

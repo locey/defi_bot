@@ -59,7 +59,16 @@ func (ao *AmountOptimizer) FindOptimalAmount(
 	// 考虑基础代币精度，动态计算搜索范围
 	// 0.001 个基础代币 = 1e(baseTokenDecimals - 3)
 	minAmount := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(baseTokenDecimals-3)), nil)
-	minReasonableAmount := big.NewInt(1e12) // 0.000001 ETH
+	
+	// 业界标准：绝对最小值也应该基于精度
+	// 0.000001 token = 10^(decimals-6)
+	var minReasonableAmount *big.Int
+	if baseTokenDecimals >= 6 {
+		minReasonableAmount = new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(baseTokenDecimals-6)), nil)
+	} else {
+		minReasonableAmount = big.NewInt(1) // 最小单位
+	}
+	
 	if minAmount.Cmp(minReasonableAmount) < 0 {
 		minAmount = minReasonableAmount
 	}
@@ -109,8 +118,24 @@ func (ao *AmountOptimizer) binarySearchOptimal(
 	profitCalc *ProfitCalculator,
 ) (*big.Int, *big.Int, error) {
 
-	// 精度：0.01 ETH
-	precision := big.NewInt(1e16)
+	// 业界标准：根据代币精度动态计算搜索精度
+	// 18位精度: 1e16 (0.01 token)
+	// 6位精度:  1e4  (0.01 token)
+	var precision *big.Int
+	if len(path) > 0 && path[0].Pool != nil {
+		firstToken := path[0].Token
+		pool := path[0].Pool
+		var decimals uint8
+		if firstToken == pool.Token0 {
+			decimals = uint8(pool.Decimals0)
+		} else {
+			decimals = uint8(pool.Decimals1)
+		}
+		precision = calculateSearchPrecision(decimals)
+	} else {
+		// 后备方案：使用默认精度
+		precision = big.NewInt(1e16)
+	}
 
 	var optimalAmount *big.Int
 	maxProfit := big.NewInt(0)
@@ -256,4 +281,18 @@ func (ao *AmountOptimizer) OptimizeWithConstraints(
 	}
 
 	return optimalAmount, expectedOut, nil
+}
+
+// ============================================================
+// 精度相关辅助函数（业界标准）
+// ============================================================
+
+// calculateSearchPrecision 计算二分搜索精度
+// 返回 0.01 token (Wei单位)
+func calculateSearchPrecision(decimals uint8) *big.Int {
+	if decimals >= 2 {
+		// 0.01 token = 10^(decimals-2)
+		return new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(decimals-2)), nil)
+	}
+	return big.NewInt(1)
 }
