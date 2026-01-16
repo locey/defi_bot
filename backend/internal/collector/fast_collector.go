@@ -182,14 +182,12 @@ func (c *FastCollector) LoadAndClassifyPools() error {
 
 	// 查询所有活跃的交易对
 	type PoolRow struct {
-		PairAddress   string  `gorm:"column:pair_address"`
-		Token0Address string  `gorm:"column:token0_address"`
-		Token1Address string  `gorm:"column:token1_address"`
-		DexName       string  `gorm:"column:dex_name"`
-		Protocol      string  `gorm:"column:protocol"`
-		Fee           int     `gorm:"column:fee"`
-		TVL           float64 `gorm:"column:tvl"`
-		Volume24h     float64 `gorm:"column:volume_24h"`
+		PairAddress   string `gorm:"column:pair_address"`
+		Token0Address string `gorm:"column:token0_address"`
+		Token1Address string `gorm:"column:token1_address"`
+		DexName       string `gorm:"column:dex_name"`
+		Protocol      string `gorm:"column:protocol"`
+		Fee           int    `gorm:"column:fee"`
 	}
 
 	var pools []PoolRow
@@ -200,9 +198,7 @@ func (c *FastCollector) LoadAndClassifyPools() error {
 			t1.address as token1_address,
 			ex.name as dex_name,
 			ex.protocol as protocol,
-			ex.fee as fee,
-			COALESCE(tp.tvl, 0) as tvl,
-			COALESCE(tp.volume_24h, 0) as volume_24h
+			ex.fee as fee
 		`).
 		Joins("JOIN exchanges ex ON ex.id = tp.exchange_id").
 		Joins("JOIN tokens t0 ON t0.id = tp.token0_id").
@@ -233,22 +229,14 @@ func (c *FastCollector) LoadAndClassifyPools() error {
 			DexName:     p.DexName,
 			Protocol:    p.Protocol,
 			Fee:         uint64(p.Fee),
-			TVL:         p.TVL,
-			Volume24h:   p.Volume24h,
+			TVL:         0, // 数据库暂无 TVL 数据
+			Volume24h:   0, // 数据库暂无 Volume 数据
 		}
 
-		// 分层逻辑
-		if p.TVL >= c.config.Tier1.MinTVL && p.Volume24h >= c.config.Tier1.MinVolume24h {
-			pool.Tier = 1
-			c.tier1Pools = append(c.tier1Pools, pool)
-		} else if p.TVL >= c.config.Tier2.MinTVL && p.Volume24h >= c.config.Tier2.MinVolume24h {
-			pool.Tier = 2
-			c.tier2Pools = append(c.tier2Pools, pool)
-		} else if p.TVL >= c.config.Tier3.MinTVL {
-			pool.Tier = 3
-			c.tier3Pools = append(c.tier3Pools, pool)
-		}
-		// TVL太低的池子不监控
+		// 分层逻辑（由于没有 TVL/Volume 数据，所有池子放入 Tier2 使用 Multicall）
+		// 未来可以根据储备量或其他指标进行分层
+		pool.Tier = 2
+		c.tier2Pools = append(c.tier2Pools, pool)
 	}
 
 	// 初始化价格缓存索引
