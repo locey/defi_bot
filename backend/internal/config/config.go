@@ -10,20 +10,21 @@ import (
 
 // Config 全局配置结构
 type Config struct {
-	Database   DatabaseConfig            `mapstructure:"database"`
-	Blockchain BlockchainConfig          `mapstructure:"blockchain"`
-	Contracts  ContractsConfig           `mapstructure:"contracts"`
-	Keeper     KeeperConfig              `mapstructure:"keeper"` // ← 新增: Keeper 配置
-	Dexes      []DexConfig               `mapstructure:"dexes"`
-	Cex        CexConfig                 `mapstructure:"cex"` // CEX 配置
-	Tokens     []TokenConfig             `mapstructure:"tokens"`
-	Scheduler  SchedulerConfig           `mapstructure:"scheduler"`
-	Arbitrage  ArbitrageConfig           `mapstructure:"arbitrage"`
-	Log        LogConfig                 `mapstructure:"log"`
-	Server     ServerConfig              `mapstructure:"server"`
-	Redis       RedisConfig              `mapstructure:"redis"`
-	Chains      map[string]ChainConfig   `mapstructure:"chains"`       // 多链配置
-	ActiveChain string                   `mapstructure:"active_chain"` // 当前活跃链名称
+	Database    DatabaseConfig            `mapstructure:"database"`
+	Blockchain  BlockchainConfig          `mapstructure:"blockchain"`
+	Contracts   ContractsConfig           `mapstructure:"contracts"`
+	Keeper      KeeperConfig              `mapstructure:"keeper"`       // Keeper 配置
+	Dexes       []DexConfig               `mapstructure:"dexes"`
+	Cex         CexConfig                 `mapstructure:"cex"`          // CEX 配置
+	CEXDEX      CEXDEXConfig              `mapstructure:"cexdex"`       // CEX-DEX 套利配置
+	Tokens      []TokenConfig             `mapstructure:"tokens"`
+	Scheduler   SchedulerConfig           `mapstructure:"scheduler"`
+	Arbitrage   ArbitrageConfig           `mapstructure:"arbitrage"`
+	Log         LogConfig                 `mapstructure:"log"`
+	Server      ServerConfig              `mapstructure:"server"`
+	Redis       RedisConfig               `mapstructure:"redis"`
+	Chains      map[string]ChainConfig    `mapstructure:"chains"`       // 多链配置
+	ActiveChain string                    `mapstructure:"active_chain"` // 当前活跃链名称
 }
 
 // ChainConfig 单链配置
@@ -101,9 +102,10 @@ type DexConfig struct {
 
 // TokenConfig 代币配置
 type TokenConfig struct {
-	Symbol   string `mapstructure:"symbol"`
-	Address  string `mapstructure:"address"`
-	Decimals int    `mapstructure:"decimals"`
+	Symbol    string `mapstructure:"symbol"`
+	Address   string `mapstructure:"address"`
+	Decimals  int    `mapstructure:"decimals"`
+	CEXSymbol string `mapstructure:"cex_symbol"` // CEX 交易对符号（如 ETHUSDT）
 }
 
 // SchedulerConfig 定时任务配置
@@ -155,6 +157,20 @@ type RedisConfig struct {
 type CexConfig struct {
 	Enabled bool          `mapstructure:"enabled"` // 是否启用 CEX 采集
 	Binance BinanceConfig `mapstructure:"binance"` // 币安配置
+}
+
+// CEXDEXConfig CEX-DEX 套利配置
+type CEXDEXConfig struct {
+	Enabled          bool               `mapstructure:"enabled"`            // 是否启用 CEX-DEX 套利
+	MinProfitRate    float64            `mapstructure:"min_profit_rate"`    // 最小利润率 (如 0.002 = 0.2%)
+	MinProfitAmount  float64            `mapstructure:"min_profit_amount"`  // 最小利润金额 (USD)
+	MaxTradeAmount   float64            `mapstructure:"max_trade_amount"`   // 单笔最大交易金额 (USD)
+	MinTradeAmount   float64            `mapstructure:"min_trade_amount"`   // 单笔最小交易金额 (USD)
+	MaxSlippage      float64            `mapstructure:"max_slippage"`       // 最大滑点
+	EstimatedGasCost float64            `mapstructure:"estimated_gas_cost"` // 预估 Gas 成本 (USD)
+	CheckInterval    int                `mapstructure:"check_interval"`     // 检测间隔 (ms)
+	OpportunityTTL   int                `mapstructure:"opportunity_ttl"`    // 机会有效期 (秒)
+	PairMapping      map[string]string  `mapstructure:"pair_mapping"`       // DEX Token -> CEX Symbol 映射
 }
 
 // BinanceConfig 币安配置

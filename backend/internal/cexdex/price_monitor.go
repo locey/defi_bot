@@ -310,6 +310,25 @@ func (m *PriceMonitor) GetAllPrices() map[string]*CEXPrice {
 	return result
 }
 
+// UpdatePrice 手动更新价格（用于 REST API 模式）
+func (m *PriceMonitor) UpdatePrice(price *CEXPrice) {
+	if price == nil || price.Symbol == "" {
+		return
+	}
+
+	// 更新缓存
+	m.pricesMu.Lock()
+	m.prices[price.Symbol] = price
+	m.pricesMu.Unlock()
+
+	// 发送到通道
+	select {
+	case m.priceCh <- price:
+	default:
+		// 通道满，丢弃
+	}
+}
+
 // GetPriceChan 获取价格更新通道
 func (m *PriceMonitor) GetPriceChan() <-chan *CEXPrice {
 	return m.priceCh
