@@ -13,12 +13,10 @@ import (
 	"time"
 
 	"github.com/defi-bot/backend/internal/cexdex"
-	"github.com/defi-bot/backend/internal/collector"
 	"github.com/defi-bot/backend/internal/config"
 	"github.com/defi-bot/backend/internal/database"
 	"github.com/defi-bot/backend/pkg/log"
 	"github.com/defi-bot/backend/pkg/web3"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 func main() {
@@ -99,35 +97,30 @@ func main() {
 		log.Main().Info().Msg("✅ Binance WebSocket 已连接")
 	}
 
-	// 6. 初始化 DEX 数据采集器
-	log.Main().Info().Msg("初始化 DEX 数据采集器...")
-	dataCollector := collector.NewCollector(web3Client, nil, nil)
-
-	// 7. 创建 DEX 价格提供者（从 DEX 采集数据）
-	dexPriceProvider := cexdex.NewSimpleDEXPriceProvider()
-
-	// 配置交易对映射
-	pairMapping := cfg.CEXDEX.PairMapping
-	if pairMapping == nil {
-		pairMapping = map[string]string{
-			"WETH":   "ETHUSDT",
-			"WBTC":   "BTCUSDT",
-			"ARB":    "ARBUSDT",
-			"USDC":   "USDCUSDT",
-			"USDC.e": "USDCUSDT",
-		}
+	// 6. 初始化 DEX 实时报价器（直接从链上获取价格，无需数据库）
+	log.Main().Info().Msg("初始化 DEX 实时报价器...")
+	
+	// 根据链 ID 获取配置
+	quoterConfig := cexdex.GetQuoterConfigByChainID(cfg.Blockchain.ChainID)
+	if quoterConfig == nil {
+		log.Main().Fatal().Int64("chain_id", cfg.Blockchain.ChainID).Msg("不支持的链")
 	}
-
-	// 设置路由地址
-	for _, dex := range cfg.Dexes {
-		if dex.Protocol == "uniswap_v3" && dex.FeeTier == 500 {
-			for symbol, cexSymbol := range pairMapping {
-				dexPriceProvider.SetRouter(cexSymbol, common.HexToAddress(dex.Router))
-				_ = symbol // 用于将来扩展
-			}
-			break
-		}
+	
+	dexQuoter, err := cexdex.NewDEXQuoter(web3Client.GetClient(), quoterConfig)
+	if err != nil {
+		log.Main().Fatal().Err(err).Msg("创建 DEX 报价器失败")
 	}
+	
+	// 启动 DEX 报价器
+	if err := dexQuoter.Start(ctx); err != nil {
+		log.Main().Fatal().Err(err).Msg("启动 DEX 报价器失败")
+	}
+	defer dexQuoter.Stop()
+	
+	log.Main().Info().Int("pairs", len(quoterConfig.Pairs)).Msg("✅ DEX 报价器已启动")
+	
+	// 使用 DEX 报价器作为价格提供者
+	dexPriceProvider := dexQuoter
 
 	// 8. 初始化 CEX-DEX 检测器
 	detectorConfig := &cexdex.DetectorConfig{
@@ -147,34 +140,15 @@ func main() {
 
 	detector := cexdex.NewDetector(detectorConfig, priceMonitor, dexPriceProvider)
 
-	// 9. 启动 DEX 价格更新循环
-	go func() {
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				// 从 DEX 采集价格并更新
-				updateDEXPrices(dataCollector, dexPriceProvider, pairMapping)
-			}
-		}
-	}()
-
-	// 初始采集一次
-	updateDEXPrices(dataCollector, dexPriceProvider, pairMapping)
-
-	// 10. 启动检测器
+	// 9. 启动检测器
 	log.Main().Info().Msg("启动 CEX-DEX 套利检测器...")
 	if err := detector.Start(ctx); err != nil {
 		log.Main().Fatal().Err(err).Msg("检测器启动失败")
 	}
 	defer detector.Stop()
 
-	// 11. 监控循环
-	go monitorLoop(ctx, priceMonitor, detector)
+	// 10. 监控循环
+	go monitorLoop(ctx, priceMonitor, dexQuoter, detector)
 
 	// 12. 等待退出信号
 	log.Main().Info().Msg("========================================")
@@ -192,7 +166,14 @@ func main() {
 
 // startRESTPolling 使用 REST API 轮询获取价格
 func startRESTPolling(ctx context.Context, monitor *cexdex.PriceMonitor, apiEndpoint string, symbols []string) {
-	client := &http.Client{Timeout: 10 * time.Second}
+	// 使用支持系统代理的 HTTP 客户端
+	transport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment, // 自动使用系统代理 (HTTP_PROXY/HTTPS_PROXY)
+	}
+	client := &http.Client{
+		Timeout:   15 * time.Second,
+		Transport: transport,
+	}
 
 	// 立即获取一次
 	for _, symbol := range symbols {
@@ -292,48 +273,8 @@ func toLower(s string) string {
 	return string(result)
 }
 
-// updateDEXPrices 更新 DEX 价格（从 pair_reserves 表获取）
-func updateDEXPrices(dataCollector *collector.Collector, provider *cexdex.SimpleDEXPriceProvider, mapping map[string]string) {
-	db := database.GetDB()
-	if db == nil {
-		return
-	}
-
-	// 从 pair_reserves 获取最新价格
-	type PriceInfo struct {
-		Token0Symbol string  `gorm:"column:token0_symbol"`
-		Token1Symbol string  `gorm:"column:token1_symbol"`
-		Price0       float64 `gorm:"column:price0"`
-	}
-
-	var prices []PriceInfo
-	err := db.Table("price_records pr").
-		Select("t0.symbol as token0_symbol, t1.symbol as token1_symbol, pr.price0").
-		Joins("JOIN trading_pairs tp ON tp.id = pr.pair_id").
-		Joins("JOIN tokens t0 ON t0.id = tp.token0_id").
-		Joins("JOIN tokens t1 ON t1.id = tp.token1_id").
-		Where("pr.price0 > 0").
-		Order("pr.timestamp DESC").
-		Limit(50).
-		Scan(&prices).Error
-
-	if err != nil {
-		// 如果查询失败，使用模拟数据进行测试
-		log.Main().Debug().Err(err).Msg("DEX 价格查询失败，使用模拟数据")
-		// 使用 Binance 价格作为基准（稍微调整）来模拟 DEX 价格
-		return
-	}
-
-	for _, p := range prices {
-		// 匹配到 CEX 符号
-		if cexSymbol, ok := mapping[p.Token0Symbol]; ok && p.Price0 > 0 {
-			provider.UpdatePrice(cexSymbol, p.Price0)
-		}
-	}
-}
-
 // monitorLoop 监控循环
-func monitorLoop(ctx context.Context, monitor *cexdex.PriceMonitor, detector *cexdex.Detector) {
+func monitorLoop(ctx context.Context, cexMonitor *cexdex.PriceMonitor, dexQuoter *cexdex.DEXQuoter, detector *cexdex.Detector) {
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
@@ -346,25 +287,33 @@ func monitorLoop(ctx context.Context, monitor *cexdex.PriceMonitor, detector *ce
 
 		case opp := <-oppCh:
 			if opp != nil {
-				log.Main().Info().Msg("========== 发现套利机会 ==========")
+				log.Main().Info().Msg("🎯 ========== 发现套利机会 ==========")
 				log.Main().Info().Str("symbol", opp.Symbol).Str("direction", opp.Direction).Msg("交易对")
 				log.Main().Info().Float64("cex_price", opp.CEXPrice).Float64("dex_price", opp.DEXPrice).Msg("价格")
 				log.Main().Info().Float64("profit_rate", opp.ProfitRate*100).Float64("net_profit", opp.NetProfit).Msg("利润")
-				log.Main().Info().Msg("==================================")
+				log.Main().Info().Msg("=====================================")
 			}
 
 		case <-ticker.C:
-			// 打印 CEX 价格状态
-			prices := monitor.GetAllPrices()
-			log.Main().Info().Int("count", len(prices)).Msg("========== CEX 价格状态 ==========")
-			for symbol, price := range prices {
-				log.Main().Info().
-					Str("symbol", symbol).
-					Float64("bid", price.BidPrice).
-					Float64("ask", price.AskPrice).
-					Float64("last", price.LastPrice).
-					Msg("  ")
+			// 获取 CEX 和 DEX 价格
+			cexPrices := cexMonitor.GetAllPrices()
+			dexPrices := dexQuoter.GetAllPrices()
+
+			log.Main().Info().Msg("========== 价格对比 ==========")
+			log.Main().Info().Msgf("%-12s | %12s | %12s | %8s", "Symbol", "CEX Price", "DEX Price", "Spread")
+			log.Main().Info().Msg("-------------------------------------------")
+
+			for symbol, cexPrice := range cexPrices {
+				dexPrice, hasDex := dexPrices[symbol]
+				if hasDex && dexPrice > 0 && cexPrice.LastPrice > 0 {
+					spread := (cexPrice.LastPrice - dexPrice) / dexPrice * 100
+					log.Main().Info().Msgf("%-12s | %12.4f | %12.4f | %+7.3f%%", symbol, cexPrice.LastPrice, dexPrice, spread)
+				} else if cexPrice.LastPrice > 0 {
+					log.Main().Info().Msgf("%-12s | %12.4f | %12s | %8s", symbol, cexPrice.LastPrice, "N/A", "-")
+				}
 			}
+
+			log.Main().Info().Msg("================================")
 
 			// 打印机会统计
 			opps := detector.GetOpportunities()
