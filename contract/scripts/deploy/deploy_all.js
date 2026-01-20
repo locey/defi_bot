@@ -34,11 +34,11 @@ async function main() {
   console.log("✅ ArbitrageVault deployed to:", arbitrageVault.target); // v6 用 target 替代 address
 
   // ----------------------------
-  // 2. 部署 ConfigManager (UUPS 可升级合约)
+  // 2. 部署 ConfigManage (UUPS 可升级合约)
   // ----------------------------
   const ConfigManage = await hre.ethers.getContractFactory("ConfigManage");
   const configManage = await hre.upgrades.deployProxy(ConfigManage, [
-    arbitrageVault.target,   // _arbitrageVault (v6 用 target)
+    arbitrageVault.target,
     UNISWAP_V2_ROUTER,
     UNISWAP_V3_ROUTER,
     SUSHISWAP_ROUTER,
@@ -53,22 +53,32 @@ async function main() {
   // 更新 ArbitrageVault 中的 configManager 地址
   await arbitrageVault.setConfigManager(configManage.target);
   console.log("✅ ArbitrageVault configManager set to:", configManage.target);
+
   // ----------------------------
-  // 3. 部署 DoubleRouterIntegration (普通合约)
+  // 3. 部署 DoubleRouterIntegration (UUPS 可升级合约)
   // ----------------------------
   const DoubleRouterIntegration = await hre.ethers.getContractFactory("DoubleRouterIntegration");
-  const doubleRouterIntegration = await DoubleRouterIntegration.deploy(configManage.target);
+  const doubleRouterIntegration = await hre.upgrades.deployProxy(DoubleRouterIntegration, [
+    configManage.target
+  ], {
+    initializer: "initialize",
+    kind: "uups"
+  });
   await doubleRouterIntegration.waitForDeployment();
-  console.log("✅ DoubleRouterIntegration deployed to:", doubleRouterIntegration.target);
+  console.log("✅ DoubleRouterIntegration (UUPS) deployed to:", doubleRouterIntegration.target);
 
   // ----------------------------
-  // 4. 部署 UniswapV2Integration (普通合约)
+  // 4. 部署 UniswapV2Integration (UUPS 可升级合约)
   // ----------------------------
   const UniswapV2Integration = await hre.ethers.getContractFactory("UniswapV2Integration");
-  const uniswapV2Integration = await UniswapV2Integration.deploy(configManage.target);
+  const uniswapV2Integration = await hre.upgrades.deployProxy(UniswapV2Integration, [
+    configManage.target
+  ], {
+    initializer: "initialize",
+    kind: "uups"
+  });
   await uniswapV2Integration.waitForDeployment();
-  console.log("✅ UniswapV2Integration deployed to:", uniswapV2Integration.target);
-
+  console.log("✅ UniswapV2Integration (UUPS) deployed to:", uniswapV2Integration.target);
 
   // ----------------------------
   // 5. 部署 FlashLoanRouter (普通合约)
@@ -79,17 +89,20 @@ async function main() {
   console.log("✅ FlashLoanRouter deployed to:", flashLoanRouter.target);
 
   // ----------------------------
-  // 6. 部署 SpotArbitrage (普通合约)
+  // 6. 部署 SpotArbitrage (UUPS 可升级合约)
   // ----------------------------
   const ZERO_ADDRESS = hre.ethers.ZeroAddress;
   const SpotArbitrage = await hre.ethers.getContractFactory("SpotArbitrage");
-  const spotArbitrage = await SpotArbitrage.deploy(
-    doubleRouterIntegration.target, 
-    uniswapV2Integration.target, 
+  const spotArbitrage = await hre.upgrades.deployProxy(SpotArbitrage, [
+    doubleRouterIntegration.target,
+    uniswapV2Integration.target,
     ZERO_ADDRESS // 临时用零地址，后续会更新
-  );
+  ], {
+    initializer: "initialize",
+    kind: "uups"
+  });
   await spotArbitrage.waitForDeployment();
-  console.log("✅ SpotArbitrage deployed to:", spotArbitrage.target);
+  console.log("✅ SpotArbitrage (UUPS) deployed to:", spotArbitrage.target);
 
   // ----------------------------
   // 7. 部署 ArbitrageCore (UUPS 可升级合约)

@@ -7,22 +7,36 @@ import "../interfaces/IUniswapV2Integration.sol";
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 
-contract SpotArbitrage is ISpotArbitrage {
+contract SpotArbitrage is ISpotArbitrage, Initializable, UUPSUpgradeable, OwnableUpgradeable {
     using SafeERC20 for IERC20;
+    
     address public arbitrageCore;
     IDoubleRouterIntegration private doubleRouterIntegration;
     IUniswapV2Integration private uniswapV2Integration;
 
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(
         address _doubleRouterIntegration,
         address _uniswapV2Integration,
         address _arbitrageCore
-    ) {
-        doubleRouterIntegration = IDoubleRouterIntegration(
-            _doubleRouterIntegration
-        );
+    ) public initializer {
+        __Ownable_init(msg.sender);
+        __UUPSUpgradeable_init();
+        
+        require(_doubleRouterIntegration != address(0), "Spot: invalid doubleRouterIntegration");
+        require(_uniswapV2Integration != address(0), "Spot: invalid uniswapV2Integration");
+        // require(_arbitrageCore != address(0), "Spot: invalid arbitrageCore");
+        
+        doubleRouterIntegration = IDoubleRouterIntegration(_doubleRouterIntegration);
         uniswapV2Integration = IUniswapV2Integration(_uniswapV2Integration);
         arbitrageCore = _arbitrageCore;
     }
@@ -38,7 +52,9 @@ contract SpotArbitrage is ISpotArbitrage {
 
     function setDoubleRouterIntegration(address _doubleRouterIntegration)
         external
-    {   require(_doubleRouterIntegration != address(0), "Spot: invalid doubleRouterIntegration");
+        onlyOwner
+    {   
+        require(_doubleRouterIntegration != address(0), "Spot: invalid doubleRouterIntegration");
         doubleRouterIntegration = IDoubleRouterIntegration(
             _doubleRouterIntegration
         );
@@ -46,18 +62,17 @@ contract SpotArbitrage is ISpotArbitrage {
 
     function setUniswapV2Integration(address _uniswapV2Integration)
         external
-    {   require(_uniswapV2Integration != address(0), "Spot: invalid uniswapV2Integration");
+        onlyOwner
+    {   
+        require(_uniswapV2Integration != address(0), "Spot: invalid uniswapV2Integration");
         uniswapV2Integration = IUniswapV2Integration(
             _uniswapV2Integration
         );
     }
 
-    function setArbitrageCore(address _arbitrageCore) external {
-        require(
-            arbitrageCore == address(0),
-            "Spot: arbitrageCore already set"
-        );
+    function setArbitrageCore(address _arbitrageCore) external onlyOwner {
         require(_arbitrageCore != address(0), "Spot: invalid arbitrageCore");
+        require(_arbitrageCore != arbitrageCore, "Spot: same arbitrageCore");
         arbitrageCore = _arbitrageCore;
     }
     
@@ -95,6 +110,6 @@ contract SpotArbitrage is ISpotArbitrage {
 
         return amountOut;
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 }
-
-
