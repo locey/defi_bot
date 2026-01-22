@@ -78,8 +78,8 @@ async function main() {
   console.log("✅ 权限配置完成");
 
   // 4. 设置【超级暴利价差】利润拉满，绝对规避利润校验回滚
-  await router1.setPrice(100, 200);  // USDC→WETH 1:1
-  await router2.setPrice(100, 300);  // WETH→USDC 1:3 利润翻倍，actProfit绝对大于minProfit
+  await router1.setPrice(100, 115);  // USDC→WETH 1:1
+  await router2.setPrice(100, 120);  // WETH→USDC 1:3 利润翻倍，actProfit绝对大于minProfit
   console.log("✅ 暴利价差设置完成，利润绝对充足");
 
   // 5. 构造套利参数【最优配置 规避所有校验】

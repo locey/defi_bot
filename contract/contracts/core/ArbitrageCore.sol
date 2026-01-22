@@ -188,7 +188,6 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
         //参数验证
         require(amountIn > 0, "amountIn > 0");
         require(swapPath.length >= 3, "swapPath need 3 at least");
-        require(tokenOut == swapPath[0], "First token = Last token");
         require(dexes.length == swapPath.length - 1, "dexes = swapPath -1");
         require(swapPath[0] == asset, "swapPath[0] is tokenIn");
         require(asset == swapPath[swapPath.length - 1], "tokenIn = tokenOut");
@@ -210,7 +209,7 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
         //执行套利策略
         spotArbitrage.executeSwaps(
             asset,
-            swapPath[swapPath.length - 1],
+            tokenOut,
             amountIn,
             swapPath,
             dexes,
@@ -252,37 +251,92 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
         );
     }
 
+
+    // 带平台参数的闪电贷套利函数
+    function executeFlashLoanArbitrageWithPlatform(
+        FlashLoanRouter.LendingPlatForm platform,
+        IArbitrage.ArbitrageParams calldata params
+    ) external nonReentrant whenNotPaused onlybackCaller {
+        _executedFlashLoanArbitrageWithPlatform(platform, params);
+    }
+
     //闪电贷套利
     function _executedFlashLoanArbitrage(IArbitrage.ArbitrageParams calldata params) private {
+        // 由于原始函数没有平台参数，使用默认平台
+        _executedFlashLoanArbitrageWithPlatform(FlashLoanRouter.LendingPlatForm.Aave_V2, params);
+    }
+
+    //闪电贷套利
+    // function _executedFlashLoanArbitrage(IArbitrage.ArbitrageParams calldata params) private {
         
-        bytes memory paramsData = abi.encode(params);
-        //参数
-        (   
-            FlashLoanRouter.LendingPlatForm platform,
-            address asset,
-            address tokenOut,
-            uint256 amountIn,
-            address[] memory swapPath,
-            address[] memory dexes,
-            uint256 expectProfit,
-            uint256 minProfit
-        ) = abi.decode(paramsData, (FlashLoanRouter.LendingPlatForm, address, address, uint256, address[], address[], uint256, uint256));
+    //     // 直接从params结构体中提取参数
+    //     address asset = params.asset;
+    //     address tokenOut = params.tokenOut;
+    //     uint256 amountIn = params.amountIn;
+    //     address[] calldata swapPath = params.swapPath;
+    //     address[] calldata dexes = params.dexes;
+    //     uint256 expectProfit = params.expectProfit;
+    //     uint256 minProfit = params.minProfit;
+
+    //     //验证
+    //     require(asset != address(0), "Invalid asset");
+    //     require(amountIn > 0, "Amount must be > 0");
+    //     require(swapPath.length >= 3, "swapPath need 3 at least");
+    //     require(swapPath[0] == asset, "First token must be asset");
+    //     require(swapPath[0] == swapPath[swapPath.length - 1], "tokenIn = tokenOut");
+        
+    //     // 使用默认平台Aave_V2调用flashLoanArbitrage.executeFlashLoan
+    //     flashLoanArbitrage.executeFlashLoan(
+    //         FlashLoanRouter.LendingPlatForm.Aave_V2, // 默认使用Aave_V2平台
+    //         asset,      // 原来的asset参数
+    //         tokenOut,   // tokenOut参数
+    //         amountIn,   // amountIn参数
+    //         swapPath,   // swapPath参数
+    //         dexes,      // dexes参数
+    //         expectProfit, // expectProfit参数
+    //         minProfit   // minProfit参数
+    //     );
+        
+    //     //事件触发FlashLoanArbitrageExecuted
+    //     emit FlashLoanArbitrageExecuted(
+    //         msg.sender,
+    //         asset,
+    //         amountIn,
+    //         0, //利润在executeOperation中计算
+    //         block.timestamp
+    //     );
+    // }
+    // 带平台参数的内部闪电贷套利函数
+    function _executedFlashLoanArbitrageWithPlatform(
+        FlashLoanRouter.LendingPlatForm platform,
+        IArbitrage.ArbitrageParams calldata params
+    ) private {
+        // 直接从params结构体获取值
+        address asset = params.asset;        // 借贷资产
+        address tokenOut = params.tokenOut;  // 输出代币
+        uint256 amountIn = params.amountIn;  // 借贷金额
+        address[] calldata swapPath = params.swapPath;  // 交易路径
+        address[] calldata dexes = params.dexes;        // DEX地址数组
+        uint256 expectProfit = params.expectProfit;     // 期望利润
+        uint256 minProfit = params.minProfit;           // 最小利润
+
         //验证
         require(asset != address(0), "Invalid asset");
         require(amountIn > 0, "Amount must be > 0");
         require(swapPath.length >= 3, "swapPath need 3 at least");
         require(swapPath[0] == asset, "First token must be asset");
         require(swapPath[0] == swapPath[swapPath.length - 1], "tokenIn = tokenOut");
-        //调用闪电贷套利执行
+        
+        // 调用FlashLoanArbitrage合约执行闪电贷套利
         flashLoanArbitrage.executeFlashLoan(
-            platform,
-            asset,
-            tokenOut,
-            amountIn,
-            swapPath,
-            dexes,
-            expectProfit,
-            minProfit
+            platform,    // 平台参数
+            asset,       // 借贷资产
+            tokenOut,    // 输出代币
+            amountIn,    // 借贷金额
+            swapPath,    // 交易路径
+            dexes,       // DEX地址
+            expectProfit,// 期望利润
+            minProfit    // 最小利润
         );
         //事件触发FlashLoanArbitrageExecuted
         emit FlashLoanArbitrageExecuted(

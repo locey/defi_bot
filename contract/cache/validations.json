@@ -234,2929 +234,6 @@
         },
         "solcVersion": "0.8.28"
       },
-      "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:ContextUpgradeable": {
-        "src": "@openzeppelin\\contracts-upgradeable\\utils\\ContextUpgradeable.sol:17",
-        "inherit": [
-          "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:Initializable"
-        ],
-        "libraries": [],
-        "methods": [],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {
-            "t_bool": {
-              "label": "bool",
-              "numberOfBytes": "1"
-            },
-            "t_struct(InitializableStorage)73_storage": {
-              "label": "struct Initializable.InitializableStorage",
-              "members": [
-                {
-                  "label": "_initialized",
-                  "type": "t_uint64",
-                  "offset": 0,
-                  "slot": "0"
-                },
-                {
-                  "label": "_initializing",
-                  "type": "t_bool",
-                  "offset": 8,
-                  "slot": "0"
-                }
-              ],
-              "numberOfBytes": "32"
-            },
-            "t_uint64": {
-              "label": "uint64",
-              "numberOfBytes": "8"
-            }
-          },
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {
-            "erc7201:openzeppelin.storage.Initializable": [
-              {
-                "contract": "Initializable",
-                "label": "_initialized",
-                "type": "t_uint64",
-                "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:69",
-                "offset": 0,
-                "slot": "0"
-              },
-              {
-                "contract": "Initializable",
-                "label": "_initializing",
-                "type": "t_bool",
-                "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:73",
-                "offset": 8,
-                "slot": "0"
-              }
-            ]
-          }
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts/interfaces/IERC1363.sol:IERC1363": {
-        "src": "@openzeppelin\\contracts\\interfaces\\IERC1363.sol:16",
-        "inherit": [
-          "@openzeppelin/contracts/utils/introspection/IERC165.sol:IERC165",
-          "@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20"
-        ],
-        "libraries": [],
-        "methods": [
-          "transferAndCall(address,uint256)",
-          "transferAndCall(address,uint256,bytes)",
-          "transferFromAndCall(address,address,uint256)",
-          "transferFromAndCall(address,address,uint256,bytes)",
-          "approveAndCall(address,uint256)",
-          "approveAndCall(address,uint256,bytes)"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts/interfaces/IERC1967.sol:IERC1967": {
-        "src": "@openzeppelin\\contracts\\interfaces\\IERC1967.sol:9",
-        "inherit": [],
-        "libraries": [],
-        "methods": [],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts/interfaces/draft-IERC1822.sol:IERC1822Proxiable": {
-        "src": "@openzeppelin\\contracts\\interfaces\\draft-IERC1822.sol:10",
-        "inherit": [],
-        "libraries": [],
-        "methods": [
-          "proxiableUUID()"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol:ERC1967Utils": {
-        "src": "@openzeppelin\\contracts\\proxy\\ERC1967\\ERC1967Utils.sol:15",
-        "version": {
-          "withMetadata": "4e198a1ae87c8831dafe99c07e9a61b39a50fab456d116b93289690bb2c2bade",
-          "withoutMetadata": "e2a89a66865458f0d9fedd4bc7faf0ee62e4c341d176ab79d29bd77a1bdfc32a",
-          "linkedWithoutMetadata": "e2a89a66865458f0d9fedd4bc7faf0ee62e4c341d176ab79d29bd77a1bdfc32a"
-        },
-        "inherit": [],
-        "libraries": [
-          "@openzeppelin/contracts/utils/StorageSlot.sol:StorageSlot",
-          "@openzeppelin/contracts/utils/Address.sol:Address"
-        ],
-        "methods": [],
-        "linkReferences": [],
-        "errors": [
-          {
-            "kind": "delegatecall",
-            "src": "@openzeppelin\\contracts\\utils\\Address.sol:97"
-          },
-          {
-            "kind": "delegatecall",
-            "src": "@openzeppelin\\contracts\\utils\\Address.sol:97"
-          }
-        ],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts/proxy/beacon/IBeacon.sol:IBeacon": {
-        "src": "@openzeppelin\\contracts\\proxy\\beacon\\IBeacon.sol:9",
-        "inherit": [],
-        "libraries": [],
-        "methods": [
-          "implementation()"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20": {
-        "src": "@openzeppelin\\contracts\\token\\ERC20\\IERC20.sol:9",
-        "inherit": [],
-        "libraries": [],
-        "methods": [
-          "totalSupply()",
-          "balanceOf(address)",
-          "transfer(address,uint256)",
-          "allowance(address,address)",
-          "approve(address,uint256)",
-          "transferFrom(address,address,uint256)"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol:SafeERC20": {
-        "src": "@openzeppelin\\contracts\\token\\ERC20\\utils\\SafeERC20.sol:18",
-        "version": {
-          "withMetadata": "d37c9338c57eac8bdd0b841b935a0c296a95657b334d9cefb981b8f98d4c054f",
-          "withoutMetadata": "e2a89a66865458f0d9fedd4bc7faf0ee62e4c341d176ab79d29bd77a1bdfc32a",
-          "linkedWithoutMetadata": "e2a89a66865458f0d9fedd4bc7faf0ee62e4c341d176ab79d29bd77a1bdfc32a"
-        },
-        "inherit": [],
-        "libraries": [],
-        "methods": [],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts/utils/Address.sol:Address": {
-        "src": "@openzeppelin\\contracts\\utils\\Address.sol:11",
-        "version": {
-          "withMetadata": "f79d8a2495b6f13938eaad92b2c0ecf4caab8ee13e53d574e56a5f3aff38d4e5",
-          "withoutMetadata": "e2a89a66865458f0d9fedd4bc7faf0ee62e4c341d176ab79d29bd77a1bdfc32a",
-          "linkedWithoutMetadata": "e2a89a66865458f0d9fedd4bc7faf0ee62e4c341d176ab79d29bd77a1bdfc32a"
-        },
-        "inherit": [],
-        "libraries": [
-          "@openzeppelin/contracts/utils/Errors.sol:Errors"
-        ],
-        "methods": [],
-        "linkReferences": [],
-        "errors": [
-          {
-            "kind": "delegatecall",
-            "src": "@openzeppelin\\contracts\\utils\\Address.sol:97"
-          }
-        ],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts/utils/Errors.sol:Errors": {
-        "src": "@openzeppelin\\contracts\\utils\\Errors.sol:14",
-        "version": {
-          "withMetadata": "2988d0e7aff52f28a8ccd989d898a5938ca7f222190d190f9df823b0e2b819dd",
-          "withoutMetadata": "e2a89a66865458f0d9fedd4bc7faf0ee62e4c341d176ab79d29bd77a1bdfc32a",
-          "linkedWithoutMetadata": "e2a89a66865458f0d9fedd4bc7faf0ee62e4c341d176ab79d29bd77a1bdfc32a"
-        },
-        "inherit": [],
-        "libraries": [],
-        "methods": [],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts/utils/StorageSlot.sol:StorageSlot": {
-        "src": "@openzeppelin\\contracts\\utils\\StorageSlot.sol:34",
-        "version": {
-          "withMetadata": "632a6d19ba358003dea6c406891600368fc8db002296dafc361a78e6c52ca9d8",
-          "withoutMetadata": "e2a89a66865458f0d9fedd4bc7faf0ee62e4c341d176ab79d29bd77a1bdfc32a",
-          "linkedWithoutMetadata": "e2a89a66865458f0d9fedd4bc7faf0ee62e4c341d176ab79d29bd77a1bdfc32a"
-        },
-        "inherit": [],
-        "libraries": [],
-        "methods": [],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts/utils/introspection/IERC165.sol:IERC165": {
-        "src": "@openzeppelin\\contracts\\utils\\introspection\\IERC165.sol:15",
-        "inherit": [],
-        "libraries": [],
-        "methods": [
-          "supportsInterface(bytes4)"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "contracts/Mock/MockRouter.sol:MockRouter": {
-        "src": "contracts\\Mock\\MockRouter.sol:6",
-        "version": {
-          "withMetadata": "e1453efdbb1d3c6c971b2b7829ed8d130705ad58f6b544bd66354fd31747a676",
-          "withoutMetadata": "8dae084e19f64bfdfc21a2a3eab97c5ead51a48afda45f76e167cacc9971df65",
-          "linkedWithoutMetadata": "8dae084e19f64bfdfc21a2a3eab97c5ead51a48afda45f76e167cacc9971df65"
-        },
-        "inherit": [],
-        "libraries": [],
-        "methods": [
-          "setPrice(uint256,uint256)",
-          "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
-          "depositToken(address,uint256)",
-          "getAmountsOut(uint256,address[])"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [
-            {
-              "label": "priceTokenA",
-              "offset": 0,
-              "slot": "0",
-              "type": "t_uint256",
-              "contract": "MockRouter",
-              "src": "contracts\\Mock\\MockRouter.sol:10"
-            },
-            {
-              "label": "priceTokenB",
-              "offset": 0,
-              "slot": "1",
-              "type": "t_uint256",
-              "contract": "MockRouter",
-              "src": "contracts\\Mock\\MockRouter.sol:13"
-            }
-          ],
-          "types": {
-            "t_uint256": {
-              "label": "uint256",
-              "numberOfBytes": "32"
-            }
-          },
-          "layoutVersion": "1.2",
-          "flat": true,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "contracts/core/ConfigManage.sol:ConfigManage": {
-        "src": "contracts\\core\\ConfigManage.sol:18",
-        "version": {
-          "withMetadata": "bc044c50af65dc68ac1409f9f7f61f5e156665894ea54d95ed4d405b32538e87",
-          "withoutMetadata": "c3b7b68f8e4f64088e3a5f941af7c10536e55733417d7ef3c06d33dfec53bcb7",
-          "linkedWithoutMetadata": "c3b7b68f8e4f64088e3a5f941af7c10536e55733417d7ef3c06d33dfec53bcb7"
-        },
-        "inherit": [
-          "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol:UUPSUpgradeable",
-          "@openzeppelin/contracts/interfaces/draft-IERC1822.sol:IERC1822Proxiable",
-          "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:OwnableUpgradeable",
-          "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:ContextUpgradeable",
-          "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:Initializable",
-          "contracts/interfaces/IConfigManager.sol:IConfigManager"
-        ],
-        "libraries": [],
-        "methods": [
-          "initialize(address,address,address,address,address)",
-          "profitShareFee()",
-          "setProfitShareFee(uint256)",
-          "setDepositFee(uint256)",
-          "setWithdrawFee(uint256)",
-          "setPerformanceFee(uint256)",
-          "setAllFees(uint256,uint256,uint256)",
-          "getDepositFee(address)",
-          "getWithDrawFee(address)",
-          "getPlatFormFee(address)",
-          "setSlipageTolerance(uint256)"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [
-            {
-              "label": "version",
-              "offset": 0,
-              "slot": "0",
-              "type": "t_uint16",
-              "contract": "ConfigManage",
-              "src": "contracts\\core\\ConfigManage.sol:22"
-            },
-            {
-              "label": "_profitShareFee",
-              "offset": 0,
-              "slot": "1",
-              "type": "t_uint256",
-              "contract": "ConfigManage",
-              "src": "contracts\\core\\ConfigManage.sol:23"
-            },
-            {
-              "label": "depositFee",
-              "offset": 0,
-              "slot": "2",
-              "type": "t_uint256",
-              "contract": "ConfigManage",
-              "src": "contracts\\core\\ConfigManage.sol:24"
-            },
-            {
-              "label": "withdrawFee",
-              "offset": 0,
-              "slot": "3",
-              "type": "t_uint256",
-              "contract": "ConfigManage",
-              "src": "contracts\\core\\ConfigManage.sol:25"
-            },
-            {
-              "label": "performanceFee",
-              "offset": 0,
-              "slot": "4",
-              "type": "t_uint256",
-              "contract": "ConfigManage",
-              "src": "contracts\\core\\ConfigManage.sol:28"
-            },
-            {
-              "label": "slippageTolerance",
-              "offset": 0,
-              "slot": "5",
-              "type": "t_uint256",
-              "contract": "ConfigManage",
-              "src": "contracts\\core\\ConfigManage.sol:34"
-            },
-            {
-              "label": "lendingPool",
-              "offset": 0,
-              "slot": "6",
-              "type": "t_address",
-              "contract": "ConfigManage",
-              "src": "contracts\\core\\ConfigManage.sol:36"
-            },
-            {
-              "label": "uniswapV2Router",
-              "offset": 0,
-              "slot": "7",
-              "type": "t_address",
-              "contract": "ConfigManage",
-              "src": "contracts\\core\\ConfigManage.sol:36"
-            },
-            {
-              "label": "uniswapV3Router",
-              "offset": 0,
-              "slot": "8",
-              "type": "t_address",
-              "contract": "ConfigManage",
-              "src": "contracts\\core\\ConfigManage.sol:37"
-            },
-            {
-              "label": "sushiSwapRouter",
-              "offset": 0,
-              "slot": "9",
-              "type": "t_address",
-              "contract": "ConfigManage",
-              "src": "contracts\\core\\ConfigManage.sol:38"
-            },
-            {
-              "label": "arbitrageVault",
-              "offset": 0,
-              "slot": "10",
-              "type": "t_address",
-              "contract": "ConfigManage",
-              "src": "contracts\\core\\ConfigManage.sol:38"
-            }
-          ],
-          "types": {
-            "t_address": {
-              "label": "address",
-              "numberOfBytes": "20"
-            },
-            "t_bool": {
-              "label": "bool",
-              "numberOfBytes": "1"
-            },
-            "t_struct(InitializableStorage)73_storage": {
-              "label": "struct Initializable.InitializableStorage",
-              "members": [
-                {
-                  "label": "_initialized",
-                  "type": "t_uint64",
-                  "offset": 0,
-                  "slot": "0"
-                },
-                {
-                  "label": "_initializing",
-                  "type": "t_bool",
-                  "offset": 8,
-                  "slot": "0"
-                }
-              ],
-              "numberOfBytes": "32"
-            },
-            "t_struct(OwnableStorage)13_storage": {
-              "label": "struct OwnableUpgradeable.OwnableStorage",
-              "members": [
-                {
-                  "label": "_owner",
-                  "type": "t_address",
-                  "offset": 0,
-                  "slot": "0"
-                }
-              ],
-              "numberOfBytes": "32"
-            },
-            "t_uint64": {
-              "label": "uint64",
-              "numberOfBytes": "8"
-            },
-            "t_uint16": {
-              "label": "uint16",
-              "numberOfBytes": "2"
-            },
-            "t_uint256": {
-              "label": "uint256",
-              "numberOfBytes": "32"
-            }
-          },
-          "layoutVersion": "1.2",
-          "flat": true,
-          "namespaces": {
-            "erc7201:openzeppelin.storage.Ownable": [
-              {
-                "contract": "OwnableUpgradeable",
-                "label": "_owner",
-                "type": "t_address",
-                "src": "@openzeppelin\\contracts-upgradeable\\access\\OwnableUpgradeable.sol:24",
-                "offset": 0,
-                "slot": "0"
-              }
-            ],
-            "erc7201:openzeppelin.storage.Initializable": [
-              {
-                "contract": "Initializable",
-                "label": "_initialized",
-                "type": "t_uint64",
-                "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:69",
-                "offset": 0,
-                "slot": "0"
-              },
-              {
-                "contract": "Initializable",
-                "label": "_initializing",
-                "type": "t_bool",
-                "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:73",
-                "offset": 8,
-                "slot": "0"
-              }
-            ]
-          }
-        },
-        "solcVersion": "0.8.28"
-      },
-      "contracts/integrations/DoubleRouterIntegration.sol:DoubleRouterIntegration": {
-        "src": "contracts\\integrations\\DoubleRouterIntegration.sol:10",
-        "version": {
-          "withMetadata": "596eb08adf13dd8fb3605602b7152e99ab5f6be7236b0d784620509cc89573c0",
-          "withoutMetadata": "6e7297d04a8410242b190eca3cc3549bf95a2735b2195a5b5dc47bbe47a168c8",
-          "linkedWithoutMetadata": "6e7297d04a8410242b190eca3cc3549bf95a2735b2195a5b5dc47bbe47a168c8"
-        },
-        "inherit": [
-          "contracts/interfaces/IDoubleRouterIntegration.sol:IDoubleRouterIntegration"
-        ],
-        "libraries": [
-          "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol:SafeERC20"
-        ],
-        "methods": [
-          "(address)",
-          "setRouters(address[])",
-          "getRouters()",
-          "doubleRouterArbCheck(uint256,address[],address[])",
-          "doubleRouterSwap(address,address,address,uint256,address[],address[],uint256,uint256)"
-        ],
-        "linkReferences": [],
-        "errors": [
-          {
-            "kind": "constructor",
-            "contract": "DoubleRouterIntegration",
-            "src": "contracts\\integrations\\DoubleRouterIntegration.sol:20"
-          }
-        ],
-        "layout": {
-          "storage": [
-            {
-              "label": "configManage",
-              "offset": 0,
-              "slot": "0",
-              "type": "t_contract(ConfigManage)2781",
-              "contract": "DoubleRouterIntegration",
-              "src": "contracts\\integrations\\DoubleRouterIntegration.sol:15"
-            },
-            {
-              "label": "slippageTolerance",
-              "offset": 0,
-              "slot": "1",
-              "type": "t_uint256",
-              "contract": "DoubleRouterIntegration",
-              "src": "contracts\\integrations\\DoubleRouterIntegration.sol:16"
-            },
-            {
-              "label": "admin",
-              "offset": 0,
-              "slot": "2",
-              "type": "t_address",
-              "contract": "DoubleRouterIntegration",
-              "src": "contracts\\integrations\\DoubleRouterIntegration.sol:17"
-            },
-            {
-              "label": "mrouters",
-              "offset": 0,
-              "slot": "3",
-              "type": "t_array(t_address)dyn_storage",
-              "contract": "DoubleRouterIntegration",
-              "src": "contracts\\integrations\\DoubleRouterIntegration.sol:18"
-            }
-          ],
-          "types": {
-            "t_address": {
-              "label": "address",
-              "numberOfBytes": "20"
-            },
-            "t_array(t_address)dyn_storage": {
-              "label": "address[]",
-              "numberOfBytes": "32"
-            },
-            "t_contract(ConfigManage)2781": {
-              "label": "contract ConfigManage",
-              "numberOfBytes": "20"
-            },
-            "t_uint256": {
-              "label": "uint256",
-              "numberOfBytes": "32"
-            }
-          },
-          "layoutVersion": "1.2",
-          "flat": true,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "contracts/interfaces/IConfigManager.sol:IConfigManager": {
-        "src": "contracts\\interfaces\\IConfigManager.sol:4",
-        "inherit": [],
-        "libraries": [],
-        "methods": [
-          "profitShareFee()",
-          "getDepositFee(address)",
-          "getWithDrawFee(address)",
-          "getPlatFormFee(address)"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "contracts/interfaces/IDoubleRouterIntegration.sol:IDoubleRouterIntegration": {
-        "src": "contracts\\interfaces\\IDoubleRouterIntegration.sol:7",
-        "inherit": [],
-        "libraries": [],
-        "methods": [
-          "doubleRouterArbCheck(uint256,address[],address[])",
-          "doubleRouterSwap(address,address,address,uint256,address[],address[],uint256,uint256)"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "contracts/interfaces/IUniswapV2Router02.sol:IUniswapV2Router02": {
-        "src": "contracts\\interfaces\\IUniswapV2Router02.sol:7",
-        "inherit": [],
-        "libraries": [],
-        "methods": [
-          "factory()",
-          "WETH()",
-          "addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256)",
-          "addLiquidityETH(address,uint256,uint256,uint256,address,uint256)",
-          "removeLiquidity(address,address,uint256,uint256,uint256,address,uint256)",
-          "removeLiquidityETH(address,uint256,uint256,uint256,address,uint256)",
-          "removeLiquidityWithPermit(address,address,uint256,uint256,uint256,address,uint256,bool,uint8,bytes32,bytes32)",
-          "removeLiquidityETHWithPermit(address,uint256,uint256,uint256,address,uint256,bool,uint8,bytes32,bytes32)",
-          "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
-          "swapTokensForExactTokens(uint256,uint256,address[],address,uint256)",
-          "swapExactETHForTokens(uint256,address[],address,uint256)",
-          "swapTokensForExactETH(uint256,uint256,address[],address,uint256)",
-          "swapExactTokensForETH(uint256,uint256,address[],address,uint256)",
-          "swapETHForExactTokens(uint256,address[],address,uint256)",
-          "quote(uint256,uint256,uint256)",
-          "getAmountOut(uint256,uint256,uint256)",
-          "getAmountIn(uint256,uint256,uint256)",
-          "getAmountsOut(uint256,address[])",
-          "getAmountsIn(uint256,address[])",
-          "removeLiquidityETHSupportingFeeOnTransferTokens(address,uint256,uint256,uint256,address,uint256)",
-          "removeLiquidityETHWithPermitSupportingFeeOnTransferTokens(address,uint256,uint256,uint256,address,uint256,bool,uint8,bytes32,bytes32)",
-          "swapExactTokensForTokensSupportingFeeOnTransferTokens(uint256,uint256,address[],address,uint256)",
-          "swapExactETHForTokensSupportingFeeOnTransferTokens(uint256,address[],address,uint256)",
-          "swapExactTokensForETHSupportingFeeOnTransferTokens(uint256,uint256,address[],address,uint256)"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      }
-    },
-    {
-      "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:OwnableUpgradeable": {
-        "src": "@openzeppelin\\contracts-upgradeable\\access\\OwnableUpgradeable.sol:21",
-        "inherit": [
-          "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:ContextUpgradeable",
-          "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:Initializable"
-        ],
-        "libraries": [],
-        "methods": [
-          "owner()",
-          "renounceOwnership()",
-          "transferOwnership(address)"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {
-            "t_address": {
-              "label": "address",
-              "numberOfBytes": "20"
-            },
-            "t_bool": {
-              "label": "bool",
-              "numberOfBytes": "1"
-            },
-            "t_struct(InitializableStorage)73_storage": {
-              "label": "struct Initializable.InitializableStorage",
-              "members": [
-                {
-                  "label": "_initialized",
-                  "type": "t_uint64",
-                  "offset": 0,
-                  "slot": "0"
-                },
-                {
-                  "label": "_initializing",
-                  "type": "t_bool",
-                  "offset": 8,
-                  "slot": "0"
-                }
-              ],
-              "numberOfBytes": "32"
-            },
-            "t_struct(OwnableStorage)13_storage": {
-              "label": "struct OwnableUpgradeable.OwnableStorage",
-              "members": [
-                {
-                  "label": "_owner",
-                  "type": "t_address",
-                  "offset": 0,
-                  "slot": "0"
-                }
-              ],
-              "numberOfBytes": "32"
-            },
-            "t_uint64": {
-              "label": "uint64",
-              "numberOfBytes": "8"
-            }
-          },
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {
-            "erc7201:openzeppelin.storage.Ownable": [
-              {
-                "contract": "OwnableUpgradeable",
-                "label": "_owner",
-                "type": "t_address",
-                "src": "@openzeppelin\\contracts-upgradeable\\access\\OwnableUpgradeable.sol:24",
-                "offset": 0,
-                "slot": "0"
-              }
-            ],
-            "erc7201:openzeppelin.storage.Initializable": [
-              {
-                "contract": "Initializable",
-                "label": "_initialized",
-                "type": "t_uint64",
-                "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:69",
-                "offset": 0,
-                "slot": "0"
-              },
-              {
-                "contract": "Initializable",
-                "label": "_initializing",
-                "type": "t_bool",
-                "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:73",
-                "offset": 8,
-                "slot": "0"
-              }
-            ]
-          }
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:Initializable": {
-        "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:56",
-        "inherit": [],
-        "libraries": [],
-        "methods": [],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {
-            "t_bool": {
-              "label": "bool",
-              "numberOfBytes": "1"
-            },
-            "t_struct(InitializableStorage)73_storage": {
-              "label": "struct Initializable.InitializableStorage",
-              "members": [
-                {
-                  "label": "_initialized",
-                  "type": "t_uint64",
-                  "offset": 0,
-                  "slot": "0"
-                },
-                {
-                  "label": "_initializing",
-                  "type": "t_bool",
-                  "offset": 8,
-                  "slot": "0"
-                }
-              ],
-              "numberOfBytes": "32"
-            },
-            "t_uint64": {
-              "label": "uint64",
-              "numberOfBytes": "8"
-            }
-          },
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {
-            "erc7201:openzeppelin.storage.Initializable": [
-              {
-                "contract": "Initializable",
-                "label": "_initialized",
-                "type": "t_uint64",
-                "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:69",
-                "offset": 0,
-                "slot": "0"
-              },
-              {
-                "contract": "Initializable",
-                "label": "_initializing",
-                "type": "t_bool",
-                "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:73",
-                "offset": 8,
-                "slot": "0"
-              }
-            ]
-          }
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol:UUPSUpgradeable": {
-        "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\UUPSUpgradeable.sol:20",
-        "inherit": [
-          "@openzeppelin/contracts/interfaces/draft-IERC1822.sol:IERC1822Proxiable",
-          "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:Initializable"
-        ],
-        "libraries": [
-          "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol:ERC1967Utils"
-        ],
-        "methods": [
-          "proxiableUUID()",
-          "upgradeToAndCall(address,bytes)"
-        ],
-        "linkReferences": [],
-        "errors": [
-          {
-            "kind": "delegatecall",
-            "src": "@openzeppelin\\contracts\\utils\\Address.sol:97"
-          }
-        ],
-        "layout": {
-          "storage": [],
-          "types": {
-            "t_bool": {
-              "label": "bool",
-              "numberOfBytes": "1"
-            },
-            "t_struct(InitializableStorage)73_storage": {
-              "label": "struct Initializable.InitializableStorage",
-              "members": [
-                {
-                  "label": "_initialized",
-                  "type": "t_uint64",
-                  "offset": 0,
-                  "slot": "0"
-                },
-                {
-                  "label": "_initializing",
-                  "type": "t_bool",
-                  "offset": 8,
-                  "slot": "0"
-                }
-              ],
-              "numberOfBytes": "32"
-            },
-            "t_uint64": {
-              "label": "uint64",
-              "numberOfBytes": "8"
-            }
-          },
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {
-            "erc7201:openzeppelin.storage.Initializable": [
-              {
-                "contract": "Initializable",
-                "label": "_initialized",
-                "type": "t_uint64",
-                "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:69",
-                "offset": 0,
-                "slot": "0"
-              },
-              {
-                "contract": "Initializable",
-                "label": "_initializing",
-                "type": "t_bool",
-                "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:73",
-                "offset": 8,
-                "slot": "0"
-              }
-            ]
-          }
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:ERC20Upgradeable": {
-        "src": "@openzeppelin\\contracts-upgradeable\\token\\ERC20\\ERC20Upgradeable.sol:30",
-        "inherit": [
-          "@openzeppelin/contracts/interfaces/draft-IERC6093.sol:IERC20Errors",
-          "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol:IERC20Metadata",
-          "@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20",
-          "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:ContextUpgradeable",
-          "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:Initializable"
-        ],
-        "libraries": [],
-        "methods": [
-          "name()",
-          "symbol()",
-          "decimals()",
-          "totalSupply()",
-          "balanceOf(address)",
-          "transfer(address,uint256)",
-          "allowance(address,address)",
-          "approve(address,uint256)",
-          "transferFrom(address,address,uint256)"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {
-            "t_address": {
-              "label": "address",
-              "numberOfBytes": "20"
-            },
-            "t_bool": {
-              "label": "bool",
-              "numberOfBytes": "1"
-            },
-            "t_mapping(t_address,t_mapping(t_address,t_uint256))": {
-              "label": "mapping(address => mapping(address => uint256))",
-              "numberOfBytes": "32"
-            },
-            "t_mapping(t_address,t_uint256)": {
-              "label": "mapping(address => uint256)",
-              "numberOfBytes": "32"
-            },
-            "t_string_storage": {
-              "label": "string",
-              "numberOfBytes": "32"
-            },
-            "t_struct(ERC20Storage)222_storage": {
-              "label": "struct ERC20Upgradeable.ERC20Storage",
-              "members": [
-                {
-                  "label": "_balances",
-                  "type": "t_mapping(t_address,t_uint256)",
-                  "offset": 0,
-                  "slot": "0"
-                },
-                {
-                  "label": "_allowances",
-                  "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))",
-                  "offset": 0,
-                  "slot": "1"
-                },
-                {
-                  "label": "_totalSupply",
-                  "type": "t_uint256",
-                  "offset": 0,
-                  "slot": "2"
-                },
-                {
-                  "label": "_name",
-                  "type": "t_string_storage",
-                  "offset": 0,
-                  "slot": "3"
-                },
-                {
-                  "label": "_symbol",
-                  "type": "t_string_storage",
-                  "offset": 0,
-                  "slot": "4"
-                }
-              ],
-              "numberOfBytes": "160"
-            },
-            "t_struct(InitializableStorage)73_storage": {
-              "label": "struct Initializable.InitializableStorage",
-              "members": [
-                {
-                  "label": "_initialized",
-                  "type": "t_uint64",
-                  "offset": 0,
-                  "slot": "0"
-                },
-                {
-                  "label": "_initializing",
-                  "type": "t_bool",
-                  "offset": 8,
-                  "slot": "0"
-                }
-              ],
-              "numberOfBytes": "32"
-            },
-            "t_uint256": {
-              "label": "uint256",
-              "numberOfBytes": "32"
-            },
-            "t_uint64": {
-              "label": "uint64",
-              "numberOfBytes": "8"
-            }
-          },
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {
-            "erc7201:openzeppelin.storage.ERC20": [
-              {
-                "contract": "ERC20Upgradeable",
-                "label": "_balances",
-                "type": "t_mapping(t_address,t_uint256)",
-                "src": "@openzeppelin\\contracts-upgradeable\\token\\ERC20\\ERC20Upgradeable.sol:33",
-                "offset": 0,
-                "slot": "0"
-              },
-              {
-                "contract": "ERC20Upgradeable",
-                "label": "_allowances",
-                "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))",
-                "src": "@openzeppelin\\contracts-upgradeable\\token\\ERC20\\ERC20Upgradeable.sol:35",
-                "offset": 0,
-                "slot": "1"
-              },
-              {
-                "contract": "ERC20Upgradeable",
-                "label": "_totalSupply",
-                "type": "t_uint256",
-                "src": "@openzeppelin\\contracts-upgradeable\\token\\ERC20\\ERC20Upgradeable.sol:37",
-                "offset": 0,
-                "slot": "2"
-              },
-              {
-                "contract": "ERC20Upgradeable",
-                "label": "_name",
-                "type": "t_string_storage",
-                "src": "@openzeppelin\\contracts-upgradeable\\token\\ERC20\\ERC20Upgradeable.sol:39",
-                "offset": 0,
-                "slot": "3"
-              },
-              {
-                "contract": "ERC20Upgradeable",
-                "label": "_symbol",
-                "type": "t_string_storage",
-                "src": "@openzeppelin\\contracts-upgradeable\\token\\ERC20\\ERC20Upgradeable.sol:40",
-                "offset": 0,
-                "slot": "4"
-              }
-            ],
-            "erc7201:openzeppelin.storage.Initializable": [
-              {
-                "contract": "Initializable",
-                "label": "_initialized",
-                "type": "t_uint64",
-                "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:69",
-                "offset": 0,
-                "slot": "0"
-              },
-              {
-                "contract": "Initializable",
-                "label": "_initializing",
-                "type": "t_bool",
-                "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:73",
-                "offset": 8,
-                "slot": "0"
-              }
-            ]
-          }
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:ContextUpgradeable": {
-        "src": "@openzeppelin\\contracts-upgradeable\\utils\\ContextUpgradeable.sol:17",
-        "inherit": [
-          "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:Initializable"
-        ],
-        "libraries": [],
-        "methods": [],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {
-            "t_bool": {
-              "label": "bool",
-              "numberOfBytes": "1"
-            },
-            "t_struct(InitializableStorage)73_storage": {
-              "label": "struct Initializable.InitializableStorage",
-              "members": [
-                {
-                  "label": "_initialized",
-                  "type": "t_uint64",
-                  "offset": 0,
-                  "slot": "0"
-                },
-                {
-                  "label": "_initializing",
-                  "type": "t_bool",
-                  "offset": 8,
-                  "slot": "0"
-                }
-              ],
-              "numberOfBytes": "32"
-            },
-            "t_uint64": {
-              "label": "uint64",
-              "numberOfBytes": "8"
-            }
-          },
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {
-            "erc7201:openzeppelin.storage.Initializable": [
-              {
-                "contract": "Initializable",
-                "label": "_initialized",
-                "type": "t_uint64",
-                "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:69",
-                "offset": 0,
-                "slot": "0"
-              },
-              {
-                "contract": "Initializable",
-                "label": "_initializing",
-                "type": "t_bool",
-                "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:73",
-                "offset": 8,
-                "slot": "0"
-              }
-            ]
-          }
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol:ReentrancyGuardUpgradeable": {
-        "src": "@openzeppelin\\contracts-upgradeable\\utils\\ReentrancyGuardUpgradeable.sol:26",
-        "inherit": [
-          "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:Initializable"
-        ],
-        "libraries": [],
-        "methods": [],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {
-            "t_bool": {
-              "label": "bool",
-              "numberOfBytes": "1"
-            },
-            "t_struct(InitializableStorage)73_storage": {
-              "label": "struct Initializable.InitializableStorage",
-              "members": [
-                {
-                  "label": "_initialized",
-                  "type": "t_uint64",
-                  "offset": 0,
-                  "slot": "0"
-                },
-                {
-                  "label": "_initializing",
-                  "type": "t_bool",
-                  "offset": 8,
-                  "slot": "0"
-                }
-              ],
-              "numberOfBytes": "32"
-            },
-            "t_struct(ReentrancyGuardStorage)419_storage": {
-              "label": "struct ReentrancyGuardUpgradeable.ReentrancyGuardStorage",
-              "members": [
-                {
-                  "label": "_status",
-                  "type": "t_uint256",
-                  "offset": 0,
-                  "slot": "0"
-                }
-              ],
-              "numberOfBytes": "32"
-            },
-            "t_uint256": {
-              "label": "uint256",
-              "numberOfBytes": "32"
-            },
-            "t_uint64": {
-              "label": "uint64",
-              "numberOfBytes": "8"
-            }
-          },
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {
-            "erc7201:openzeppelin.storage.ReentrancyGuard": [
-              {
-                "contract": "ReentrancyGuardUpgradeable",
-                "label": "_status",
-                "type": "t_uint256",
-                "src": "@openzeppelin\\contracts-upgradeable\\utils\\ReentrancyGuardUpgradeable.sol:43",
-                "offset": 0,
-                "slot": "0"
-              }
-            ],
-            "erc7201:openzeppelin.storage.Initializable": [
-              {
-                "contract": "Initializable",
-                "label": "_initialized",
-                "type": "t_uint64",
-                "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:69",
-                "offset": 0,
-                "slot": "0"
-              },
-              {
-                "contract": "Initializable",
-                "label": "_initializing",
-                "type": "t_bool",
-                "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:73",
-                "offset": 8,
-                "slot": "0"
-              }
-            ]
-          }
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts/interfaces/IERC1363.sol:IERC1363": {
-        "src": "@openzeppelin\\contracts\\interfaces\\IERC1363.sol:16",
-        "inherit": [
-          "@openzeppelin/contracts/utils/introspection/IERC165.sol:IERC165",
-          "@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20"
-        ],
-        "libraries": [],
-        "methods": [
-          "transferAndCall(address,uint256)",
-          "transferAndCall(address,uint256,bytes)",
-          "transferFromAndCall(address,address,uint256)",
-          "transferFromAndCall(address,address,uint256,bytes)",
-          "approveAndCall(address,uint256)",
-          "approveAndCall(address,uint256,bytes)"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts/interfaces/IERC1967.sol:IERC1967": {
-        "src": "@openzeppelin\\contracts\\interfaces\\IERC1967.sol:9",
-        "inherit": [],
-        "libraries": [],
-        "methods": [],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts/interfaces/draft-IERC1822.sol:IERC1822Proxiable": {
-        "src": "@openzeppelin\\contracts\\interfaces\\draft-IERC1822.sol:10",
-        "inherit": [],
-        "libraries": [],
-        "methods": [
-          "proxiableUUID()"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts/interfaces/draft-IERC6093.sol:IERC1155Errors": {
-        "src": "@openzeppelin\\contracts\\interfaces\\draft-IERC6093.sol:113",
-        "inherit": [],
-        "libraries": [],
-        "methods": [],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts/interfaces/draft-IERC6093.sol:IERC20Errors": {
-        "src": "@openzeppelin\\contracts\\interfaces\\draft-IERC6093.sol:9",
-        "inherit": [],
-        "libraries": [],
-        "methods": [],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts/interfaces/draft-IERC6093.sol:IERC721Errors": {
-        "src": "@openzeppelin\\contracts\\interfaces\\draft-IERC6093.sol:55",
-        "inherit": [],
-        "libraries": [],
-        "methods": [],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol:ERC1967Utils": {
-        "src": "@openzeppelin\\contracts\\proxy\\ERC1967\\ERC1967Utils.sol:15",
-        "version": {
-          "withMetadata": "4e198a1ae87c8831dafe99c07e9a61b39a50fab456d116b93289690bb2c2bade",
-          "withoutMetadata": "e2a89a66865458f0d9fedd4bc7faf0ee62e4c341d176ab79d29bd77a1bdfc32a",
-          "linkedWithoutMetadata": "e2a89a66865458f0d9fedd4bc7faf0ee62e4c341d176ab79d29bd77a1bdfc32a"
-        },
-        "inherit": [],
-        "libraries": [
-          "@openzeppelin/contracts/utils/StorageSlot.sol:StorageSlot",
-          "@openzeppelin/contracts/utils/Address.sol:Address"
-        ],
-        "methods": [],
-        "linkReferences": [],
-        "errors": [
-          {
-            "kind": "delegatecall",
-            "src": "@openzeppelin\\contracts\\utils\\Address.sol:97"
-          },
-          {
-            "kind": "delegatecall",
-            "src": "@openzeppelin\\contracts\\utils\\Address.sol:97"
-          }
-        ],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts/proxy/beacon/IBeacon.sol:IBeacon": {
-        "src": "@openzeppelin\\contracts\\proxy\\beacon\\IBeacon.sol:9",
-        "inherit": [],
-        "libraries": [],
-        "methods": [
-          "implementation()"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20": {
-        "src": "@openzeppelin\\contracts\\token\\ERC20\\IERC20.sol:9",
-        "inherit": [],
-        "libraries": [],
-        "methods": [
-          "totalSupply()",
-          "balanceOf(address)",
-          "transfer(address,uint256)",
-          "allowance(address,address)",
-          "approve(address,uint256)",
-          "transferFrom(address,address,uint256)"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol:IERC20Metadata": {
-        "src": "@openzeppelin\\contracts\\token\\ERC20\\extensions\\IERC20Metadata.sol:11",
-        "inherit": [
-          "@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20"
-        ],
-        "libraries": [],
-        "methods": [
-          "name()",
-          "symbol()",
-          "decimals()"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol:SafeERC20": {
-        "src": "@openzeppelin\\contracts\\token\\ERC20\\utils\\SafeERC20.sol:18",
-        "version": {
-          "withMetadata": "d37c9338c57eac8bdd0b841b935a0c296a95657b334d9cefb981b8f98d4c054f",
-          "withoutMetadata": "e2a89a66865458f0d9fedd4bc7faf0ee62e4c341d176ab79d29bd77a1bdfc32a",
-          "linkedWithoutMetadata": "e2a89a66865458f0d9fedd4bc7faf0ee62e4c341d176ab79d29bd77a1bdfc32a"
-        },
-        "inherit": [],
-        "libraries": [],
-        "methods": [],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts/utils/Address.sol:Address": {
-        "src": "@openzeppelin\\contracts\\utils\\Address.sol:11",
-        "version": {
-          "withMetadata": "f79d8a2495b6f13938eaad92b2c0ecf4caab8ee13e53d574e56a5f3aff38d4e5",
-          "withoutMetadata": "e2a89a66865458f0d9fedd4bc7faf0ee62e4c341d176ab79d29bd77a1bdfc32a",
-          "linkedWithoutMetadata": "e2a89a66865458f0d9fedd4bc7faf0ee62e4c341d176ab79d29bd77a1bdfc32a"
-        },
-        "inherit": [],
-        "libraries": [
-          "@openzeppelin/contracts/utils/Errors.sol:Errors"
-        ],
-        "methods": [],
-        "linkReferences": [],
-        "errors": [
-          {
-            "kind": "delegatecall",
-            "src": "@openzeppelin\\contracts\\utils\\Address.sol:97"
-          }
-        ],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts/utils/Errors.sol:Errors": {
-        "src": "@openzeppelin\\contracts\\utils\\Errors.sol:14",
-        "version": {
-          "withMetadata": "2988d0e7aff52f28a8ccd989d898a5938ca7f222190d190f9df823b0e2b819dd",
-          "withoutMetadata": "e2a89a66865458f0d9fedd4bc7faf0ee62e4c341d176ab79d29bd77a1bdfc32a",
-          "linkedWithoutMetadata": "e2a89a66865458f0d9fedd4bc7faf0ee62e4c341d176ab79d29bd77a1bdfc32a"
-        },
-        "inherit": [],
-        "libraries": [],
-        "methods": [],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts/utils/StorageSlot.sol:StorageSlot": {
-        "src": "@openzeppelin\\contracts\\utils\\StorageSlot.sol:34",
-        "version": {
-          "withMetadata": "632a6d19ba358003dea6c406891600368fc8db002296dafc361a78e6c52ca9d8",
-          "withoutMetadata": "e2a89a66865458f0d9fedd4bc7faf0ee62e4c341d176ab79d29bd77a1bdfc32a",
-          "linkedWithoutMetadata": "e2a89a66865458f0d9fedd4bc7faf0ee62e4c341d176ab79d29bd77a1bdfc32a"
-        },
-        "inherit": [],
-        "libraries": [],
-        "methods": [],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts/utils/introspection/IERC165.sol:IERC165": {
-        "src": "@openzeppelin\\contracts\\utils\\introspection\\IERC165.sol:15",
-        "inherit": [],
-        "libraries": [],
-        "methods": [
-          "supportsInterface(bytes4)"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "contracts/core/ArbitrageCore.sol:ArbitrageCore": {
-        "src": "contracts\\core\\ArbitrageCore.sol:17",
-        "version": {
-          "withMetadata": "0ad37718e5dd11ae51bc39b9c4f9187ac15db0c7f19ffe739add3c2355e3f790",
-          "withoutMetadata": "8e0365a3611fe169b9867d6d44a12b9eaf6e4e44d0d0e276f9d7dbf326ffd6e6",
-          "linkedWithoutMetadata": "8e0365a3611fe169b9867d6d44a12b9eaf6e4e44d0d0e276f9d7dbf326ffd6e6"
-        },
-        "inherit": [
-          "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol:ReentrancyGuardUpgradeable",
-          "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:OwnableUpgradeable",
-          "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:ContextUpgradeable",
-          "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol:UUPSUpgradeable",
-          "@openzeppelin/contracts/interfaces/draft-IERC1822.sol:IERC1822Proxiable",
-          "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:Initializable"
-        ],
-        "libraries": [],
-        "methods": [
-          "initialize(address,address,address,address,address)",
-          "addVault(address,address)",
-          "getVaultInfo(address)",
-          "setPaused(bool)",
-          "setBackCaller(address)",
-          "executeStrategy(uint8,(address,address,uint256,address[],address[],uint256,uint256))"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [
-            {
-              "label": "spotArbitrage",
-              "offset": 0,
-              "slot": "0",
-              "type": "t_contract(ISpotArbitrage)4996",
-              "contract": "ArbitrageCore",
-              "src": "contracts\\core\\ArbitrageCore.sol:33"
-            },
-            {
-              "label": "flashLoanArbitrage",
-              "offset": 0,
-              "slot": "1",
-              "type": "t_contract(IFlashLoanSimpleReceiver)4972",
-              "contract": "ArbitrageCore",
-              "src": "contracts\\core\\ArbitrageCore.sol:33"
-            },
-            {
-              "label": "configManager",
-              "offset": 0,
-              "slot": "2",
-              "type": "t_contract(IConfigManager)4886",
-              "contract": "ArbitrageCore",
-              "src": "contracts\\core\\ArbitrageCore.sol:35"
-            },
-            {
-              "label": "spotArbImp",
-              "offset": 0,
-              "slot": "3",
-              "type": "t_address",
-              "contract": "ArbitrageCore",
-              "src": "contracts\\core\\ArbitrageCore.sol:39"
-            },
-            {
-              "label": "platFormWallet",
-              "offset": 0,
-              "slot": "4",
-              "type": "t_address",
-              "contract": "ArbitrageCore",
-              "src": "contracts\\core\\ArbitrageCore.sol:42"
-            },
-            {
-              "label": "backCaller",
-              "offset": 0,
-              "slot": "5",
-              "type": "t_address",
-              "contract": "ArbitrageCore",
-              "src": "contracts\\core\\ArbitrageCore.sol:44"
-            },
-            {
-              "label": "supportAssets",
-              "offset": 0,
-              "slot": "6",
-              "type": "t_array(t_address)dyn_storage",
-              "contract": "ArbitrageCore",
-              "src": "contracts\\core\\ArbitrageCore.sol:45"
-            },
-            {
-              "label": "paused",
-              "offset": 0,
-              "slot": "7",
-              "type": "t_bool",
-              "contract": "ArbitrageCore",
-              "src": "contracts\\core\\ArbitrageCore.sol:47"
-            },
-            {
-              "label": "vaults",
-              "offset": 0,
-              "slot": "8",
-              "type": "t_mapping(t_address,t_contract(IArbitrageVault)4857)",
-              "contract": "ArbitrageCore",
-              "src": "contracts\\core\\ArbitrageCore.sol:48"
-            }
-          ],
-          "types": {
-            "t_address": {
-              "label": "address",
-              "numberOfBytes": "20"
-            },
-            "t_bool": {
-              "label": "bool",
-              "numberOfBytes": "1"
-            },
-            "t_struct(InitializableStorage)73_storage": {
-              "label": "struct Initializable.InitializableStorage",
-              "members": [
-                {
-                  "label": "_initialized",
-                  "type": "t_uint64",
-                  "offset": 0,
-                  "slot": "0"
-                },
-                {
-                  "label": "_initializing",
-                  "type": "t_bool",
-                  "offset": 8,
-                  "slot": "0"
-                }
-              ],
-              "numberOfBytes": "32"
-            },
-            "t_struct(OwnableStorage)13_storage": {
-              "label": "struct OwnableUpgradeable.OwnableStorage",
-              "members": [
-                {
-                  "label": "_owner",
-                  "type": "t_address",
-                  "offset": 0,
-                  "slot": "0"
-                }
-              ],
-              "numberOfBytes": "32"
-            },
-            "t_struct(ReentrancyGuardStorage)419_storage": {
-              "label": "struct ReentrancyGuardUpgradeable.ReentrancyGuardStorage",
-              "members": [
-                {
-                  "label": "_status",
-                  "type": "t_uint256",
-                  "offset": 0,
-                  "slot": "0"
-                }
-              ],
-              "numberOfBytes": "32"
-            },
-            "t_uint256": {
-              "label": "uint256",
-              "numberOfBytes": "32"
-            },
-            "t_uint64": {
-              "label": "uint64",
-              "numberOfBytes": "8"
-            },
-            "t_array(t_address)dyn_storage": {
-              "label": "address[]",
-              "numberOfBytes": "32"
-            },
-            "t_contract(IArbitrageVault)4857": {
-              "label": "contract IArbitrageVault",
-              "numberOfBytes": "20"
-            },
-            "t_contract(IConfigManager)4886": {
-              "label": "contract IConfigManager",
-              "numberOfBytes": "20"
-            },
-            "t_contract(IFlashLoanSimpleReceiver)4972": {
-              "label": "contract IFlashLoanSimpleReceiver",
-              "numberOfBytes": "20"
-            },
-            "t_contract(ISpotArbitrage)4996": {
-              "label": "contract ISpotArbitrage",
-              "numberOfBytes": "20"
-            },
-            "t_mapping(t_address,t_contract(IArbitrageVault)4857)": {
-              "label": "mapping(address => contract IArbitrageVault)",
-              "numberOfBytes": "32"
-            }
-          },
-          "layoutVersion": "1.2",
-          "flat": true,
-          "namespaces": {
-            "erc7201:openzeppelin.storage.ReentrancyGuard": [
-              {
-                "contract": "ReentrancyGuardUpgradeable",
-                "label": "_status",
-                "type": "t_uint256",
-                "src": "@openzeppelin\\contracts-upgradeable\\utils\\ReentrancyGuardUpgradeable.sol:43",
-                "offset": 0,
-                "slot": "0"
-              }
-            ],
-            "erc7201:openzeppelin.storage.Ownable": [
-              {
-                "contract": "OwnableUpgradeable",
-                "label": "_owner",
-                "type": "t_address",
-                "src": "@openzeppelin\\contracts-upgradeable\\access\\OwnableUpgradeable.sol:24",
-                "offset": 0,
-                "slot": "0"
-              }
-            ],
-            "erc7201:openzeppelin.storage.Initializable": [
-              {
-                "contract": "Initializable",
-                "label": "_initialized",
-                "type": "t_uint64",
-                "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:69",
-                "offset": 0,
-                "slot": "0"
-              },
-              {
-                "contract": "Initializable",
-                "label": "_initializing",
-                "type": "t_bool",
-                "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:73",
-                "offset": 8,
-                "slot": "0"
-              }
-            ]
-          }
-        },
-        "solcVersion": "0.8.28"
-      },
-      "contracts/core/ConfigManage.sol:ConfigManage": {
-        "src": "contracts\\core\\ConfigManage.sol:18",
-        "version": {
-          "withMetadata": "bc044c50af65dc68ac1409f9f7f61f5e156665894ea54d95ed4d405b32538e87",
-          "withoutMetadata": "c3b7b68f8e4f64088e3a5f941af7c10536e55733417d7ef3c06d33dfec53bcb7",
-          "linkedWithoutMetadata": "c3b7b68f8e4f64088e3a5f941af7c10536e55733417d7ef3c06d33dfec53bcb7"
-        },
-        "inherit": [
-          "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol:UUPSUpgradeable",
-          "@openzeppelin/contracts/interfaces/draft-IERC1822.sol:IERC1822Proxiable",
-          "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:OwnableUpgradeable",
-          "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:ContextUpgradeable",
-          "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:Initializable",
-          "contracts/interfaces/IConfigManager.sol:IConfigManager"
-        ],
-        "libraries": [],
-        "methods": [
-          "initialize(address,address,address,address,address)",
-          "profitShareFee()",
-          "setProfitShareFee(uint256)",
-          "setDepositFee(uint256)",
-          "setWithdrawFee(uint256)",
-          "setPerformanceFee(uint256)",
-          "setAllFees(uint256,uint256,uint256)",
-          "getDepositFee(address)",
-          "getWithDrawFee(address)",
-          "getPlatFormFee(address)",
-          "setSlipageTolerance(uint256)"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [
-            {
-              "label": "version",
-              "offset": 0,
-              "slot": "0",
-              "type": "t_uint16",
-              "contract": "ConfigManage",
-              "src": "contracts\\core\\ConfigManage.sol:22"
-            },
-            {
-              "label": "_profitShareFee",
-              "offset": 0,
-              "slot": "1",
-              "type": "t_uint256",
-              "contract": "ConfigManage",
-              "src": "contracts\\core\\ConfigManage.sol:23"
-            },
-            {
-              "label": "depositFee",
-              "offset": 0,
-              "slot": "2",
-              "type": "t_uint256",
-              "contract": "ConfigManage",
-              "src": "contracts\\core\\ConfigManage.sol:24"
-            },
-            {
-              "label": "withdrawFee",
-              "offset": 0,
-              "slot": "3",
-              "type": "t_uint256",
-              "contract": "ConfigManage",
-              "src": "contracts\\core\\ConfigManage.sol:25"
-            },
-            {
-              "label": "performanceFee",
-              "offset": 0,
-              "slot": "4",
-              "type": "t_uint256",
-              "contract": "ConfigManage",
-              "src": "contracts\\core\\ConfigManage.sol:28"
-            },
-            {
-              "label": "slippageTolerance",
-              "offset": 0,
-              "slot": "5",
-              "type": "t_uint256",
-              "contract": "ConfigManage",
-              "src": "contracts\\core\\ConfigManage.sol:34"
-            },
-            {
-              "label": "lendingPool",
-              "offset": 0,
-              "slot": "6",
-              "type": "t_address",
-              "contract": "ConfigManage",
-              "src": "contracts\\core\\ConfigManage.sol:36"
-            },
-            {
-              "label": "uniswapV2Router",
-              "offset": 0,
-              "slot": "7",
-              "type": "t_address",
-              "contract": "ConfigManage",
-              "src": "contracts\\core\\ConfigManage.sol:36"
-            },
-            {
-              "label": "uniswapV3Router",
-              "offset": 0,
-              "slot": "8",
-              "type": "t_address",
-              "contract": "ConfigManage",
-              "src": "contracts\\core\\ConfigManage.sol:37"
-            },
-            {
-              "label": "sushiSwapRouter",
-              "offset": 0,
-              "slot": "9",
-              "type": "t_address",
-              "contract": "ConfigManage",
-              "src": "contracts\\core\\ConfigManage.sol:38"
-            },
-            {
-              "label": "arbitrageVault",
-              "offset": 0,
-              "slot": "10",
-              "type": "t_address",
-              "contract": "ConfigManage",
-              "src": "contracts\\core\\ConfigManage.sol:38"
-            }
-          ],
-          "types": {
-            "t_address": {
-              "label": "address",
-              "numberOfBytes": "20"
-            },
-            "t_bool": {
-              "label": "bool",
-              "numberOfBytes": "1"
-            },
-            "t_struct(InitializableStorage)73_storage": {
-              "label": "struct Initializable.InitializableStorage",
-              "members": [
-                {
-                  "label": "_initialized",
-                  "type": "t_uint64",
-                  "offset": 0,
-                  "slot": "0"
-                },
-                {
-                  "label": "_initializing",
-                  "type": "t_bool",
-                  "offset": 8,
-                  "slot": "0"
-                }
-              ],
-              "numberOfBytes": "32"
-            },
-            "t_struct(OwnableStorage)13_storage": {
-              "label": "struct OwnableUpgradeable.OwnableStorage",
-              "members": [
-                {
-                  "label": "_owner",
-                  "type": "t_address",
-                  "offset": 0,
-                  "slot": "0"
-                }
-              ],
-              "numberOfBytes": "32"
-            },
-            "t_uint64": {
-              "label": "uint64",
-              "numberOfBytes": "8"
-            },
-            "t_uint16": {
-              "label": "uint16",
-              "numberOfBytes": "2"
-            },
-            "t_uint256": {
-              "label": "uint256",
-              "numberOfBytes": "32"
-            }
-          },
-          "layoutVersion": "1.2",
-          "flat": true,
-          "namespaces": {
-            "erc7201:openzeppelin.storage.Ownable": [
-              {
-                "contract": "OwnableUpgradeable",
-                "label": "_owner",
-                "type": "t_address",
-                "src": "@openzeppelin\\contracts-upgradeable\\access\\OwnableUpgradeable.sol:24",
-                "offset": 0,
-                "slot": "0"
-              }
-            ],
-            "erc7201:openzeppelin.storage.Initializable": [
-              {
-                "contract": "Initializable",
-                "label": "_initialized",
-                "type": "t_uint64",
-                "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:69",
-                "offset": 0,
-                "slot": "0"
-              },
-              {
-                "contract": "Initializable",
-                "label": "_initializing",
-                "type": "t_bool",
-                "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:73",
-                "offset": 8,
-                "slot": "0"
-              }
-            ]
-          }
-        },
-        "solcVersion": "0.8.28"
-      },
-      "contracts/integrations/DoubleRouterIntegration.sol:DoubleRouterIntegration": {
-        "src": "contracts\\integrations\\DoubleRouterIntegration.sol:10",
-        "version": {
-          "withMetadata": "4cf49e80d04cf19f7f2e390a2654963a43c8e06d461a9bb04e72e2612955e63f",
-          "withoutMetadata": "595cedd3bddca718abb60a1c459629cac3baced3f7660a247299ef7fa6625a8e",
-          "linkedWithoutMetadata": "595cedd3bddca718abb60a1c459629cac3baced3f7660a247299ef7fa6625a8e"
-        },
-        "inherit": [
-          "contracts/interfaces/IDoubleRouterIntegration.sol:IDoubleRouterIntegration"
-        ],
-        "libraries": [
-          "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol:SafeERC20"
-        ],
-        "methods": [
-          "(address)",
-          "setRouters(address[])",
-          "getRouters()",
-          "doubleRouterArbCheck(uint256,address[],address[])",
-          "doubleRouterSwap(address,address,address,uint256,address[],address[],uint256,uint256)"
-        ],
-        "linkReferences": [],
-        "errors": [
-          {
-            "kind": "constructor",
-            "contract": "DoubleRouterIntegration",
-            "src": "contracts\\integrations\\DoubleRouterIntegration.sol:20"
-          }
-        ],
-        "layout": {
-          "storage": [
-            {
-              "label": "configManage",
-              "offset": 0,
-              "slot": "0",
-              "type": "t_contract(ConfigManage)4209",
-              "contract": "DoubleRouterIntegration",
-              "src": "contracts\\integrations\\DoubleRouterIntegration.sol:15"
-            },
-            {
-              "label": "slippageTolerance",
-              "offset": 0,
-              "slot": "1",
-              "type": "t_uint256",
-              "contract": "DoubleRouterIntegration",
-              "src": "contracts\\integrations\\DoubleRouterIntegration.sol:16"
-            },
-            {
-              "label": "admin",
-              "offset": 0,
-              "slot": "2",
-              "type": "t_address",
-              "contract": "DoubleRouterIntegration",
-              "src": "contracts\\integrations\\DoubleRouterIntegration.sol:17"
-            },
-            {
-              "label": "mrouters",
-              "offset": 0,
-              "slot": "3",
-              "type": "t_array(t_address)dyn_storage",
-              "contract": "DoubleRouterIntegration",
-              "src": "contracts\\integrations\\DoubleRouterIntegration.sol:18"
-            }
-          ],
-          "types": {
-            "t_address": {
-              "label": "address",
-              "numberOfBytes": "20"
-            },
-            "t_array(t_address)dyn_storage": {
-              "label": "address[]",
-              "numberOfBytes": "32"
-            },
-            "t_contract(ConfigManage)4209": {
-              "label": "contract ConfigManage",
-              "numberOfBytes": "20"
-            },
-            "t_uint256": {
-              "label": "uint256",
-              "numberOfBytes": "32"
-            }
-          },
-          "layoutVersion": "1.2",
-          "flat": true,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "contracts/interfaces/IArbitrage.sol:IArbitrage": {
-        "src": "contracts\\interfaces\\IArbitrage.sol:17",
-        "inherit": [],
-        "libraries": [],
-        "methods": [],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "contracts/interfaces/IArbitrageVault.sol:IArbitrageVault": {
-        "src": "contracts\\interfaces\\IArbitrageVault.sol:6",
-        "inherit": [],
-        "libraries": [],
-        "methods": [
-          "totalAssets()",
-          "getAvailableForArbitrage()",
-          "approveForArbitrage(uint256)",
-          "transferForArbitrage(uint256)",
-          "recordProfit(uint256)",
-          "recordLoss(uint256)",
-          "assetAddress()",
-          "getMyBalance()"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "contracts/interfaces/IConfigManager.sol:IConfigManager": {
-        "src": "contracts\\interfaces\\IConfigManager.sol:4",
-        "inherit": [],
-        "libraries": [],
-        "methods": [
-          "profitShareFee()",
-          "getDepositFee(address)",
-          "getWithDrawFee(address)",
-          "getPlatFormFee(address)"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "contracts/interfaces/IDoubleRouterIntegration.sol:IDoubleRouterIntegration": {
-        "src": "contracts\\interfaces\\IDoubleRouterIntegration.sol:7",
-        "inherit": [],
-        "libraries": [],
-        "methods": [
-          "doubleRouterArbCheck(uint256,address[],address[])",
-          "doubleRouterSwap(address,address,address,uint256,address[],address[],uint256,uint256)"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "contracts/interfaces/IFlashLoanLendingPool.sol:ILendingPool": {
-        "src": "contracts\\interfaces\\IFlashLoanLendingPool.sol:5",
-        "inherit": [],
-        "libraries": [],
-        "methods": [
-          "flashLoanSimple(address,address,uint256,bytes,uint16)"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "contracts/interfaces/IFlashLoanSimpleReceiver.sol:IFlashLoanSimpleReceiver": {
-        "src": "contracts\\interfaces\\IFlashLoanSimpleReceiver.sol:6",
-        "inherit": [],
-        "libraries": [],
-        "methods": [
-          "executeFlashLoan(uint8,address,address,uint256,address[],address[],uint256,uint256)"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "contracts/interfaces/ISpotArbitrage.sol:ISpotArbitrage": {
-        "src": "contracts\\interfaces\\ISpotArbitrage.sol:6",
-        "inherit": [],
-        "libraries": [],
-        "methods": [
-          "executeSwaps(address,address,uint256,address[],address[],uint256,uint256)"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "contracts/interfaces/IUniswapV2Router02.sol:IUniswapV2Router02": {
-        "src": "contracts\\interfaces\\IUniswapV2Router02.sol:7",
-        "inherit": [],
-        "libraries": [],
-        "methods": [
-          "factory()",
-          "WETH()",
-          "addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256)",
-          "addLiquidityETH(address,uint256,uint256,uint256,address,uint256)",
-          "removeLiquidity(address,address,uint256,uint256,uint256,address,uint256)",
-          "removeLiquidityETH(address,uint256,uint256,uint256,address,uint256)",
-          "removeLiquidityWithPermit(address,address,uint256,uint256,uint256,address,uint256,bool,uint8,bytes32,bytes32)",
-          "removeLiquidityETHWithPermit(address,uint256,uint256,uint256,address,uint256,bool,uint8,bytes32,bytes32)",
-          "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
-          "swapTokensForExactTokens(uint256,uint256,address[],address,uint256)",
-          "swapExactETHForTokens(uint256,address[],address,uint256)",
-          "swapTokensForExactETH(uint256,uint256,address[],address,uint256)",
-          "swapExactTokensForETH(uint256,uint256,address[],address,uint256)",
-          "swapETHForExactTokens(uint256,address[],address,uint256)",
-          "quote(uint256,uint256,uint256)",
-          "getAmountOut(uint256,uint256,uint256)",
-          "getAmountIn(uint256,uint256,uint256)",
-          "getAmountsOut(uint256,address[])",
-          "getAmountsIn(uint256,address[])",
-          "removeLiquidityETHSupportingFeeOnTransferTokens(address,uint256,uint256,uint256,address,uint256)",
-          "removeLiquidityETHWithPermitSupportingFeeOnTransferTokens(address,uint256,uint256,uint256,address,uint256,bool,uint8,bytes32,bytes32)",
-          "swapExactTokensForTokensSupportingFeeOnTransferTokens(uint256,uint256,address[],address,uint256)",
-          "swapExactETHForTokensSupportingFeeOnTransferTokens(uint256,address[],address,uint256)",
-          "swapExactTokensForETHSupportingFeeOnTransferTokens(uint256,uint256,address[],address,uint256)"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "contracts/router/FlashLoanRouter.sol:FlashLoanRouter": {
-        "src": "contracts\\router\\FlashLoanRouter.sol:9",
-        "version": {
-          "withMetadata": "92c48da5f32bcf1964ffd44e86fd2a8e37efe36ac19869bb41d068cf279652a7",
-          "withoutMetadata": "4c7d1aac91c1b96798a93a52fd8e02570ca30bd2188f28332b6613884d46b592",
-          "linkedWithoutMetadata": "4c7d1aac91c1b96798a93a52fd8e02570ca30bd2188f28332b6613884d46b592"
-        },
-        "inherit": [],
-        "libraries": [],
-        "methods": [
-          "(address)",
-          "setConfig(uint8,address,uint16,uint256)",
-          "requestFlashLoan(uint8,address,address,uint256,bytes)"
-        ],
-        "linkReferences": [],
-        "errors": [
-          {
-            "kind": "constructor",
-            "contract": "FlashLoanRouter",
-            "src": "contracts\\router\\FlashLoanRouter.sol:26"
-          },
-          {
-            "kind": "state-variable-immutable",
-            "name": "admin",
-            "src": "contracts\\router\\FlashLoanRouter.sol:23"
-          }
-        ],
-        "layout": {
-          "storage": [
-            {
-              "label": "configManage",
-              "offset": 0,
-              "slot": "0",
-              "type": "t_contract(ConfigManage)4209",
-              "contract": "FlashLoanRouter",
-              "src": "contracts\\router\\FlashLoanRouter.sol:10"
-            },
-            {
-              "label": "platFormConfigs",
-              "offset": 0,
-              "slot": "1",
-              "type": "t_mapping(t_enum(LendingPlatForm)5400,t_struct(PlatFormConfig)5407_storage)",
-              "contract": "FlashLoanRouter",
-              "src": "contracts\\router\\FlashLoanRouter.sol:19"
-            }
-          ],
-          "types": {
-            "t_address": {
-              "label": "address",
-              "numberOfBytes": "20"
-            },
-            "t_contract(ConfigManage)4209": {
-              "label": "contract ConfigManage",
-              "numberOfBytes": "20"
-            },
-            "t_enum(LendingPlatForm)5400": {
-              "label": "enum FlashLoanRouter.LendingPlatForm",
-              "members": [
-                "Aave_V2",
-                "Aave_V3",
-                "DYDX",
-                "UNISWAP_V3"
-              ],
-              "numberOfBytes": "1"
-            },
-            "t_mapping(t_enum(LendingPlatForm)5400,t_struct(PlatFormConfig)5407_storage)": {
-              "label": "mapping(enum FlashLoanRouter.LendingPlatForm => struct FlashLoanRouter.PlatFormConfig)",
-              "numberOfBytes": "32"
-            },
-            "t_struct(PlatFormConfig)5407_storage": {
-              "label": "struct FlashLoanRouter.PlatFormConfig",
-              "members": [
-                {
-                  "label": "lendingPool",
-                  "type": "t_address",
-                  "offset": 0,
-                  "slot": "0"
-                },
-                {
-                  "label": "referralCode",
-                  "type": "t_uint16",
-                  "offset": 20,
-                  "slot": "0"
-                },
-                {
-                  "label": "maxLoanRatio",
-                  "type": "t_uint256",
-                  "offset": 0,
-                  "slot": "1"
-                }
-              ],
-              "numberOfBytes": "64"
-            },
-            "t_uint16": {
-              "label": "uint16",
-              "numberOfBytes": "2"
-            },
-            "t_uint256": {
-              "label": "uint256",
-              "numberOfBytes": "32"
-            }
-          },
-          "layoutVersion": "1.2",
-          "flat": true,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      }
-    },
-    {
-      "@openzeppelin/contracts/interfaces/IERC1363.sol:IERC1363": {
-        "src": "@openzeppelin\\contracts\\interfaces\\IERC1363.sol:16",
-        "inherit": [
-          "@openzeppelin/contracts/utils/introspection/IERC165.sol:IERC165",
-          "@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20"
-        ],
-        "libraries": [],
-        "methods": [
-          "transferAndCall(address,uint256)",
-          "transferAndCall(address,uint256,bytes)",
-          "transferFromAndCall(address,address,uint256)",
-          "transferFromAndCall(address,address,uint256,bytes)",
-          "approveAndCall(address,uint256)",
-          "approveAndCall(address,uint256,bytes)"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20": {
-        "src": "@openzeppelin\\contracts\\token\\ERC20\\IERC20.sol:9",
-        "inherit": [],
-        "libraries": [],
-        "methods": [
-          "totalSupply()",
-          "balanceOf(address)",
-          "transfer(address,uint256)",
-          "allowance(address,address)",
-          "approve(address,uint256)",
-          "transferFrom(address,address,uint256)"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol:SafeERC20": {
-        "src": "@openzeppelin\\contracts\\token\\ERC20\\utils\\SafeERC20.sol:18",
-        "version": {
-          "withMetadata": "d37c9338c57eac8bdd0b841b935a0c296a95657b334d9cefb981b8f98d4c054f",
-          "withoutMetadata": "e2a89a66865458f0d9fedd4bc7faf0ee62e4c341d176ab79d29bd77a1bdfc32a",
-          "linkedWithoutMetadata": "e2a89a66865458f0d9fedd4bc7faf0ee62e4c341d176ab79d29bd77a1bdfc32a"
-        },
-        "inherit": [],
-        "libraries": [],
-        "methods": [],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts/utils/introspection/IERC165.sol:IERC165": {
-        "src": "@openzeppelin\\contracts\\utils\\introspection\\IERC165.sol:15",
-        "inherit": [],
-        "libraries": [],
-        "methods": [
-          "supportsInterface(bytes4)"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "contracts/Mock/MockRouter.sol:MockRouter": {
-        "src": "contracts\\Mock\\MockRouter.sol:6",
-        "version": {
-          "withMetadata": "6b8cbd0e1706618bb38f3f5e4fb991893510ece01ce17b2675001dc0e8192801",
-          "withoutMetadata": "5fe10bdda09560c4e0bedce9f21ac4e614f157db79a3781ff048deb844915cc5",
-          "linkedWithoutMetadata": "5fe10bdda09560c4e0bedce9f21ac4e614f157db79a3781ff048deb844915cc5"
-        },
-        "inherit": [],
-        "libraries": [],
-        "methods": [
-          "setPrice(uint256,uint256)",
-          "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
-          "depositToken(address,uint256)",
-          "getAmountsOut(uint256,address[])"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [
-            {
-              "label": "priceTokenA",
-              "offset": 0,
-              "slot": "0",
-              "type": "t_uint256",
-              "contract": "MockRouter",
-              "src": "contracts\\Mock\\MockRouter.sol:10"
-            },
-            {
-              "label": "priceTokenB",
-              "offset": 0,
-              "slot": "1",
-              "type": "t_uint256",
-              "contract": "MockRouter",
-              "src": "contracts\\Mock\\MockRouter.sol:13"
-            }
-          ],
-          "types": {
-            "t_uint256": {
-              "label": "uint256",
-              "numberOfBytes": "32"
-            }
-          },
-          "layoutVersion": "1.2",
-          "flat": true,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "contracts/core/SpotArbitrage.sol:SpotArbitrage": {
-        "src": "contracts\\core\\SpotArbitrage.sol:12",
-        "version": {
-          "withMetadata": "4c1afee45c23e24b111973376a8decbfe5f7fb1f886f92a0d706d50ce9a50598",
-          "withoutMetadata": "f51e5cef1d9db5f8889ec17a38e40a2fefcfa6f7b87c3aefd89adf1ad9489eae",
-          "linkedWithoutMetadata": "f51e5cef1d9db5f8889ec17a38e40a2fefcfa6f7b87c3aefd89adf1ad9489eae"
-        },
-        "inherit": [
-          "contracts/interfaces/ISpotArbitrage.sol:ISpotArbitrage"
-        ],
-        "libraries": [
-          "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol:SafeERC20"
-        ],
-        "methods": [
-          "(address,address,address)",
-          "setDoubleRouterIntegration(address)",
-          "setUniswapV2Integration(address)",
-          "setArbitrageCore(address)",
-          "executeSwaps(address,address,uint256,address[],address[],uint256,uint256)"
-        ],
-        "linkReferences": [],
-        "errors": [
-          {
-            "kind": "constructor",
-            "contract": "SpotArbitrage",
-            "src": "contracts\\core\\SpotArbitrage.sol:18"
-          }
-        ],
-        "layout": {
-          "storage": [
-            {
-              "label": "arbitrageCore",
-              "offset": 0,
-              "slot": "0",
-              "type": "t_address",
-              "contract": "SpotArbitrage",
-              "src": "contracts\\core\\SpotArbitrage.sol:14"
-            },
-            {
-              "label": "doubleRouterIntegration",
-              "offset": 0,
-              "slot": "1",
-              "type": "t_contract(IDoubleRouterIntegration)1183",
-              "contract": "SpotArbitrage",
-              "src": "contracts\\core\\SpotArbitrage.sol:15"
-            },
-            {
-              "label": "uniswapV2Integration",
-              "offset": 0,
-              "slot": "2",
-              "type": "t_contract(IUniswapV2Integration)1253",
-              "contract": "SpotArbitrage",
-              "src": "contracts\\core\\SpotArbitrage.sol:16"
-            }
-          ],
-          "types": {
-            "t_address": {
-              "label": "address",
-              "numberOfBytes": "20"
-            },
-            "t_contract(IDoubleRouterIntegration)1183": {
-              "label": "contract IDoubleRouterIntegration",
-              "numberOfBytes": "20"
-            },
-            "t_contract(IUniswapV2Integration)1253": {
-              "label": "contract IUniswapV2Integration",
-              "numberOfBytes": "20"
-            }
-          },
-          "layoutVersion": "1.2",
-          "flat": true,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "contracts/interfaces/IDoubleRouterIntegration.sol:IDoubleRouterIntegration": {
-        "src": "contracts\\interfaces\\IDoubleRouterIntegration.sol:7",
-        "inherit": [],
-        "libraries": [],
-        "methods": [
-          "doubleRouterArbCheck(uint256,address[],address[])",
-          "doubleRouterSwap(address,address,address,uint256,address[],address[],uint256,uint256)"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "contracts/interfaces/ISpotArbitrage.sol:ISpotArbitrage": {
-        "src": "contracts\\interfaces\\ISpotArbitrage.sol:6",
-        "inherit": [],
-        "libraries": [],
-        "methods": [
-          "executeSwaps(address,address,uint256,address[],address[],uint256,uint256)"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "contracts/interfaces/IUniswapV2Integration.sol:IUniswapV2Integration": {
-        "src": "contracts\\interfaces\\IUniswapV2Integration.sol:7",
-        "inherit": [],
-        "libraries": [],
-        "methods": [
-          "routerArbCheck(address,uint256,address[])",
-          "swapV2(address,address,address,uint256,uint256)",
-          "swapV2Multi(address,address[][],uint256,uint256)"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      }
-    },
-    {
-      "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:OwnableUpgradeable": {
-        "src": "@openzeppelin\\contracts-upgradeable\\access\\OwnableUpgradeable.sol:21",
-        "inherit": [
-          "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:ContextUpgradeable",
-          "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:Initializable"
-        ],
-        "libraries": [],
-        "methods": [
-          "owner()",
-          "renounceOwnership()",
-          "transferOwnership(address)"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {
-            "t_address": {
-              "label": "address",
-              "numberOfBytes": "20"
-            },
-            "t_bool": {
-              "label": "bool",
-              "numberOfBytes": "1"
-            },
-            "t_struct(InitializableStorage)73_storage": {
-              "label": "struct Initializable.InitializableStorage",
-              "members": [
-                {
-                  "label": "_initialized",
-                  "type": "t_uint64",
-                  "offset": 0,
-                  "slot": "0"
-                },
-                {
-                  "label": "_initializing",
-                  "type": "t_bool",
-                  "offset": 8,
-                  "slot": "0"
-                }
-              ],
-              "numberOfBytes": "32"
-            },
-            "t_struct(OwnableStorage)13_storage": {
-              "label": "struct OwnableUpgradeable.OwnableStorage",
-              "members": [
-                {
-                  "label": "_owner",
-                  "type": "t_address",
-                  "offset": 0,
-                  "slot": "0"
-                }
-              ],
-              "numberOfBytes": "32"
-            },
-            "t_uint64": {
-              "label": "uint64",
-              "numberOfBytes": "8"
-            }
-          },
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {
-            "erc7201:openzeppelin.storage.Ownable": [
-              {
-                "contract": "OwnableUpgradeable",
-                "label": "_owner",
-                "type": "t_address",
-                "src": "@openzeppelin\\contracts-upgradeable\\access\\OwnableUpgradeable.sol:24",
-                "offset": 0,
-                "slot": "0"
-              }
-            ],
-            "erc7201:openzeppelin.storage.Initializable": [
-              {
-                "contract": "Initializable",
-                "label": "_initialized",
-                "type": "t_uint64",
-                "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:69",
-                "offset": 0,
-                "slot": "0"
-              },
-              {
-                "contract": "Initializable",
-                "label": "_initializing",
-                "type": "t_bool",
-                "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:73",
-                "offset": 8,
-                "slot": "0"
-              }
-            ]
-          }
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:Initializable": {
-        "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:56",
-        "inherit": [],
-        "libraries": [],
-        "methods": [],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {
-            "t_bool": {
-              "label": "bool",
-              "numberOfBytes": "1"
-            },
-            "t_struct(InitializableStorage)73_storage": {
-              "label": "struct Initializable.InitializableStorage",
-              "members": [
-                {
-                  "label": "_initialized",
-                  "type": "t_uint64",
-                  "offset": 0,
-                  "slot": "0"
-                },
-                {
-                  "label": "_initializing",
-                  "type": "t_bool",
-                  "offset": 8,
-                  "slot": "0"
-                }
-              ],
-              "numberOfBytes": "32"
-            },
-            "t_uint64": {
-              "label": "uint64",
-              "numberOfBytes": "8"
-            }
-          },
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {
-            "erc7201:openzeppelin.storage.Initializable": [
-              {
-                "contract": "Initializable",
-                "label": "_initialized",
-                "type": "t_uint64",
-                "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:69",
-                "offset": 0,
-                "slot": "0"
-              },
-              {
-                "contract": "Initializable",
-                "label": "_initializing",
-                "type": "t_bool",
-                "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:73",
-                "offset": 8,
-                "slot": "0"
-              }
-            ]
-          }
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol:UUPSUpgradeable": {
-        "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\UUPSUpgradeable.sol:20",
-        "inherit": [
-          "@openzeppelin/contracts/interfaces/draft-IERC1822.sol:IERC1822Proxiable",
-          "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:Initializable"
-        ],
-        "libraries": [
-          "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol:ERC1967Utils"
-        ],
-        "methods": [
-          "proxiableUUID()",
-          "upgradeToAndCall(address,bytes)"
-        ],
-        "linkReferences": [],
-        "errors": [
-          {
-            "kind": "delegatecall",
-            "src": "@openzeppelin\\contracts\\utils\\Address.sol:97"
-          }
-        ],
-        "layout": {
-          "storage": [],
-          "types": {
-            "t_bool": {
-              "label": "bool",
-              "numberOfBytes": "1"
-            },
-            "t_struct(InitializableStorage)73_storage": {
-              "label": "struct Initializable.InitializableStorage",
-              "members": [
-                {
-                  "label": "_initialized",
-                  "type": "t_uint64",
-                  "offset": 0,
-                  "slot": "0"
-                },
-                {
-                  "label": "_initializing",
-                  "type": "t_bool",
-                  "offset": 8,
-                  "slot": "0"
-                }
-              ],
-              "numberOfBytes": "32"
-            },
-            "t_uint64": {
-              "label": "uint64",
-              "numberOfBytes": "8"
-            }
-          },
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {
-            "erc7201:openzeppelin.storage.Initializable": [
-              {
-                "contract": "Initializable",
-                "label": "_initialized",
-                "type": "t_uint64",
-                "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:69",
-                "offset": 0,
-                "slot": "0"
-              },
-              {
-                "contract": "Initializable",
-                "label": "_initializing",
-                "type": "t_bool",
-                "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:73",
-                "offset": 8,
-                "slot": "0"
-              }
-            ]
-          }
-        },
-        "solcVersion": "0.8.28"
-      },
       "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:ERC20Upgradeable": {
         "src": "@openzeppelin\\contracts-upgradeable\\token\\ERC20\\ERC20Upgradeable.sol:30",
         "inherit": [
@@ -3738,9 +815,9 @@
       "contracts/core/ArbitrageCore.sol:ArbitrageCore": {
         "src": "contracts\\core\\ArbitrageCore.sol:17",
         "version": {
-          "withMetadata": "28b5e3d249da3280ecf154e12ff210a11a95a7b217a98e849cd9c0d61a3767f0",
-          "withoutMetadata": "cc48f4281db7a118a43d57660d642a70af7cfdd69d30cfb661099c2768ffb1ac",
-          "linkedWithoutMetadata": "cc48f4281db7a118a43d57660d642a70af7cfdd69d30cfb661099c2768ffb1ac"
+          "withMetadata": "9b9c3b228e6c34215590832cf289ef97b71a0012f1bd37ed73d3ad0b2992dacf",
+          "withoutMetadata": "e9dfb89b7216b217b7f0e4d0b978eb149cecac3a571590bd0fd21759dbb7fefd",
+          "linkedWithoutMetadata": "e9dfb89b7216b217b7f0e4d0b978eb149cecac3a571590bd0fd21759dbb7fefd"
         },
         "inherit": [
           "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol:ReentrancyGuardUpgradeable",
@@ -3757,7 +834,8 @@
           "getVaultInfo(address)",
           "setPaused(bool)",
           "setBackCaller(address)",
-          "executeStrategy(uint8,(address,address,uint256,address[],address[],uint256,uint256))"
+          "executeStrategy(uint8,(address,address,uint256,address[],address[],uint256,uint256))",
+          "executeFlashLoanArbitrageWithPlatform(uint8,(address,address,uint256,address[],address[],uint256,uint256))"
         ],
         "linkReferences": [],
         "errors": [],
@@ -3767,7 +845,7 @@
               "label": "spotArbitrage",
               "offset": 0,
               "slot": "0",
-              "type": "t_contract(ISpotArbitrage)3807",
+              "type": "t_contract(ISpotArbitrage)3824",
               "contract": "ArbitrageCore",
               "src": "contracts\\core\\ArbitrageCore.sol:33"
             },
@@ -3775,7 +853,7 @@
               "label": "flashLoanArbitrage",
               "offset": 0,
               "slot": "1",
-              "type": "t_contract(IFlashLoanSimpleReceiver)3783",
+              "type": "t_contract(IFlashLoanSimpleReceiver)3800",
               "contract": "ArbitrageCore",
               "src": "contracts\\core\\ArbitrageCore.sol:33"
             },
@@ -3783,7 +861,7 @@
               "label": "configManager",
               "offset": 0,
               "slot": "2",
-              "type": "t_contract(IConfigManager)3741",
+              "type": "t_contract(IConfigManager)3758",
               "contract": "ArbitrageCore",
               "src": "contracts\\core\\ArbitrageCore.sol:35"
             },
@@ -3831,7 +909,7 @@
               "label": "vaults",
               "offset": 0,
               "slot": "8",
-              "type": "t_mapping(t_address,t_contract(IArbitrageVault)3712)",
+              "type": "t_mapping(t_address,t_contract(IArbitrageVault)3729)",
               "contract": "ArbitrageCore",
               "src": "contracts\\core\\ArbitrageCore.sol:48"
             }
@@ -3899,23 +977,23 @@
               "label": "address[]",
               "numberOfBytes": "32"
             },
-            "t_contract(IArbitrageVault)3712": {
+            "t_contract(IArbitrageVault)3729": {
               "label": "contract IArbitrageVault",
               "numberOfBytes": "20"
             },
-            "t_contract(IConfigManager)3741": {
+            "t_contract(IConfigManager)3758": {
               "label": "contract IConfigManager",
               "numberOfBytes": "20"
             },
-            "t_contract(IFlashLoanSimpleReceiver)3783": {
+            "t_contract(IFlashLoanSimpleReceiver)3800": {
               "label": "contract IFlashLoanSimpleReceiver",
               "numberOfBytes": "20"
             },
-            "t_contract(ISpotArbitrage)3807": {
+            "t_contract(ISpotArbitrage)3824": {
               "label": "contract ISpotArbitrage",
               "numberOfBytes": "20"
             },
-            "t_mapping(t_address,t_contract(IArbitrageVault)3712)": {
+            "t_mapping(t_address,t_contract(IArbitrageVault)3729)": {
               "label": "mapping(address => contract IArbitrageVault)",
               "numberOfBytes": "32"
             }
@@ -4323,7 +1401,7 @@
               "label": "configManage",
               "offset": 0,
               "slot": "0",
-              "type": "t_contract(ConfigManage)3639",
+              "type": "t_contract(ConfigManage)3656",
               "contract": "FlashLoanRouter",
               "src": "contracts\\router\\FlashLoanRouter.sol:10"
             },
@@ -4331,7 +1409,7 @@
               "label": "platFormConfigs",
               "offset": 0,
               "slot": "1",
-              "type": "t_mapping(t_enum(LendingPlatForm)3820,t_struct(PlatFormConfig)3827_storage)",
+              "type": "t_mapping(t_enum(LendingPlatForm)3837,t_struct(PlatFormConfig)3844_storage)",
               "contract": "FlashLoanRouter",
               "src": "contracts\\router\\FlashLoanRouter.sol:19"
             }
@@ -4341,11 +1419,11 @@
               "label": "address",
               "numberOfBytes": "20"
             },
-            "t_contract(ConfigManage)3639": {
+            "t_contract(ConfigManage)3656": {
               "label": "contract ConfigManage",
               "numberOfBytes": "20"
             },
-            "t_enum(LendingPlatForm)3820": {
+            "t_enum(LendingPlatForm)3837": {
               "label": "enum FlashLoanRouter.LendingPlatForm",
               "members": [
                 "Aave_V2",
@@ -4355,11 +1433,11 @@
               ],
               "numberOfBytes": "1"
             },
-            "t_mapping(t_enum(LendingPlatForm)3820,t_struct(PlatFormConfig)3827_storage)": {
+            "t_mapping(t_enum(LendingPlatForm)3837,t_struct(PlatFormConfig)3844_storage)": {
               "label": "mapping(enum FlashLoanRouter.LendingPlatForm => struct FlashLoanRouter.PlatFormConfig)",
               "numberOfBytes": "32"
             },
-            "t_struct(PlatFormConfig)3827_storage": {
+            "t_struct(PlatFormConfig)3844_storage": {
               "label": "struct FlashLoanRouter.PlatFormConfig",
               "members": [
                 {
@@ -4962,48 +2040,6 @@
         },
         "solcVersion": "0.8.28"
       },
-      "@openzeppelin/contracts/access/Ownable.sol:Ownable": {
-        "src": "@openzeppelin\\contracts\\access\\Ownable.sol:20",
-        "inherit": [
-          "@openzeppelin/contracts/utils/Context.sol:Context"
-        ],
-        "libraries": [],
-        "methods": [
-          "owner()",
-          "renounceOwnership()",
-          "transferOwnership(address)"
-        ],
-        "linkReferences": [],
-        "errors": [
-          {
-            "kind": "constructor",
-            "contract": "Ownable",
-            "src": "@openzeppelin\\contracts\\access\\Ownable.sol:38"
-          }
-        ],
-        "layout": {
-          "storage": [
-            {
-              "label": "_owner",
-              "offset": 0,
-              "slot": "0",
-              "type": "t_address",
-              "contract": "Ownable",
-              "src": "@openzeppelin\\contracts\\access\\Ownable.sol:21"
-            }
-          ],
-          "types": {
-            "t_address": {
-              "label": "address",
-              "numberOfBytes": "20"
-            }
-          },
-          "layoutVersion": "1.2",
-          "flat": true,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
       "@openzeppelin/contracts/interfaces/IERC1967.sol:IERC1967": {
         "src": "@openzeppelin\\contracts\\interfaces\\IERC1967.sol:9",
         "inherit": [],
@@ -5210,22 +2246,6 @@
         },
         "solcVersion": "0.8.28"
       },
-      "@openzeppelin/contracts/utils/Context.sol:Context": {
-        "src": "@openzeppelin\\contracts\\utils\\Context.sol:16",
-        "inherit": [],
-        "libraries": [],
-        "methods": [],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
       "@openzeppelin/contracts/utils/Errors.sol:Errors": {
         "src": "@openzeppelin\\contracts\\utils\\Errors.sol:14",
         "version": {
@@ -5243,76 +2263,6 @@
           "types": {},
           "layoutVersion": "1.2",
           "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts/utils/Pausable.sol:Pausable": {
-        "src": "@openzeppelin\\contracts\\utils\\Pausable.sol:17",
-        "inherit": [
-          "@openzeppelin/contracts/utils/Context.sol:Context"
-        ],
-        "libraries": [],
-        "methods": [
-          "paused()"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [
-            {
-              "label": "_paused",
-              "offset": 0,
-              "slot": "0",
-              "type": "t_bool",
-              "contract": "Pausable",
-              "src": "@openzeppelin\\contracts\\utils\\Pausable.sol:18"
-            }
-          ],
-          "types": {
-            "t_bool": {
-              "label": "bool",
-              "numberOfBytes": "1"
-            }
-          },
-          "layoutVersion": "1.2",
-          "flat": true,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "@openzeppelin/contracts/utils/ReentrancyGuard.sol:ReentrancyGuard": {
-        "src": "@openzeppelin\\contracts\\utils\\ReentrancyGuard.sol:25",
-        "inherit": [],
-        "libraries": [],
-        "methods": [],
-        "linkReferences": [],
-        "errors": [
-          {
-            "kind": "constructor",
-            "contract": "ReentrancyGuard",
-            "src": "@openzeppelin\\contracts\\utils\\ReentrancyGuard.sol:47"
-          }
-        ],
-        "layout": {
-          "storage": [
-            {
-              "label": "_status",
-              "offset": 0,
-              "slot": "0",
-              "type": "t_uint256",
-              "contract": "ReentrancyGuard",
-              "src": "@openzeppelin\\contracts\\utils\\ReentrancyGuard.sol:40"
-            }
-          ],
-          "types": {
-            "t_uint256": {
-              "label": "uint256",
-              "numberOfBytes": "32"
-            }
-          },
-          "layoutVersion": "1.2",
-          "flat": true,
           "namespaces": {}
         },
         "solcVersion": "0.8.28"
@@ -5341,9 +2291,9 @@
       "contracts/core/ArbitrageCore.sol:ArbitrageCore": {
         "src": "contracts\\core\\ArbitrageCore.sol:17",
         "version": {
-          "withMetadata": "25edfbabcfb5f295de48a1e07613cbb076cdb44fc4b36e5712427c776543315d",
-          "withoutMetadata": "b3b82db14c8857255477e878518a5fd2fd4c4f97969e0037c33e2c0eb8684b48",
-          "linkedWithoutMetadata": "b3b82db14c8857255477e878518a5fd2fd4c4f97969e0037c33e2c0eb8684b48"
+          "withMetadata": "74cb8d7f9aff02984bc92a479db4126d7ee3fdaa5031fd27a2fbad5e65fd88c0",
+          "withoutMetadata": "7c9d5bd1dd2c7e97bbc6b308c9eff643942eebd3f83117fcfebfb9d3c5d2e261",
+          "linkedWithoutMetadata": "7c9d5bd1dd2c7e97bbc6b308c9eff643942eebd3f83117fcfebfb9d3c5d2e261"
         },
         "inherit": [
           "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol:ReentrancyGuardUpgradeable",
@@ -5360,7 +2310,8 @@
           "getVaultInfo(address)",
           "setPaused(bool)",
           "setBackCaller(address)",
-          "executeStrategy(uint8,(address,address,uint256,address[],address[],uint256,uint256))"
+          "executeStrategy(uint8,(address,address,uint256,address[],address[],uint256,uint256))",
+          "executeFlashLoanArbitrageWithPlatform(uint8,(address,address,uint256,address[],address[],uint256,uint256))"
         ],
         "linkReferences": [],
         "errors": [],
@@ -5370,7 +2321,7 @@
               "label": "spotArbitrage",
               "offset": 0,
               "slot": "0",
-              "type": "t_contract(ISpotArbitrage)4754",
+              "type": "t_contract(ISpotArbitrage)3829",
               "contract": "ArbitrageCore",
               "src": "contracts\\core\\ArbitrageCore.sol:33"
             },
@@ -5378,7 +2329,7 @@
               "label": "flashLoanArbitrage",
               "offset": 0,
               "slot": "1",
-              "type": "t_contract(IFlashLoanSimpleReceiver)4730",
+              "type": "t_contract(IFlashLoanSimpleReceiver)3805",
               "contract": "ArbitrageCore",
               "src": "contracts\\core\\ArbitrageCore.sol:33"
             },
@@ -5386,7 +2337,7 @@
               "label": "configManager",
               "offset": 0,
               "slot": "2",
-              "type": "t_contract(IConfigManager)4688",
+              "type": "t_contract(IConfigManager)3763",
               "contract": "ArbitrageCore",
               "src": "contracts\\core\\ArbitrageCore.sol:35"
             },
@@ -5434,7 +2385,7 @@
               "label": "vaults",
               "offset": 0,
               "slot": "8",
-              "type": "t_mapping(t_address,t_contract(IArbitrageVault)4659)",
+              "type": "t_mapping(t_address,t_contract(IArbitrageVault)3734)",
               "contract": "ArbitrageCore",
               "src": "contracts\\core\\ArbitrageCore.sol:48"
             }
@@ -5502,23 +2453,23 @@
               "label": "address[]",
               "numberOfBytes": "32"
             },
-            "t_contract(IArbitrageVault)4659": {
+            "t_contract(IArbitrageVault)3734": {
               "label": "contract IArbitrageVault",
               "numberOfBytes": "20"
             },
-            "t_contract(IConfigManager)4688": {
+            "t_contract(IConfigManager)3763": {
               "label": "contract IConfigManager",
               "numberOfBytes": "20"
             },
-            "t_contract(IFlashLoanSimpleReceiver)4730": {
+            "t_contract(IFlashLoanSimpleReceiver)3805": {
               "label": "contract IFlashLoanSimpleReceiver",
               "numberOfBytes": "20"
             },
-            "t_contract(ISpotArbitrage)4754": {
+            "t_contract(ISpotArbitrage)3829": {
               "label": "contract ISpotArbitrage",
               "numberOfBytes": "20"
             },
-            "t_mapping(t_address,t_contract(IArbitrageVault)4659)": {
+            "t_mapping(t_address,t_contract(IArbitrageVault)3734)": {
               "label": "mapping(address => contract IArbitrageVault)",
               "numberOfBytes": "32"
             }
@@ -5777,178 +2728,6 @@
         },
         "solcVersion": "0.8.28"
       },
-      "contracts/core/FlashLoanArbitrage.sol:FlashLoanArbitrage": {
-        "src": "contracts\\core\\FlashLoanArbitrage.sol:30",
-        "version": {
-          "withMetadata": "998aa98b24fa1298c1a6c0f0ea88b5ffe615699b831337b6e80457708863326d",
-          "withoutMetadata": "d02f474b01573f6c8ba78ebdf916063dad2c8cc609039792d6f8265dcf408a61",
-          "linkedWithoutMetadata": "d02f474b01573f6c8ba78ebdf916063dad2c8cc609039792d6f8265dcf408a61"
-        },
-        "inherit": [
-          "@openzeppelin/contracts/utils/Pausable.sol:Pausable",
-          "@openzeppelin/contracts/access/Ownable.sol:Ownable",
-          "@openzeppelin/contracts/utils/Context.sol:Context",
-          "@openzeppelin/contracts/utils/ReentrancyGuard.sol:ReentrancyGuard",
-          "contracts/core/FlashLoanArbitrage.sol:IFlashLoanSimple"
-        ],
-        "libraries": [],
-        "methods": [
-          "(address,address,address,address,address)",
-          "executeOperation(address,uint256,uint256,address,bytes)",
-          "executeFlashLoan(uint8,address,uint256,address[],address[],uint256,uint256)",
-          "pause()",
-          "unpause()",
-          "getExecutionHistoryLength()"
-        ],
-        "linkReferences": [],
-        "errors": [
-          {
-            "kind": "constructor",
-            "contract": "FlashLoanArbitrage",
-            "src": "contracts\\core\\FlashLoanArbitrage.sol:100"
-          },
-          {
-            "kind": "state-variable-immutable",
-            "name": "flashLoanRouter",
-            "src": "contracts\\core\\FlashLoanArbitrage.sol:44"
-          },
-          {
-            "kind": "state-variable-immutable",
-            "name": "spotArbitrage",
-            "src": "contracts\\core\\FlashLoanArbitrage.sol:46"
-          },
-          {
-            "kind": "state-variable-immutable",
-            "name": "configManager",
-            "src": "contracts\\core\\FlashLoanArbitrage.sol:49"
-          },
-          {
-            "kind": "state-variable-immutable",
-            "name": "arbitrageCore",
-            "src": "contracts\\core\\FlashLoanArbitrage.sol:51"
-          }
-        ],
-        "layout": {
-          "storage": [
-            {
-              "label": "_status",
-              "offset": 0,
-              "slot": "0",
-              "type": "t_uint256",
-              "contract": "ReentrancyGuard",
-              "src": "@openzeppelin\\contracts\\utils\\ReentrancyGuard.sol:40"
-            },
-            {
-              "label": "_owner",
-              "offset": 0,
-              "slot": "1",
-              "type": "t_address",
-              "contract": "Ownable",
-              "src": "@openzeppelin\\contracts\\access\\Ownable.sol:21"
-            },
-            {
-              "label": "_paused",
-              "offset": 20,
-              "slot": "1",
-              "type": "t_bool",
-              "contract": "Pausable",
-              "src": "@openzeppelin\\contracts\\utils\\Pausable.sol:18"
-            },
-            {
-              "label": "platFormWallet",
-              "offset": 0,
-              "slot": "2",
-              "type": "t_address",
-              "contract": "FlashLoanArbitrage",
-              "src": "contracts\\core\\FlashLoanArbitrage.sol:66"
-            },
-            {
-              "label": "executedHistory",
-              "offset": 0,
-              "slot": "3",
-              "type": "t_array(t_struct(ExecutionRecord)4052_storage)dyn_storage",
-              "contract": "FlashLoanArbitrage",
-              "src": "contracts\\core\\FlashLoanArbitrage.sol:76"
-            }
-          ],
-          "types": {
-            "t_address": {
-              "label": "address",
-              "numberOfBytes": "20"
-            },
-            "t_array(t_struct(ExecutionRecord)4052_storage)dyn_storage": {
-              "label": "struct FlashLoanArbitrage.ExecutionRecord[]",
-              "numberOfBytes": "32"
-            },
-            "t_bool": {
-              "label": "bool",
-              "numberOfBytes": "1"
-            },
-            "t_struct(ExecutionRecord)4052_storage": {
-              "label": "struct FlashLoanArbitrage.ExecutionRecord",
-              "members": [
-                {
-                  "label": "initiator",
-                  "type": "t_address",
-                  "offset": 0,
-                  "slot": "0"
-                },
-                {
-                  "label": "tokenIn",
-                  "type": "t_address",
-                  "offset": 0,
-                  "slot": "1"
-                },
-                {
-                  "label": "amountIn",
-                  "type": "t_uint256",
-                  "offset": 0,
-                  "slot": "2"
-                },
-                {
-                  "label": "profit",
-                  "type": "t_uint256",
-                  "offset": 0,
-                  "slot": "3"
-                },
-                {
-                  "label": "timestamp",
-                  "type": "t_uint256",
-                  "offset": 0,
-                  "slot": "4"
-                }
-              ],
-              "numberOfBytes": "160"
-            },
-            "t_uint256": {
-              "label": "uint256",
-              "numberOfBytes": "32"
-            }
-          },
-          "layoutVersion": "1.2",
-          "flat": true,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
-      "contracts/core/FlashLoanArbitrage.sol:IFlashLoanSimple": {
-        "src": "contracts\\core\\FlashLoanArbitrage.sol:13",
-        "inherit": [],
-        "libraries": [],
-        "methods": [
-          "executeOperation(address,uint256,uint256,address,bytes)"
-        ],
-        "linkReferences": [],
-        "errors": [],
-        "layout": {
-          "storage": [],
-          "types": {},
-          "layoutVersion": "1.2",
-          "flat": false,
-          "namespaces": {}
-        },
-        "solcVersion": "0.8.28"
-      },
       "contracts/interfaces/IArbitrage.sol:IArbitrage": {
         "src": "contracts\\interfaces\\IArbitrage.sol:17",
         "inherit": [],
@@ -6098,7 +2877,7 @@
               "label": "configManage",
               "offset": 0,
               "slot": "0",
-              "type": "t_contract(ConfigManage)3994",
+              "type": "t_contract(ConfigManage)3661",
               "contract": "FlashLoanRouter",
               "src": "contracts\\router\\FlashLoanRouter.sol:10"
             },
@@ -6106,7 +2885,7 @@
               "label": "platFormConfigs",
               "offset": 0,
               "slot": "1",
-              "type": "t_mapping(t_enum(LendingPlatForm)4767,t_struct(PlatFormConfig)4774_storage)",
+              "type": "t_mapping(t_enum(LendingPlatForm)3842,t_struct(PlatFormConfig)3849_storage)",
               "contract": "FlashLoanRouter",
               "src": "contracts\\router\\FlashLoanRouter.sol:19"
             }
@@ -6116,11 +2895,11 @@
               "label": "address",
               "numberOfBytes": "20"
             },
-            "t_contract(ConfigManage)3994": {
+            "t_contract(ConfigManage)3661": {
               "label": "contract ConfigManage",
               "numberOfBytes": "20"
             },
-            "t_enum(LendingPlatForm)4767": {
+            "t_enum(LendingPlatForm)3842": {
               "label": "enum FlashLoanRouter.LendingPlatForm",
               "members": [
                 "Aave_V2",
@@ -6130,11 +2909,11 @@
               ],
               "numberOfBytes": "1"
             },
-            "t_mapping(t_enum(LendingPlatForm)4767,t_struct(PlatFormConfig)4774_storage)": {
+            "t_mapping(t_enum(LendingPlatForm)3842,t_struct(PlatFormConfig)3849_storage)": {
               "label": "mapping(enum FlashLoanRouter.LendingPlatForm => struct FlashLoanRouter.PlatFormConfig)",
               "numberOfBytes": "32"
             },
-            "t_struct(PlatFormConfig)4774_storage": {
+            "t_struct(PlatFormConfig)3849_storage": {
               "label": "struct FlashLoanRouter.PlatFormConfig",
               "members": [
                 {
@@ -7642,13 +4421,13 @@
               "label": "configManager",
               "offset": 0,
               "slot": "0",
-              "type": "t_contract(IConfigManager)9077",
+              "type": "t_contract(IConfigManager)9430",
               "contract": "MockFlashLoan",
               "src": "contracts\\Mock\\MockFlashLoan.sol:7"
             }
           ],
           "types": {
-            "t_contract(IConfigManager)9077": {
+            "t_contract(IConfigManager)9430": {
               "label": "contract IConfigManager",
               "numberOfBytes": "20"
             }
@@ -7659,19 +4438,48 @@
         },
         "solcVersion": "0.8.28"
       },
+      "contracts/Mock/MockLendingPool.sol:MockLendingPool": {
+        "src": "contracts\\Mock\\MockLendingPool.sol:12",
+        "version": {
+          "withMetadata": "9c22ce74806af5724a88bd5d48f4c4d0cf6a9508c3285ff7c640f62cd1947cd1",
+          "withoutMetadata": "5f6a01a0d9356d86284ba9eec4c0d2a98f1a81a0192c02bf4729a4bf439a0252",
+          "linkedWithoutMetadata": "5f6a01a0d9356d86284ba9eec4c0d2a98f1a81a0192c02bf4729a4bf439a0252"
+        },
+        "inherit": [],
+        "libraries": [
+          "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol:SafeERC20"
+        ],
+        "methods": [
+          "flashLoanSimple(address,address,uint256,bytes,uint16)",
+          "getFlashLoanPremiumTotal()",
+          "rescueTokens(address,address,uint256)",
+          "()"
+        ],
+        "linkReferences": [],
+        "errors": [],
+        "layout": {
+          "storage": [],
+          "types": {},
+          "layoutVersion": "1.2",
+          "flat": false,
+          "namespaces": {}
+        },
+        "solcVersion": "0.8.28"
+      },
       "contracts/Mock/MockRouter.sol:MockRouter": {
         "src": "contracts\\Mock\\MockRouter.sol:6",
         "version": {
-          "withMetadata": "13d6c0f603315ccc7eee93609b199270d2a8a6721ba785f797676d9b013b0262",
-          "withoutMetadata": "2bb5285978829e1fed359b656dbe4408f225f9f52f108328d36ce740938a2b5c",
-          "linkedWithoutMetadata": "2bb5285978829e1fed359b656dbe4408f225f9f52f108328d36ce740938a2b5c"
+          "withMetadata": "e1453efdbb1d3c6c971b2b7829ed8d130705ad58f6b544bd66354fd31747a676",
+          "withoutMetadata": "8dae084e19f64bfdfc21a2a3eab97c5ead51a48afda45f76e167cacc9971df65",
+          "linkedWithoutMetadata": "8dae084e19f64bfdfc21a2a3eab97c5ead51a48afda45f76e167cacc9971df65"
         },
         "inherit": [],
         "libraries": [],
         "methods": [
           "setPrice(uint256,uint256)",
           "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
-          "depositToken(address,uint256)"
+          "depositToken(address,uint256)",
+          "getAmountsOut(uint256,address[])"
         ],
         "linkReferences": [],
         "errors": [],
@@ -7709,9 +4517,9 @@
       "contracts/core/ArbitrageCore.sol:ArbitrageCore": {
         "src": "contracts\\core\\ArbitrageCore.sol:17",
         "version": {
-          "withMetadata": "30f187463ba81d428a1f2848d35c1657b9e09392ead1c7217e626b996738540a",
-          "withoutMetadata": "a6f25620ddeecc08556e1229d75d7e2b37866858e0fd67ebd62bdd3fd5013fa9",
-          "linkedWithoutMetadata": "a6f25620ddeecc08556e1229d75d7e2b37866858e0fd67ebd62bdd3fd5013fa9"
+          "withMetadata": "9f237928b054364c6f78df088004346ee7b4455741caa4f8185780bea708707c",
+          "withoutMetadata": "69f833a46e2a20c58f1e373bd1d233dbcce01a299bceece2e70ef905ebac743c",
+          "linkedWithoutMetadata": "69f833a46e2a20c58f1e373bd1d233dbcce01a299bceece2e70ef905ebac743c"
         },
         "inherit": [
           "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol:ReentrancyGuardUpgradeable",
@@ -7728,7 +4536,8 @@
           "getVaultInfo(address)",
           "setPaused(bool)",
           "setBackCaller(address)",
-          "executeStrategy(uint8,(address,uint256,address[],address[],uint256,uint256))"
+          "executeStrategy(uint8,(address,address,uint256,address[],address[],uint256,uint256))",
+          "executeFlashLoanArbitrageWithPlatform(uint8,(address,address,uint256,address[],address[],uint256,uint256))"
         ],
         "linkReferences": [],
         "errors": [],
@@ -7738,7 +4547,7 @@
               "label": "spotArbitrage",
               "offset": 0,
               "slot": "0",
-              "type": "t_contract(ISpotArbitrage)9218",
+              "type": "t_contract(ISpotArbitrage)9558",
               "contract": "ArbitrageCore",
               "src": "contracts\\core\\ArbitrageCore.sol:33"
             },
@@ -7746,7 +4555,7 @@
               "label": "flashLoanArbitrage",
               "offset": 0,
               "slot": "1",
-              "type": "t_contract(IFlashLoanSimpleReceiver)9194",
+              "type": "t_contract(IFlashLoanSimpleReceiver)9534",
               "contract": "ArbitrageCore",
               "src": "contracts\\core\\ArbitrageCore.sol:33"
             },
@@ -7754,7 +4563,7 @@
               "label": "configManager",
               "offset": 0,
               "slot": "2",
-              "type": "t_contract(IConfigManager)9077",
+              "type": "t_contract(IConfigManager)9430",
               "contract": "ArbitrageCore",
               "src": "contracts\\core\\ArbitrageCore.sol:35"
             },
@@ -7802,7 +4611,7 @@
               "label": "vaults",
               "offset": 0,
               "slot": "8",
-              "type": "t_mapping(t_address,t_contract(IArbitrageVault)9048)",
+              "type": "t_mapping(t_address,t_contract(IArbitrageVault)9401)",
               "contract": "ArbitrageCore",
               "src": "contracts\\core\\ArbitrageCore.sol:48"
             }
@@ -7870,23 +4679,23 @@
               "label": "address[]",
               "numberOfBytes": "32"
             },
-            "t_contract(IArbitrageVault)9048": {
+            "t_contract(IArbitrageVault)9401": {
               "label": "contract IArbitrageVault",
               "numberOfBytes": "20"
             },
-            "t_contract(IConfigManager)9077": {
+            "t_contract(IConfigManager)9430": {
               "label": "contract IConfigManager",
               "numberOfBytes": "20"
             },
-            "t_contract(IFlashLoanSimpleReceiver)9194": {
+            "t_contract(IFlashLoanSimpleReceiver)9534": {
               "label": "contract IFlashLoanSimpleReceiver",
               "numberOfBytes": "20"
             },
-            "t_contract(ISpotArbitrage)9218": {
+            "t_contract(ISpotArbitrage)9558": {
               "label": "contract ISpotArbitrage",
               "numberOfBytes": "20"
             },
-            "t_mapping(t_address,t_contract(IArbitrageVault)9048)": {
+            "t_mapping(t_address,t_contract(IArbitrageVault)9401)": {
               "label": "mapping(address => contract IArbitrageVault)",
               "numberOfBytes": "32"
             }
@@ -8092,7 +4901,7 @@
               "label": "configManager",
               "offset": 0,
               "slot": "11",
-              "type": "t_contract(IConfigManager)9077",
+              "type": "t_contract(IConfigManager)9430",
               "contract": "ArbitrageVault",
               "src": "contracts\\core\\ArbitrageVault.sol:45"
             },
@@ -8148,7 +4957,7 @@
               "label": "userDeposits",
               "offset": 0,
               "slot": "18",
-              "type": "t_mapping(t_address,t_array(t_struct(DepositRecord)9007_storage)dyn_storage)",
+              "type": "t_mapping(t_address,t_array(t_struct(DepositRecord)9360_storage)dyn_storage)",
               "contract": "ArbitrageVault",
               "src": "contracts\\core\\ArbitrageVault.sol:61"
             },
@@ -8174,7 +4983,7 @@
               "label": "address",
               "numberOfBytes": "20"
             },
-            "t_array(t_struct(DepositRecord)9007_storage)dyn_storage": {
+            "t_array(t_struct(DepositRecord)9360_storage)dyn_storage": {
               "label": "struct IArbitrageVault.DepositRecord[]",
               "numberOfBytes": "32"
             },
@@ -8182,11 +4991,11 @@
               "label": "bool",
               "numberOfBytes": "1"
             },
-            "t_contract(IConfigManager)9077": {
+            "t_contract(IConfigManager)9430": {
               "label": "contract IConfigManager",
               "numberOfBytes": "20"
             },
-            "t_mapping(t_address,t_array(t_struct(DepositRecord)9007_storage)dyn_storage)": {
+            "t_mapping(t_address,t_array(t_struct(DepositRecord)9360_storage)dyn_storage)": {
               "label": "mapping(address => struct IArbitrageVault.DepositRecord[])",
               "numberOfBytes": "32"
             },
@@ -8202,7 +5011,7 @@
               "label": "string",
               "numberOfBytes": "32"
             },
-            "t_struct(DepositRecord)9007_storage": {
+            "t_struct(DepositRecord)9360_storage": {
               "label": "struct IArbitrageVault.DepositRecord",
               "members": [
                 {
@@ -8453,24 +5262,25 @@
         "solcVersion": "0.8.28"
       },
       "contracts/core/FlashLoanArbitrage.sol:FlashLoanArbitrage": {
-        "src": "contracts\\core\\FlashLoanArbitrage.sol:16",
+        "src": "contracts\\core\\FlashLoanArbitrage.sol:30",
         "version": {
-          "withMetadata": "8b1e167308734e74a27bdb41cf0a06245a59226a9ed850517cfa51ce7f51f849",
-          "withoutMetadata": "daa3647ae2765fb5300a98b1fe232c45f72d0ca9c46bab0d0984aa5af28c4b5c",
-          "linkedWithoutMetadata": "daa3647ae2765fb5300a98b1fe232c45f72d0ca9c46bab0d0984aa5af28c4b5c"
+          "withMetadata": "0f815f6f56b62a65a69c6d107055de98a9a859cb0e951f111054edab0d53510a",
+          "withoutMetadata": "c8c8f9730aaafc88ff6b0646c6fbd0b05b2576ad54779e845dd977a0393fbeab",
+          "linkedWithoutMetadata": "c8c8f9730aaafc88ff6b0646c6fbd0b05b2576ad54779e845dd977a0393fbeab"
         },
         "inherit": [
           "@openzeppelin/contracts/utils/Pausable.sol:Pausable",
           "@openzeppelin/contracts/access/Ownable.sol:Ownable",
           "@openzeppelin/contracts/utils/Context.sol:Context",
           "@openzeppelin/contracts/utils/ReentrancyGuard.sol:ReentrancyGuard",
-          "contracts/interfaces/IFlashLoanSimpleReceiver.sol:IFlashLoanSimpleReceiver"
+          "contracts/core/FlashLoanArbitrage.sol:IFlashLoanSimple"
         ],
         "libraries": [],
         "methods": [
           "(address,address,address,address,address)",
+          "setArbitrageCore(address)",
           "executeOperation(address,uint256,uint256,address,bytes)",
-          "executeFlashLoan(uint8,address,uint256,address[],address[],uint256,uint256)",
+          "executeFlashLoan(uint8,address,address,uint256,address[],address[],uint256,uint256)",
           "pause()",
           "unpause()",
           "getExecutionHistoryLength()"
@@ -8480,27 +5290,22 @@
           {
             "kind": "constructor",
             "contract": "FlashLoanArbitrage",
-            "src": "contracts\\core\\FlashLoanArbitrage.sol:89"
+            "src": "contracts\\core\\FlashLoanArbitrage.sol:99"
           },
           {
             "kind": "state-variable-immutable",
             "name": "flashLoanRouter",
-            "src": "contracts\\core\\FlashLoanArbitrage.sol:31"
+            "src": "contracts\\core\\FlashLoanArbitrage.sol:45"
           },
           {
             "kind": "state-variable-immutable",
             "name": "spotArbitrage",
-            "src": "contracts\\core\\FlashLoanArbitrage.sol:33"
+            "src": "contracts\\core\\FlashLoanArbitrage.sol:47"
           },
           {
             "kind": "state-variable-immutable",
             "name": "configManager",
-            "src": "contracts\\core\\FlashLoanArbitrage.sol:34"
-          },
-          {
-            "kind": "state-variable-immutable",
-            "name": "arbitrageCore",
-            "src": "contracts\\core\\FlashLoanArbitrage.sol:35"
+            "src": "contracts\\core\\FlashLoanArbitrage.sol:50"
           }
         ],
         "layout": {
@@ -8530,20 +5335,28 @@
               "src": "@openzeppelin\\contracts\\utils\\Pausable.sol:18"
             },
             {
-              "label": "platFormWallet",
+              "label": "arbitrageCore",
               "offset": 0,
               "slot": "2",
               "type": "t_address",
               "contract": "FlashLoanArbitrage",
-              "src": "contracts\\core\\FlashLoanArbitrage.sol:50"
+              "src": "contracts\\core\\FlashLoanArbitrage.sol:52"
+            },
+            {
+              "label": "platFormWallet",
+              "offset": 0,
+              "slot": "3",
+              "type": "t_address",
+              "contract": "FlashLoanArbitrage",
+              "src": "contracts\\core\\FlashLoanArbitrage.sol:63"
             },
             {
               "label": "executedHistory",
               "offset": 0,
-              "slot": "3",
-              "type": "t_array(t_struct(ExecutionRecord)7046_storage)dyn_storage",
+              "slot": "4",
+              "type": "t_array(t_struct(ExecutionRecord)7338_storage)dyn_storage",
               "contract": "FlashLoanArbitrage",
-              "src": "contracts\\core\\FlashLoanArbitrage.sol:59"
+              "src": "contracts\\core\\FlashLoanArbitrage.sol:75"
             }
           ],
           "types": {
@@ -8551,7 +5364,7 @@
               "label": "address",
               "numberOfBytes": "20"
             },
-            "t_array(t_struct(ExecutionRecord)7046_storage)dyn_storage": {
+            "t_array(t_struct(ExecutionRecord)7338_storage)dyn_storage": {
               "label": "struct FlashLoanArbitrage.ExecutionRecord[]",
               "numberOfBytes": "32"
             },
@@ -8559,7 +5372,7 @@
               "label": "bool",
               "numberOfBytes": "1"
             },
-            "t_struct(ExecutionRecord)7046_storage": {
+            "t_struct(ExecutionRecord)7338_storage": {
               "label": "struct FlashLoanArbitrage.ExecutionRecord",
               "members": [
                 {
@@ -8606,12 +5419,30 @@
         },
         "solcVersion": "0.8.28"
       },
+      "contracts/core/FlashLoanArbitrage.sol:IFlashLoanSimple": {
+        "src": "contracts\\core\\FlashLoanArbitrage.sol:13",
+        "inherit": [],
+        "libraries": [],
+        "methods": [
+          "executeOperation(address,uint256,uint256,address,bytes)"
+        ],
+        "linkReferences": [],
+        "errors": [],
+        "layout": {
+          "storage": [],
+          "types": {},
+          "layoutVersion": "1.2",
+          "flat": false,
+          "namespaces": {}
+        },
+        "solcVersion": "0.8.28"
+      },
       "contracts/core/SpotArbitrage.sol:SpotArbitrage": {
         "src": "contracts\\core\\SpotArbitrage.sol:12",
         "version": {
-          "withMetadata": "5d488517daa2c5b19584851de94ad2151048f7e221fc1f1c3f207198abbfb8ed",
-          "withoutMetadata": "8330a9b07dc4116445970da6611829c3ba651e7f01500a8b9e396a6e783764e7",
-          "linkedWithoutMetadata": "8330a9b07dc4116445970da6611829c3ba651e7f01500a8b9e396a6e783764e7"
+          "withMetadata": "4c1afee45c23e24b111973376a8decbfe5f7fb1f886f92a0d706d50ce9a50598",
+          "withoutMetadata": "f51e5cef1d9db5f8889ec17a38e40a2fefcfa6f7b87c3aefd89adf1ad9489eae",
+          "linkedWithoutMetadata": "f51e5cef1d9db5f8889ec17a38e40a2fefcfa6f7b87c3aefd89adf1ad9489eae"
         },
         "inherit": [
           "contracts/interfaces/ISpotArbitrage.sol:ISpotArbitrage"
@@ -8648,7 +5479,7 @@
               "label": "doubleRouterIntegration",
               "offset": 0,
               "slot": "1",
-              "type": "t_contract(IDoubleRouterIntegration)9121",
+              "type": "t_contract(IDoubleRouterIntegration)9474",
               "contract": "SpotArbitrage",
               "src": "contracts\\core\\SpotArbitrage.sol:15"
             },
@@ -8656,7 +5487,7 @@
               "label": "uniswapV2Integration",
               "offset": 0,
               "slot": "2",
-              "type": "t_contract(IUniswapV2Integration)9264",
+              "type": "t_contract(IUniswapV2Integration)9604",
               "contract": "SpotArbitrage",
               "src": "contracts\\core\\SpotArbitrage.sol:16"
             }
@@ -8666,11 +5497,11 @@
               "label": "address",
               "numberOfBytes": "20"
             },
-            "t_contract(IDoubleRouterIntegration)9121": {
+            "t_contract(IDoubleRouterIntegration)9474": {
               "label": "contract IDoubleRouterIntegration",
               "numberOfBytes": "20"
             },
-            "t_contract(IUniswapV2Integration)9264": {
+            "t_contract(IUniswapV2Integration)9604": {
               "label": "contract IUniswapV2Integration",
               "numberOfBytes": "20"
             }
@@ -8684,9 +5515,9 @@
       "contracts/integrations/DoubleRouterIntegration.sol:DoubleRouterIntegration": {
         "src": "contracts\\integrations\\DoubleRouterIntegration.sol:10",
         "version": {
-          "withMetadata": "4cb464c9db5cf45a22ae639326e032e8aae912dc3c063f0616d0bbcf813ef7a0",
-          "withoutMetadata": "18beddfccd9a0825348bed1709b1577209fafc20c9ff68ffd9551f31a6a6bbbf",
-          "linkedWithoutMetadata": "18beddfccd9a0825348bed1709b1577209fafc20c9ff68ffd9551f31a6a6bbbf"
+          "withMetadata": "596eb08adf13dd8fb3605602b7152e99ab5f6be7236b0d784620509cc89573c0",
+          "withoutMetadata": "6e7297d04a8410242b190eca3cc3549bf95a2735b2195a5b5dc47bbe47a168c8",
+          "linkedWithoutMetadata": "6e7297d04a8410242b190eca3cc3549bf95a2735b2195a5b5dc47bbe47a168c8"
         },
         "inherit": [
           "contracts/interfaces/IDoubleRouterIntegration.sol:IDoubleRouterIntegration"
@@ -8715,7 +5546,7 @@
               "label": "configManage",
               "offset": 0,
               "slot": "0",
-              "type": "t_contract(ConfigManage)7003",
+              "type": "t_contract(ConfigManage)7280",
               "contract": "DoubleRouterIntegration",
               "src": "contracts\\integrations\\DoubleRouterIntegration.sol:15"
             },
@@ -8753,7 +5584,7 @@
               "label": "address[]",
               "numberOfBytes": "32"
             },
-            "t_contract(ConfigManage)7003": {
+            "t_contract(ConfigManage)7280": {
               "label": "contract ConfigManage",
               "numberOfBytes": "20"
             },
@@ -8801,7 +5632,7 @@
               "label": "configManage",
               "offset": 0,
               "slot": "0",
-              "type": "t_contract(ConfigManage)7003",
+              "type": "t_contract(ConfigManage)7280",
               "contract": "UniswapV2Integration",
               "src": "contracts\\integrations\\UniswapV2Integration.sol:17"
             },
@@ -8827,7 +5658,7 @@
               "label": "address",
               "numberOfBytes": "20"
             },
-            "t_contract(ConfigManage)7003": {
+            "t_contract(ConfigManage)7280": {
               "label": "contract ConfigManage",
               "numberOfBytes": "20"
             },
@@ -8964,8 +5795,7 @@
         "inherit": [],
         "libraries": [],
         "methods": [
-          "executeOperation(address,uint256,uint256,address,bytes)",
-          "executeFlashLoan(uint8,address,uint256,address[],address[],uint256,uint256)"
+          "executeFlashLoan(uint8,address,address,uint256,address[],address[],uint256,uint256)"
         ],
         "linkReferences": [],
         "errors": [],
@@ -9090,7 +5920,7 @@
               "label": "configManage",
               "offset": 0,
               "slot": "0",
-              "type": "t_contract(ConfigManage)7003",
+              "type": "t_contract(ConfigManage)7280",
               "contract": "FlashLoanRouter",
               "src": "contracts\\router\\FlashLoanRouter.sol:10"
             },
@@ -9098,7 +5928,7 @@
               "label": "platFormConfigs",
               "offset": 0,
               "slot": "1",
-              "type": "t_mapping(t_enum(LendingPlatForm)9668,t_struct(PlatFormConfig)9675_storage)",
+              "type": "t_mapping(t_enum(LendingPlatForm)10008,t_struct(PlatFormConfig)10015_storage)",
               "contract": "FlashLoanRouter",
               "src": "contracts\\router\\FlashLoanRouter.sol:19"
             }
@@ -9108,11 +5938,11 @@
               "label": "address",
               "numberOfBytes": "20"
             },
-            "t_contract(ConfigManage)7003": {
+            "t_contract(ConfigManage)7280": {
               "label": "contract ConfigManage",
               "numberOfBytes": "20"
             },
-            "t_enum(LendingPlatForm)9668": {
+            "t_enum(LendingPlatForm)10008": {
               "label": "enum FlashLoanRouter.LendingPlatForm",
               "members": [
                 "Aave_V2",
@@ -9122,11 +5952,11 @@
               ],
               "numberOfBytes": "1"
             },
-            "t_mapping(t_enum(LendingPlatForm)9668,t_struct(PlatFormConfig)9675_storage)": {
+            "t_mapping(t_enum(LendingPlatForm)10008,t_struct(PlatFormConfig)10015_storage)": {
               "label": "mapping(enum FlashLoanRouter.LendingPlatForm => struct FlashLoanRouter.PlatFormConfig)",
               "numberOfBytes": "32"
             },
-            "t_struct(PlatFormConfig)9675_storage": {
+            "t_struct(PlatFormConfig)10015_storage": {
               "label": "struct FlashLoanRouter.PlatFormConfig",
               "members": [
                 {

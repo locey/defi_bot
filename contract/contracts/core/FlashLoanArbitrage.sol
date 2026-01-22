@@ -37,7 +37,7 @@ contract FlashLoanArbitrage is IFlashLoanSimple, ReentrancyGuard, Ownable, Pausa
     ISpotArbitrage public immutable spotArbitrage;
     IConfigManager public immutable configManager;//参数管理
 
-    address public immutable arbitrageCore; // 核心调度合约（不可变，避免被篡改）
+    address public  arbitrageCore; // 核心调度合约
 
     // 平台手续费：利润的10%（千分比，1000 = 10%）
     //uint256 public constant PROFIT_SHARE_FEE = 100; // 10% 平台分润手续费
@@ -96,7 +96,6 @@ contract FlashLoanArbitrage is IFlashLoanSimple, ReentrancyGuard, Ownable, Pausa
     ) Ownable(msg.sender) {
         require(_flashLoanRouter != address(0), "FlashLoanArbitrage: invalid flashLoanRouter");
         require(_spotArbitrage != address(0), "FlashLoanArbitrage: invalid spotArbitrage");
-        require(_arbitrageCore != address(0), "FlashLoanArbitrage: invalid arbitrageCore");
         require(_platFormWallet != address(0), "FlashLoanArbitrage: invalid platFormWallet");
         require(_configManager != address(0), "FlashLoanArbitrage: invalid configManager");
 
@@ -106,6 +105,11 @@ contract FlashLoanArbitrage is IFlashLoanSimple, ReentrancyGuard, Ownable, Pausa
         //feeRecipient = _feeRecipient;
         platFormWallet = _platFormWallet;
         configManager = IConfigManager(_configManager);
+    }
+
+    function setArbitrageCore(address _arbitrageCore) external onlyOwner {
+        require(_arbitrageCore != address(0), "FlashLoanArbitrage: invalid arbitrageCore");
+        arbitrageCore = _arbitrageCore;
     }
 
     // ===================== 核心回调函数=====================
@@ -198,6 +202,7 @@ contract FlashLoanArbitrage is IFlashLoanSimple, ReentrancyGuard, Ownable, Pausa
     // ===================== 发起闪电贷 =====================
     function executeFlashLoan(
         FlashLoanRouter.LendingPlatForm platform,
+        address asset,
         address tokenOut,
         uint256 amountIn,
         address[] calldata swapPath,
@@ -210,11 +215,12 @@ contract FlashLoanArbitrage is IFlashLoanSimple, ReentrancyGuard, Ownable, Pausa
         require(dexes.length > 0, "FlashLoanArbitrage: dexes cannot be empty");
         require(amountIn > 0, "FlashLoanArbitrage: amountIn must >0");
         require(minProfit > 0, "FlashLoanArbitrage: minProfit must >0");
+        require(asset != address(0), "FlashLoanArbitrage: invalid asset");
 
         // 构造回调参数
         bytes memory params = abi.encode(
             msg.sender, // initiator = ArbitrageCore
-            tokenOut,
+            asset,
             amountIn,
             swapPath,
             dexes,
@@ -226,7 +232,7 @@ contract FlashLoanArbitrage is IFlashLoanSimple, ReentrancyGuard, Ownable, Pausa
         try flashLoanRouter.requestFlashLoan(
             platform,
             address(this),
-            tokenOut,
+            asset,
             amountIn,
             params
         ) {
