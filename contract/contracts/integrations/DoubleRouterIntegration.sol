@@ -6,19 +6,26 @@ import "../interfaces/IUniswapV2Router02.sol";
 import "../interfaces/IDoubleRouterIntegration.sol";
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-contract DoubleRouterIntegration is IDoubleRouterIntegration {
+contract DoubleRouterIntegration is IDoubleRouterIntegration, Initializable, UUPSUpgradeable, OwnableUpgradeable {
 
     using SafeERC20 for IERC20;
 
-    // address vault = ConfigManage.arbitrageVault;
     ConfigManage public configManage;
     uint256 public slippageTolerance;
-    address public admin;
     address[] public mrouters;
 
-    constructor(address _configManage) {
-        admin = msg.sender;
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(address _configManage) public initializer {
+        __Ownable_init(msg.sender);
+        __UUPSUpgradeable_init();
         configManage = ConfigManage(_configManage);
         slippageTolerance = configManage.slippageTolerance();
     }
@@ -39,22 +46,7 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration {
         uint256 outAmount
     );
 
-    /**
-     * 多路由验证路径是否可获利
-     * 请求参数：
-     *      amountIn：交易数量
-     *      path：交易路径
-     *           [A, B, C, A]
-     *      routers：路由
-     *           每跳的 router，如 [uni, sushi, uni]
-     * 返回参数：
-     *      profitable: 是否可获利
-     *      finalAmount：返回数量
-     *      profit：利润（负数表示亏损）
-     */
-
-    function setRouters(address[] calldata _routers) external {
-        require(msg.sender == admin, "Only admin");
+    function setRouters(address[] calldata _routers) external onlyOwner {
         require(_routers.length > 0 , "Empty routers");
         mrouters = _routers;
     }
@@ -93,7 +85,6 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration {
             try swapRouter.getAmountsOut(currentAmount, stepPath) returns (uint256[] memory result) {
                 amounts = result;
             } catch {
-                // 任意跳失败 = 套利不成立
                 return (false, 0, -1);
             }
 
@@ -108,17 +99,6 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration {
         return (isProfit, finalOut, profitAmount);
     }
 
-    /**
-     * 双路由交易
-     * @param spot 入账地址
-     * @param tokenIn 初始代币
-     * @param tokenOut 最终代币
-     * @param amountIn 交易数量
-     * @param swapPath 交易路由
-     * @param dexes AMM路由
-     * @param expectProfit 期望利润
-     * @param minProfit 最小利润
-     */  
     function doubleRouterSwap(
         address spot,
         address tokenIn,
@@ -161,46 +141,37 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration {
         uint256 deadline,
         uint256 aveProfit
     ) internal returns (uint256 outAmount) {
-        // 授权
         IERC20(fromToken).approve(routerAddr, 0);
         IERC20(fromToken).approve(routerAddr, currentAmount);
 
-        // 构建路径
         address[] memory path = new address[](2);
         path[0] = fromToken;
         path[1] = toToken;
 
-        // 计算预期输出
         uint[] memory amounts = IUniswapV2Router02(routerAddr).getAmountsOut(currentAmount, path);
         uint256 expectedOut = amounts[amounts.length - 1];
         
-        // 检查预期输出是否合理
         require(expectedOut > currentAmount, "No profit potential");
         require(expectedOut >= currentAmount + aveProfit, "Insufficient profit margin");
         
-        // 计算滑点容忍度
         uint256 maxLoss = expectedOut - currentAmount - aveProfit;
         require(maxLoss > 0, "No slippage room");
         
-        // 计算滑点百分比（使用unchecked避免溢出）
         uint256 slippageBps;
         unchecked {
             slippageBps = (maxLoss * 10000) / expectedOut;
         }
         
-        // slippageTolerance为默认的最大滑点容忍度，不得超过这个值
         if (slippageBps > slippageTolerance) {
             slippageBps = slippageTolerance;
         }
         
-        // 计算最小输出（使用unchecked避免溢出）
         uint256 minOut;
         unchecked {
             minOut = (expectedOut * (10000 - slippageBps)) / 10000;
         }
         minOut = minOut == 0 ? 1 : minOut;
 
-        // 执行兑换
         outAmount = IUniswapV2Router02(routerAddr).swapExactTokensForTokens(
             currentAmount,
             minOut,
@@ -209,8 +180,8 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration {
             deadline
         )[1];
 
-        // 触发事件
         emit DoubleRouterSwap2(routerAddr, fromToken, toToken, currentAmount, outAmount);
-    }                         
+    }
 
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 }

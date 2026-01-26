@@ -6,20 +6,28 @@ import "../interfaces/IUniswapV2Router02.sol";
 import "../core/ConfigManage.sol";
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 /**
 * IUniswapV2Router02支持uniswap和sushuiswap
 */
-contract UniswapV2Integration is IUniswapV2Integration {
+contract UniswapV2Integration is IUniswapV2Integration, Initializable, UUPSUpgradeable, OwnableUpgradeable {
     
     using SafeERC20 for IERC20;
 
     ConfigManage public configManage;
     uint public slippageTolerance;
-    address public admin;
 
-    constructor(address _configManage) {
-        admin = msg.sender;
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(address _configManage) public initializer {
+        __Ownable_init(msg.sender);
+        __UUPSUpgradeable_init();
         configManage = ConfigManage(_configManage);
         slippageTolerance = configManage.slippageTolerance();
     }
@@ -213,4 +221,6 @@ contract UniswapV2Integration is IUniswapV2Integration {
         path[0] = token0 == address(0) ? IUniswap.WETH() : token0;
         path[1] = token1 == address(0) ? IUniswap.WETH() : token1;
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 }
