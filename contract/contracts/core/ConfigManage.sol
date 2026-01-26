@@ -33,7 +33,7 @@ contract ConfigManage is IConfigManager, Initializable, OwnableUpgradeable, UUPS
     address public sushiSwapRouter;
     address public arbitrageVault;
 
-    event Upgrade(address indexed implemetation, uint256 version);
+    event Upgrade(address indexed implementation, uint256 version);
     event DepositFeeUpdated(uint256 newFee);
     event WithdrawFeeUpdated(uint256 newFee);
     event PerformanceFeeUpdated(uint256 newFee);
@@ -83,6 +83,31 @@ contract ConfigManage is IConfigManager, Initializable, OwnableUpgradeable, UUPS
     function setProfitShareFee(uint256 feeBps) external onlyOwner {
         require(feeBps < 10000, "feeBps too high");
         _profitShareFee = feeBps;
+    }
+
+    // 添加set函数来更新关键合约地址
+    function setLendingPool(address _lendingPool) external onlyOwner {
+        require(_lendingPool != address(0), "Invalid lending pool");
+        lendingPool = _lendingPool;
+    }
+
+    function setUniswapV2Router(address _uniswapV2Router) external onlyOwner {
+        require(_uniswapV2Router != address(0), "Invalid uniswapV2 router");
+        uniswapV2Router = _uniswapV2Router;
+    }
+
+    function setUniswapV3Router(address _uniswapV3Router) external onlyOwner {
+        require(_uniswapV3Router != address(0), "Invalid uniswapV3 router");
+        uniswapV3Router = _uniswapV3Router;
+    }
+
+    function setSushiSwapRouter(address _sushiSwapRouter) external onlyOwner {
+        require(_sushiSwapRouter != address(0), "Invalid sushiSwap router");
+        sushiSwapRouter = _sushiSwapRouter;
+    }
+
+    function setArbitrageVault(address _arbitrageVault) external onlyOwner {
+        arbitrageVault = _arbitrageVault;
     }
 
     // ========== 可插拔费用配置 ==========

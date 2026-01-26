@@ -62,7 +62,7 @@ contract FlashLoanRouter {
         address asset,
         uint256 amount,
         bytes calldata params
-    )external {
+    )external onlyAdmin {
         //1.校验平台配置
         PlatFormConfig memory config = platFormConfigs[platform];
         require(config.lendingPool != address(0), "platform not invalid");

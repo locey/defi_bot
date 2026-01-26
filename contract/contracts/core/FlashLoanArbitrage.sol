@@ -35,7 +35,7 @@ contract FlashLoanArbitrage is IFlashLoanSimple, ReentrancyGuard, Ownable, Pausa
     // 核心合约依赖（不可变，部署时初始化）
     FlashLoanRouter public immutable flashLoanRouter;
     ISpotArbitrage public immutable spotArbitrage;
-    IConfigManager public immutable configManager;//参数管理
+    IConfigManager public configManager;//参数管理
 
     address public  arbitrageCore; // 核心调度合约
 
@@ -46,7 +46,7 @@ contract FlashLoanArbitrage is IFlashLoanSimple, ReentrancyGuard, Ownable, Pausa
     address public platFormWallet;
 
     // 执行记录结构体及数组
-    struct ExecutionRecord {
+    struct ExecutionRecord { 
         address initiator;
         address tokenIn;
         uint256 amountIn;
@@ -110,6 +110,18 @@ contract FlashLoanArbitrage is IFlashLoanSimple, ReentrancyGuard, Ownable, Pausa
     function setArbitrageCore(address _arbitrageCore) external onlyOwner {
         require(_arbitrageCore != address(0), "FlashLoanArbitrage: invalid arbitrageCore");
         arbitrageCore = _arbitrageCore;
+    }
+
+    function setPlatFormWallet(address _platFormWallet) external onlyOwner {
+        require(_platFormWallet != address(0), "FlashLoanArbitrage: invalid platFormWallet");
+        address oldWallet = platFormWallet;
+        platFormWallet = _platFormWallet;
+        emit FeeRecipientUpdated(oldWallet, _platFormWallet);
+    }
+
+    function setConfigManager(address _configManager) external onlyOwner {
+        require(_configManager != address(0), "FlashLoanArbitrage: invalid configManager");
+        configManager = IConfigManager(_configManager);
     }
 
     // ===================== 核心回调函数=====================
@@ -259,7 +271,7 @@ contract FlashLoanArbitrage is IFlashLoanSimple, ReentrancyGuard, Ownable, Pausa
     /**
      * @dev 获取执行历史总数
      */
-    function getExecutionHistoryLength() external view returns (uint256) {
+    function getExecutionHistoryLength() external onlyOwner view returns (uint256) {
         return executedHistory.length;
     }
 }

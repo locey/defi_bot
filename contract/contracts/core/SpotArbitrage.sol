@@ -7,9 +7,9 @@ import "../interfaces/IUniswapV2Integration.sol";
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-
-contract SpotArbitrage is ISpotArbitrage {
+contract SpotArbitrage is ISpotArbitrage, Ownable {
     using SafeERC20 for IERC20;
     address public arbitrageCore;
     IDoubleRouterIntegration private doubleRouterIntegration;
@@ -19,12 +19,17 @@ contract SpotArbitrage is ISpotArbitrage {
         address _doubleRouterIntegration,
         address _uniswapV2Integration,
         address _arbitrageCore
-    ) {
+    ) Ownable(msg.sender) {
         doubleRouterIntegration = IDoubleRouterIntegration(
             _doubleRouterIntegration
         );
         uniswapV2Integration = IUniswapV2Integration(_uniswapV2Integration);
         arbitrageCore = _arbitrageCore;
+    }
+
+    modifier onlyArbitrageCore() {
+        require(msg.sender == arbitrageCore, "Spot: not arbitrageCore");
+        _;
     }
 
     /**
@@ -37,7 +42,7 @@ contract SpotArbitrage is ISpotArbitrage {
      */
 
     function setDoubleRouterIntegration(address _doubleRouterIntegration)
-        external
+        external onlyOwner
     {   require(_doubleRouterIntegration != address(0), "Spot: invalid doubleRouterIntegration");
         doubleRouterIntegration = IDoubleRouterIntegration(
             _doubleRouterIntegration
@@ -45,14 +50,14 @@ contract SpotArbitrage is ISpotArbitrage {
     }
 
     function setUniswapV2Integration(address _uniswapV2Integration)
-        external
+        external onlyOwner
     {   require(_uniswapV2Integration != address(0), "Spot: invalid uniswapV2Integration");
         uniswapV2Integration = IUniswapV2Integration(
             _uniswapV2Integration
         );
     }
 
-    function setArbitrageCore(address _arbitrageCore) external {
+    function setArbitrageCore(address _arbitrageCore) external onlyOwner {
         require(
             arbitrageCore == address(0),
             "Spot: arbitrageCore already set"
@@ -69,7 +74,7 @@ contract SpotArbitrage is ISpotArbitrage {
         address[] calldata dexes,
         uint256 expectProfit,
         uint256 minProfit
-    ) external returns (uint256 amountOut) {
+    ) external onlyArbitrageCore returns (uint256 amountOut) {
         // 检查金额是否已收到
         require(
             IERC20(asset).balanceOf(address(this)) >= amountIn,

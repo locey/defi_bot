@@ -121,7 +121,6 @@ contract ArbitrageVault is IArbitrageVault, ERC20, ReentrancyGuard, Ownable {
         configManager = IConfigManager(_newConfigManager);
     }
 
-
     // ========== ERC4626 核心函数 ==========
     
     /**
