@@ -34,7 +34,7 @@ contract FlashLoanArbitrage is IFlashLoanSimple, ReentrancyGuard, Ownable, Pausa
 
     // 核心合约依赖（不可变，部署时初始化）
     FlashLoanRouter public immutable flashLoanRouter;
-    ISpotArbitrage public immutable spotArbitrage;
+    ISpotArbitrage public spotArbitrage;
     IConfigManager public configManager;//参数管理
 
     address public  arbitrageCore; // 核心调度合约
@@ -122,6 +122,11 @@ contract FlashLoanArbitrage is IFlashLoanSimple, ReentrancyGuard, Ownable, Pausa
     function setConfigManager(address _configManager) external onlyOwner {
         require(_configManager != address(0), "FlashLoanArbitrage: invalid configManager");
         configManager = IConfigManager(_configManager);
+    }
+
+    function setSpotArbitrage(address _spotArbitrage) external onlyOwner {
+        require(_spotArbitrage != address(0), "FlashLoanArbitrage: invalid spotArbitrage");
+        spotArbitrage = ISpotArbitrage(_spotArbitrage);
     }
 
     // ===================== 核心回调函数=====================
