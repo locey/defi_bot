@@ -21,8 +21,7 @@ interface IArbitrage {
         address[] dexes;
         uint256 expectProfit;
         uint256 minProfit;
-        //bool isFlashLoan;
-        //uint8 flashLoanPlatForm;
+        bool   isCex;
     }
 
 }

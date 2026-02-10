@@ -1,15 +1,10 @@
 {
   "_format": "hh-sol-cache-2",
   "files": {
-<<<<<<< HEAD
     "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\contract\\contracts\\core\\ArbitrageCore.sol": {
-      "lastModificationDate": 1768538186636,
-      "contentHash": "286e9726a0ec103553487f967d267ba5",
-=======
-    "/home/wangpeng/defi_bot/contract/contracts/Mock/MockArbitrageVault.sol": {
-      "lastModificationDate": 1767167357844,
-      "contentHash": "23d5d0e8f2f3821c110a08c583afb4f0",
-      "sourceName": "contracts/Mock/MockArbitrageVault.sol",
+      "lastModificationDate": 1770368579914,
+      "contentHash": "bacbb6fb59291ea72f79d19f846eb251",
+      "sourceName": "contracts/core/ArbitrageCore.sol",
       "solcConfig": {
         "version": "0.8.28",
         "settings": {
@@ -37,624 +32,27 @@
         }
       },
       "imports": [
-        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
-        "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "MockArbitrageVault"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol": {
-      "lastModificationDate": 1768893303731,
-      "contentHash": "9261adf6457863de3e9892f51317ec89",
-      "sourceName": "@openzeppelin/contracts/token/ERC20/IERC20.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        ">=0.4.16"
-      ],
-      "artifacts": [
-        "IERC20"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/node_modules/@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol": {
-      "lastModificationDate": 1768893303759,
-      "contentHash": "1fb9edee1d763745a62d0b1954998792",
-      "sourceName": "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../IERC20.sol",
-        "../../../interfaces/IERC1363.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "SafeERC20"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/node_modules/@openzeppelin/contracts/interfaces/IERC1363.sol": {
-      "lastModificationDate": 1768893303727,
-      "contentHash": "a7fd0f05e36b0d0a21c75340c9c639ec",
-      "sourceName": "@openzeppelin/contracts/interfaces/IERC1363.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "./IERC20.sol",
-        "./IERC165.sol"
-      ],
-      "versionPragmas": [
-        ">=0.6.2"
-      ],
-      "artifacts": [
-        "IERC1363"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/node_modules/@openzeppelin/contracts/interfaces/IERC20.sol": {
-      "lastModificationDate": 1768893303731,
-      "contentHash": "68620db2da7583d9a4919096ac77f577",
-      "sourceName": "@openzeppelin/contracts/interfaces/IERC20.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../token/ERC20/IERC20.sol"
-      ],
-      "versionPragmas": [
-        ">=0.4.16"
-      ],
-      "artifacts": []
-    },
-    "/home/wangpeng/defi_bot/contract/node_modules/@openzeppelin/contracts/interfaces/IERC165.sol": {
-      "lastModificationDate": 1768893303731,
-      "contentHash": "947853028399b7de34bcc3704ee06e99",
-      "sourceName": "@openzeppelin/contracts/interfaces/IERC165.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../utils/introspection/IERC165.sol"
-      ],
-      "versionPragmas": [
-        ">=0.4.16"
-      ],
-      "artifacts": []
-    },
-    "/home/wangpeng/defi_bot/contract/node_modules/@openzeppelin/contracts/utils/introspection/IERC165.sol": {
-      "lastModificationDate": 1768893303731,
-      "contentHash": "7074c93b1ea0a122063f26ddd1db1032",
-      "sourceName": "@openzeppelin/contracts/utils/introspection/IERC165.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        ">=0.4.16"
-      ],
-      "artifacts": [
-        "IERC165"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/node_modules/@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol": {
-      "lastModificationDate": 1768893303731,
-      "contentHash": "513778b30d2750f5d2b9b19bbcf748a5",
-      "sourceName": "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../IERC20.sol"
-      ],
-      "versionPragmas": [
-        ">=0.6.2"
-      ],
-      "artifacts": [
-        "IERC20Metadata"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/node_modules/@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol": {
-      "lastModificationDate": 1768893336885,
-      "contentHash": "f5cb0cb4dcb2ad0074b448995119804b",
-      "sourceName": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
-        "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol",
-        "../../utils/ContextUpgradeable.sol",
-        "@openzeppelin/contracts/interfaces/draft-IERC6093.sol",
-        "../../proxy/utils/Initializable.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "ERC20Upgradeable"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/node_modules/@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol": {
-      "lastModificationDate": 1768893336854,
-      "contentHash": "c28aaa25d083a9a55bd9ec9e0b785122",
-      "sourceName": "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../proxy/utils/Initializable.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "ContextUpgradeable"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/node_modules/@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol": {
-      "lastModificationDate": 1768893336913,
-      "contentHash": "2acae54ad209714bca07edf4bae32f72",
-      "sourceName": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "Initializable"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/node_modules/@openzeppelin/contracts/interfaces/draft-IERC6093.sol": {
-      "lastModificationDate": 1768893303665,
-      "contentHash": "5041977bbe908de2e6ed0270447f79ad",
-      "sourceName": "@openzeppelin/contracts/interfaces/draft-IERC6093.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        ">=0.8.4"
-      ],
-      "artifacts": [
-        "IERC1155Errors",
-        "IERC20Errors",
-        "IERC721Errors"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol": {
-      "lastModificationDate": 1768893303688,
-      "contentHash": "59dfce11284f2636db261df9b6a18f81",
-      "sourceName": "@openzeppelin/contracts/token/ERC20/ERC20.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "./IERC20.sol",
-        "./extensions/IERC20Metadata.sol",
-        "../../utils/Context.sol",
-        "../../interfaces/draft-IERC6093.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "ERC20"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/node_modules/@openzeppelin/contracts/utils/Context.sol": {
-      "lastModificationDate": 1768893303645,
-      "contentHash": "67bfbc07588eb8683b3fd8f6f909563e",
-      "sourceName": "@openzeppelin/contracts/utils/Context.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "Context"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/node_modules/@openzeppelin/contracts/utils/Pausable.sol": {
-      "lastModificationDate": 1768893303755,
-      "contentHash": "0d47b53e10b1985efbb396f937626279",
-      "sourceName": "@openzeppelin/contracts/utils/Pausable.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../utils/Context.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "Pausable"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/contracts/core/FlashLoanArbitrage.sol": {
-      "lastModificationDate": 1768890776710,
-      "contentHash": "6db609061306cfda140d0e609a29e7b6",
-      "sourceName": "contracts/core/FlashLoanArbitrage.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../router/FlashLoanRouter.sol",
+        "../interfaces/IArbitrage.sol",
+        "../interfaces/IArbitrageVault.sol",
         "../interfaces/ISpotArbitrage.sol",
         "../interfaces/IConfigManager.sol",
-        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
-        "@openzeppelin/contracts/access/Ownable.sol",
-        "@openzeppelin/contracts/utils/ReentrancyGuard.sol",
-        "@openzeppelin/contracts/utils/Pausable.sol"
+        "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol",
+        "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol",
+        "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol",
+        "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol",
+        "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol"
       ],
       "versionPragmas": [
         "^0.8.20"
       ],
       "artifacts": [
-        "FlashLoanArbitrage",
-        "IFlashLoanSimple"
+        "ArbitrageCore"
       ]
     },
-    "/home/wangpeng/defi_bot/contract/contracts/router/FlashLoanRouter.sol": {
-      "lastModificationDate": 1767167357856,
-      "contentHash": "1d58e159805c23a76621021fc91a27ca",
-      "sourceName": "contracts/router/FlashLoanRouter.sol",
+    "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\contract\\contracts\\interfaces\\IArbitrage.sol": {
+      "lastModificationDate": 1770368575016,
+      "contentHash": "c7ffcf215a44d6d5ea5715946ec554a9",
+      "sourceName": "contracts/interfaces/IArbitrage.sol",
       "solcConfig": {
         "version": "0.8.28",
         "settings": {
@@ -681,21 +79,55 @@
           }
         }
       },
-      "imports": [
-        "../interfaces/IFlashLoanLendingPool.sol",
-        "../core/ConfigManage.sol",
-        "@openzeppelin/contracts/token/ERC20/IERC20.sol"
-      ],
+      "imports": [],
       "versionPragmas": [
         "^0.8.20"
       ],
       "artifacts": [
-        "FlashLoanRouter"
+        "IArbitrage"
       ]
     },
-    "/home/wangpeng/defi_bot/contract/contracts/interfaces/ISpotArbitrage.sol": {
-      "lastModificationDate": 1767836664124,
-      "contentHash": "e3b2a0620dc8f2d5ba3183deba068c8a",
+    "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\contract\\contracts\\interfaces\\IArbitrageVault.sol": {
+      "lastModificationDate": 1767060097547,
+      "contentHash": "013e05934b457aa12c3723b6ccf6133a",
+      "sourceName": "contracts/interfaces/IArbitrageVault.sol",
+      "solcConfig": {
+        "version": "0.8.28",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata",
+                "storageLayout"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "IArbitrageVault"
+      ]
+    },
+    "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\contract\\contracts\\interfaces\\ISpotArbitrage.sol": {
+      "lastModificationDate": 1770368692000,
+      "contentHash": "a5504479264351c6721570aa587d2f42",
       "sourceName": "contracts/interfaces/ISpotArbitrage.sol",
       "solcConfig": {
         "version": "0.8.28",
@@ -731,9 +163,9 @@
         "ISpotArbitrage"
       ]
     },
-    "/home/wangpeng/defi_bot/contract/contracts/interfaces/IConfigManager.sol": {
-      "lastModificationDate": 1767167357852,
-      "contentHash": "fa198811affedabf917686ee6120c90a",
+    "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\contract\\contracts\\interfaces\\IConfigManager.sol": {
+      "lastModificationDate": 1767060097547,
+      "contentHash": "1afec5755ca1a60b81e09e6e3febf75e",
       "sourceName": "contracts/interfaces/IConfigManager.sol",
       "solcConfig": {
         "version": "0.8.28",
@@ -769,167 +201,8 @@
         "IConfigManager"
       ]
     },
-    "/home/wangpeng/defi_bot/contract/node_modules/@openzeppelin/contracts/access/Ownable.sol": {
-      "lastModificationDate": 1768893303751,
-      "contentHash": "d3c790edc9ccf808a17c5a6cd13614fd",
-      "sourceName": "@openzeppelin/contracts/access/Ownable.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../utils/Context.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "Ownable"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/node_modules/@openzeppelin/contracts/utils/ReentrancyGuard.sol": {
-      "lastModificationDate": 1768893303755,
-      "contentHash": "190613e556d509d9e9a0ea43dc5d891d",
-      "sourceName": "@openzeppelin/contracts/utils/ReentrancyGuard.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "ReentrancyGuard"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/contracts/interfaces/IFlashLoanLendingPool.sol": {
-      "lastModificationDate": 1767167357856,
-      "contentHash": "795bb2a52d8f71bd01d435137ed6c150",
-      "sourceName": "contracts/interfaces/IFlashLoanLendingPool.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "ILendingPool"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/contracts/core/ConfigManage.sol": {
-      "lastModificationDate": 1768890776710,
-      "contentHash": "d924e3390415a14334c07475c9993465",
-      "sourceName": "contracts/core/ConfigManage.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../interfaces/IConfigManager.sol",
-        "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol",
-        "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol",
-        "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "ConfigManage"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/node_modules/@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol": {
-      "lastModificationDate": 1768893336917,
+    "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\node_modules\\@openzeppelin\\contracts-upgradeable\\access\\OwnableUpgradeable.sol": {
+      "lastModificationDate": 1765533672211,
       "contentHash": "77d30f3cd93f46b80b6f8f1ebc574ee4",
       "sourceName": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol",
       "solcConfig": {
@@ -969,577 +242,8 @@
         "OwnableUpgradeable"
       ]
     },
-    "/home/wangpeng/defi_bot/contract/node_modules/@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol": {
-      "lastModificationDate": 1768893336921,
-      "contentHash": "08db0b4bea3d52072346c326c5b857b7",
-      "sourceName": "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "@openzeppelin/contracts/interfaces/draft-IERC1822.sol",
-        "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol",
-        "./Initializable.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.22"
-      ],
-      "artifacts": [
-        "UUPSUpgradeable"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/node_modules/@openzeppelin/contracts/interfaces/draft-IERC1822.sol": {
-      "lastModificationDate": 1768893303661,
-      "contentHash": "9b2cafd2153b51bcfd7f4cb4cfc975aa",
-      "sourceName": "@openzeppelin/contracts/interfaces/draft-IERC1822.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        ">=0.4.16"
-      ],
-      "artifacts": [
-        "IERC1822Proxiable"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/node_modules/@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol": {
-      "lastModificationDate": 1768893303688,
-      "contentHash": "2741625b983eb412cfdd8aa55a7671c1",
-      "sourceName": "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../beacon/IBeacon.sol",
-        "../../interfaces/IERC1967.sol",
-        "../../utils/Address.sol",
-        "../../utils/StorageSlot.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.21"
-      ],
-      "artifacts": [
-        "ERC1967Utils"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/node_modules/@openzeppelin/contracts/interfaces/IERC1967.sol": {
-      "lastModificationDate": 1768893303731,
-      "contentHash": "3c9577899f440b0c66e880c96e9250bb",
-      "sourceName": "@openzeppelin/contracts/interfaces/IERC1967.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        ">=0.4.11"
-      ],
-      "artifacts": [
-        "IERC1967"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/node_modules/@openzeppelin/contracts/utils/Address.sol": {
-      "lastModificationDate": 1768893303633,
-      "contentHash": "2a06d82f31f75087bf90231599da4f1c",
-      "sourceName": "@openzeppelin/contracts/utils/Address.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "./Errors.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "Address"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/node_modules/@openzeppelin/contracts/utils/StorageSlot.sol": {
-      "lastModificationDate": 1768893303763,
-      "contentHash": "e656d64c4ce918f3d13030b91c935134",
-      "sourceName": "@openzeppelin/contracts/utils/StorageSlot.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "StorageSlot"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/node_modules/@openzeppelin/contracts/proxy/beacon/IBeacon.sol": {
-      "lastModificationDate": 1768893303724,
-      "contentHash": "ee2e46607ed2be58bd554306d068acba",
-      "sourceName": "@openzeppelin/contracts/proxy/beacon/IBeacon.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        ">=0.4.16"
-      ],
-      "artifacts": [
-        "IBeacon"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/node_modules/@openzeppelin/contracts/utils/Errors.sol": {
-      "lastModificationDate": 1768893303708,
-      "contentHash": "6b5eac2b85500c3012977849cfd633d8",
-      "sourceName": "@openzeppelin/contracts/utils/Errors.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "Errors"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/contracts/core/ArbitrageVault.sol": {
-      "lastModificationDate": 1767167357848,
-      "contentHash": "5e9d59ade1c88f6b0acd3564836f5543",
-      "sourceName": "contracts/core/ArbitrageVault.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../interfaces/IConfigManager.sol",
-        "../interfaces/IArbitrageVault.sol",
-        "@openzeppelin/contracts/token/ERC20/ERC20.sol",
-        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
-        "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
-        "@openzeppelin/contracts/utils/ReentrancyGuard.sol",
-        "@openzeppelin/contracts/access/Ownable.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "ArbitrageVault"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/contracts/interfaces/IArbitrageVault.sol": {
-      "lastModificationDate": 1767167357852,
-      "contentHash": "2066f4dbc5cf855b3a65c791e51a332e",
-      "sourceName": "contracts/interfaces/IArbitrageVault.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "IArbitrageVault"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/contracts/Mock/MockConfigManager.sol": {
-      "lastModificationDate": 1767167357844,
-      "contentHash": "651d8f8cc73d5ad6538e9a30bfd3595c",
-      "sourceName": "contracts/Mock/MockConfigManager.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../interfaces/IConfigManager.sol",
-        "@openzeppelin/contracts/access/Ownable.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "MockConfigManager"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/contracts/interfaces/IFlashLoanSimpleReceiver.sol": {
-      "lastModificationDate": 1768890776710,
-      "contentHash": "670980204de43abd37f1f05feb7bb604",
-      "sourceName": "contracts/interfaces/IFlashLoanSimpleReceiver.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../router/FlashLoanRouter.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "IFlashLoanSimpleReceiver"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/contracts/core/ArbitrageCore.sol": {
-      "lastModificationDate": 1768890776710,
-      "contentHash": "7183930f97453d7e8e25aec0005339ad",
->>>>>>> baf5eb509e8813c2010f97695ce185085dda9e42
-      "sourceName": "contracts/core/ArbitrageCore.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../interfaces/IArbitrage.sol",
-        "../interfaces/IArbitrageVault.sol",
-        "../interfaces/ISpotArbitrage.sol",
-        "../interfaces/IFlashLoanSimpleReceiver.sol",
-        "../interfaces/IConfigManager.sol",
-        "../router/FlashLoanRouter.sol",
-        "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol",
-        "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol",
-        "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol",
-        "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol",
-        "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "ArbitrageCore"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/contracts/interfaces/IArbitrage.sol": {
-      "lastModificationDate": 1768890776710,
-      "contentHash": "f499464ea32f46ad57d1d1caa6b236c8",
-      "sourceName": "contracts/interfaces/IArbitrage.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "IArbitrage"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/node_modules/@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol": {
-      "lastModificationDate": 1768893336917,
+    "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\node_modules\\@openzeppelin\\contracts-upgradeable\\utils\\ReentrancyGuardUpgradeable.sol": {
+      "lastModificationDate": 1765533672214,
       "contentHash": "24562076b21756e3358ede5e844008ce",
       "sourceName": "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol",
       "solcConfig": {
@@ -1578,7 +282,6 @@
         "ReentrancyGuardUpgradeable"
       ]
     },
-<<<<<<< HEAD
     "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\node_modules\\@openzeppelin\\contracts-upgradeable\\proxy\\utils\\UUPSUpgradeable.sol": {
       "lastModificationDate": 1765533672605,
       "contentHash": "08db0b4bea3d52072346c326c5b857b7",
@@ -1703,47 +406,9 @@
         "ERC20Upgradeable"
       ]
     },
-    "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\contract\\contracts\\interfaces\\IFlashLoanLendingPool.sol": {
-      "lastModificationDate": 1767060097547,
-      "contentHash": "bfbe4e5f997e085d1f1a00da25b18650",
-      "sourceName": "contracts/interfaces/IFlashLoanLendingPool.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "ILendingPool"
-      ]
-    },
     "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\contract\\contracts\\core\\ConfigManage.sol": {
-      "lastModificationDate": 1767940174627,
-      "contentHash": "c7295ba37fd4f1c0e636f8ce47549c37",
+      "lastModificationDate": 1769424582149,
+      "contentHash": "4e8b458aab93d0d95d47e70129769a25",
       "sourceName": "contracts/core/ConfigManage.sol",
       "solcConfig": {
         "version": "0.8.28",
@@ -1826,12 +491,6 @@
       "lastModificationDate": 1765533671754,
       "contentHash": "c28aaa25d083a9a55bd9ec9e0b785122",
       "sourceName": "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol",
-=======
-    "/home/wangpeng/defi_bot/contract/node_modules/@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol": {
-      "lastModificationDate": 1768893336913,
-      "contentHash": "c14401b3899fa52b32a4cb2a1bd22126",
-      "sourceName": "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol",
->>>>>>> baf5eb509e8813c2010f97695ce185085dda9e42
       "solcConfig": {
         "version": "0.8.28",
         "settings": {
@@ -1859,17 +518,15 @@
         }
       },
       "imports": [
-        "./OwnableUpgradeable.sol",
         "../proxy/utils/Initializable.sol"
       ],
       "versionPragmas": [
         "^0.8.20"
       ],
       "artifacts": [
-        "Ownable2StepUpgradeable"
+        "ContextUpgradeable"
       ]
     },
-<<<<<<< HEAD
     "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\node_modules\\@openzeppelin\\contracts\\interfaces\\draft-IERC1822.sol": {
       "lastModificationDate": 1765533676027,
       "contentHash": "9b2cafd2153b51bcfd7f4cb4cfc975aa",
@@ -1951,44 +608,6 @@
         "ERC1967Utils"
       ]
     },
-    "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\node_modules\\@openzeppelin\\contracts\\utils\\StorageSlot.sol": {
-      "lastModificationDate": 1765533677164,
-      "contentHash": "e656d64c4ce918f3d13030b91c935134",
-      "sourceName": "@openzeppelin/contracts/utils/StorageSlot.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "StorageSlot"
-      ]
-    },
     "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\node_modules\\@openzeppelin\\contracts\\utils\\Address.sol": {
       "lastModificationDate": 1765533675236,
       "contentHash": "2a06d82f31f75087bf90231599da4f1c",
@@ -2065,6 +684,44 @@
       ],
       "artifacts": [
         "IERC1967"
+      ]
+    },
+    "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\node_modules\\@openzeppelin\\contracts\\utils\\StorageSlot.sol": {
+      "lastModificationDate": 1765533677164,
+      "contentHash": "e656d64c4ce918f3d13030b91c935134",
+      "sourceName": "@openzeppelin/contracts/utils/StorageSlot.sol",
+      "solcConfig": {
+        "version": "0.8.28",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata",
+                "storageLayout"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "StorageSlot"
       ]
     },
     "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\node_modules\\@openzeppelin\\contracts\\proxy\\beacon\\IBeacon.sol": {
@@ -2419,47 +1076,6 @@
         "SafeERC20"
       ]
     },
-    "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\contract\\contracts\\Mock\\MockLendingPool.sol": {
-      "lastModificationDate": 1768474580466,
-      "contentHash": "2a891553d00275d5b75e54905facd786",
-      "sourceName": "contracts/Mock/MockLendingPool.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
-        "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "MockLendingPool"
-      ]
-    },
     "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\contract\\contracts\\Mock\\MockArbitrageVault.sol": {
       "lastModificationDate": 1767060097547,
       "contentHash": "ce5971cc568ec5663ee1ae5f5caf98cd",
@@ -2502,13 +1118,8 @@
       ]
     },
     "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\contract\\contracts\\integrations\\UniswapV2Integration.sol": {
-      "lastModificationDate": 1767060097547,
-      "contentHash": "aaadcb4cc90ca348d0613081061d6ba4",
-=======
-    "/home/wangpeng/defi_bot/contract/contracts/integrations/UniswapV2Integration.sol": {
-      "lastModificationDate": 1768893852683,
-      "contentHash": "81254de1f7bd46a1d7fe891d1a9b6b0b",
->>>>>>> baf5eb509e8813c2010f97695ce185085dda9e42
+      "lastModificationDate": 1769425155907,
+      "contentHash": "b887bb0068a0aa756f83f4d823d308d5",
       "sourceName": "contracts/integrations/UniswapV2Integration.sol",
       "solcConfig": {
         "version": "0.8.28",
@@ -2552,9 +1163,9 @@
         "UniswapV2Integration"
       ]
     },
-    "/home/wangpeng/defi_bot/contract/contracts/interfaces/IUniswapV2Integration.sol": {
-      "lastModificationDate": 1768890745393,
-      "contentHash": "1d388480b9f1b88a382f6b4032b44a31",
+    "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\contract\\contracts\\interfaces\\IUniswapV2Integration.sol": {
+      "lastModificationDate": 1767060097547,
+      "contentHash": "f96c4635c8c15321b9a4f9669f6b8dfa",
       "sourceName": "contracts/interfaces/IUniswapV2Integration.sol",
       "solcConfig": {
         "version": "0.8.28",
@@ -2590,9 +1201,9 @@
         "IUniswapV2Integration"
       ]
     },
-    "/home/wangpeng/defi_bot/contract/contracts/interfaces/IUniswapV2Router02.sol": {
-      "lastModificationDate": 1768890745393,
-      "contentHash": "95e3728230f1690ea81f09b569b0cbe0",
+    "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\contract\\contracts\\interfaces\\IUniswapV2Router02.sol": {
+      "lastModificationDate": 1767060097547,
+      "contentHash": "8c05218bc570e90b4396d97e088d494d",
       "sourceName": "contracts/interfaces/IUniswapV2Router02.sol",
       "solcConfig": {
         "version": "0.8.28",
@@ -2628,17 +1239,10 @@
         "IUniswapV2Router02"
       ]
     },
-<<<<<<< HEAD
-    "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\contract\\contracts\\core\\FlashLoanArbitrage.sol": {
-      "lastModificationDate": 1768530713099,
-      "contentHash": "11cc670d44948feba95cb4b6aef57bb8",
-      "sourceName": "contracts/core/FlashLoanArbitrage.sol",
-=======
-    "/home/wangpeng/defi_bot/contract/contracts/integrations/DoubleRouterIntegration.sol": {
-      "lastModificationDate": 1768893846253,
-      "contentHash": "f4d9401a1d444468ef5c2d5868166b54",
+    "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\contract\\contracts\\integrations\\DoubleRouterIntegration.sol": {
+      "lastModificationDate": 1769425155906,
+      "contentHash": "ecb742b9586054780358d621a2dc8425",
       "sourceName": "contracts/integrations/DoubleRouterIntegration.sol",
->>>>>>> baf5eb509e8813c2010f97695ce185085dda9e42
       "solcConfig": {
         "version": "0.8.28",
         "settings": {
@@ -2666,27 +1270,63 @@
         }
       },
       "imports": [
-<<<<<<< HEAD
-        "../router/FlashLoanRouter.sol",
-        "../interfaces/ISpotArbitrage.sol",
-        "../interfaces/IConfigManager.sol",
-        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
-        "@openzeppelin/contracts/access/Ownable.sol",
-        "@openzeppelin/contracts/utils/ReentrancyGuard.sol",
-        "@openzeppelin/contracts/utils/Pausable.sol"
+        "../core/ConfigManage.sol",
+        "../interfaces/IUniswapV2Router02.sol",
+        "../interfaces/IDoubleRouterIntegration.sol",
+        "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
+        "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol",
+        "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol",
+        "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol"
       ],
       "versionPragmas": [
         "^0.8.20"
       ],
       "artifacts": [
-        "FlashLoanArbitrage",
-        "IFlashLoanSimple"
+        "DoubleRouterIntegration"
       ]
     },
-    "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\node_modules\\@openzeppelin\\contracts\\access\\Ownable.sol": {
-      "lastModificationDate": 1765533677101,
-      "contentHash": "d3c790edc9ccf808a17c5a6cd13614fd",
-      "sourceName": "@openzeppelin/contracts/access/Ownable.sol",
+    "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\contract\\contracts\\interfaces\\IDoubleRouterIntegration.sol": {
+      "lastModificationDate": 1767060097547,
+      "contentHash": "117360bc6e2cfad7e5d6ac14a6d6fc59",
+      "sourceName": "contracts/interfaces/IDoubleRouterIntegration.sol",
+      "solcConfig": {
+        "version": "0.8.28",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata",
+                "storageLayout"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "IDoubleRouterIntegration"
+      ]
+    },
+    "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\contract\\contracts\\core\\SpotArbitrage.sol": {
+      "lastModificationDate": 1770701029840,
+      "contentHash": "f3b37d73a47fdef080792b25e6f379bd",
+      "sourceName": "contracts/core/SpotArbitrage.sol",
       "solcConfig": {
         "version": "0.8.28",
         "settings": {
@@ -2714,13 +1354,20 @@
         }
       },
       "imports": [
-        "../utils/Context.sol"
+        "../interfaces/ISpotArbitrage.sol",
+        "../interfaces/IDoubleRouterIntegration.sol",
+        "../interfaces/IUniswapV2Integration.sol",
+        "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
+        "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol",
+        "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol",
+        "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol"
       ],
       "versionPragmas": [
         "^0.8.20"
       ],
       "artifacts": [
-        "Ownable"
+        "SpotArbitrage"
       ]
     },
     "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\node_modules\\@openzeppelin\\contracts\\utils\\ReentrancyGuard.sol": {
@@ -2799,6 +1446,46 @@
       ],
       "artifacts": [
         "Pausable"
+      ]
+    },
+    "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\node_modules\\@openzeppelin\\contracts\\access\\Ownable.sol": {
+      "lastModificationDate": 1765533677101,
+      "contentHash": "d3c790edc9ccf808a17c5a6cd13614fd",
+      "sourceName": "@openzeppelin/contracts/access/Ownable.sol",
+      "solcConfig": {
+        "version": "0.8.28",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata",
+                "storageLayout"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../utils/Context.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "Ownable"
       ]
     },
     "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\node_modules\\@openzeppelin\\contracts\\utils\\Context.sol": {
@@ -2923,8 +1610,8 @@
       ]
     },
     "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\contract\\contracts\\core\\ArbitrageVault.sol": {
-      "lastModificationDate": 1767060097547,
-      "contentHash": "9c85e29472dbc7eeb6a98a6ecbaf1a24",
+      "lastModificationDate": 1769424740719,
+      "contentHash": "3b7bd7c9f76b01f6f947720a67e6608d",
       "sourceName": "contracts/core/ArbitrageVault.sol",
       "solcConfig": {
         "version": "0.8.28",
@@ -2957,72 +1644,21 @@
         "../interfaces/IArbitrageVault.sol",
         "@openzeppelin/contracts/token/ERC20/ERC20.sol",
         "@openzeppelin/contracts/token/ERC20/IERC20.sol",
-=======
-        "../core/ConfigManage.sol",
-        "../interfaces/IUniswapV2Router02.sol",
-        "../interfaces/IDoubleRouterIntegration.sol",
->>>>>>> baf5eb509e8813c2010f97695ce185085dda9e42
         "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
-        "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol",
-        "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol",
-        "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol"
+        "@openzeppelin/contracts/utils/ReentrancyGuard.sol",
+        "@openzeppelin/contracts/access/Ownable.sol"
       ],
       "versionPragmas": [
         "^0.8.20"
       ],
       "artifacts": [
-        "DoubleRouterIntegration"
+        "ArbitrageVault"
       ]
     },
-<<<<<<< HEAD
     "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\contract\\contracts\\Mock\\MockConfigManager.sol": {
       "lastModificationDate": 1767060097547,
       "contentHash": "b18a1fc099e4ac59505907217711de14",
       "sourceName": "contracts/Mock/MockConfigManager.sol",
-=======
-    "/home/wangpeng/defi_bot/contract/contracts/interfaces/IDoubleRouterIntegration.sol": {
-      "lastModificationDate": 1768890745393,
-      "contentHash": "52b19062d96657a520361f98dd03d548",
-      "sourceName": "contracts/interfaces/IDoubleRouterIntegration.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "IDoubleRouterIntegration"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/contracts/core/SpotArbitrage.sol": {
-      "lastModificationDate": 1768895720022,
-      "contentHash": "eb20a9c0f14aa2864c76fc8e6f66590b",
-      "sourceName": "contracts/core/SpotArbitrage.sol",
->>>>>>> baf5eb509e8813c2010f97695ce185085dda9e42
       "solcConfig": {
         "version": "0.8.28",
         "settings": {
@@ -3050,224 +1686,19 @@
         }
       },
       "imports": [
-<<<<<<< HEAD
         "../interfaces/IConfigManager.sol",
         "@openzeppelin/contracts/access/Ownable.sol"
-=======
-        "../interfaces/ISpotArbitrage.sol",
-        "../interfaces/IDoubleRouterIntegration.sol",
-        "../interfaces/IUniswapV2Integration.sol",
-        "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
-        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
-        "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol",
-        "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol",
-        "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol"
->>>>>>> baf5eb509e8813c2010f97695ce185085dda9e42
       ],
       "versionPragmas": [
         "^0.8.20"
       ],
       "artifacts": [
-<<<<<<< HEAD
         "MockConfigManager"
-      ]
-    },
-    "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\contract\\contracts\\Mock\\MockFlashLoan.sol": {
-      "lastModificationDate": 1767924953218,
-      "contentHash": "5dac2391bb7cf8575f8760c4bad26ba8",
-=======
-        "SpotArbitrage"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/contracts/Mock/MockFlashLoan.sol": {
-      "lastModificationDate": 1768890776710,
-      "contentHash": "6305bd58c839174db3b0b341ffa1354e",
->>>>>>> baf5eb509e8813c2010f97695ce185085dda9e42
-      "sourceName": "contracts/Mock/MockFlashLoan.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../interfaces/IConfigManager.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "MockFlashLoan"
-      ]
-    },
-<<<<<<< HEAD
-    "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\contract\\contracts\\core\\SpotArbitrage.sol": {
-      "lastModificationDate": 1768043005913,
-      "contentHash": "f639dc76dc15dd00e5fd5b2bc3b1a650",
-      "sourceName": "contracts/core/SpotArbitrage.sol",
-=======
-    "/home/wangpeng/defi_bot/contract/contracts/Mock/MockERC20.sol": {
-      "lastModificationDate": 1767167357844,
-      "contentHash": "0187829ddf4efddca4f4e381371e33f5",
-      "sourceName": "contracts/Mock/MockERC20.sol",
->>>>>>> baf5eb509e8813c2010f97695ce185085dda9e42
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-<<<<<<< HEAD
-        "../interfaces/ISpotArbitrage.sol",
-        "../interfaces/IDoubleRouterIntegration.sol",
-        "../interfaces/IUniswapV2Integration.sol",
-        "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
-        "@openzeppelin/contracts/token/ERC20/IERC20.sol"
-=======
-        "@openzeppelin/contracts/token/ERC20/ERC20.sol"
->>>>>>> baf5eb509e8813c2010f97695ce185085dda9e42
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-<<<<<<< HEAD
-        "SpotArbitrage"
-      ]
-    },
-    "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\contract\\contracts\\interfaces\\IDoubleRouterIntegration.sol": {
-      "lastModificationDate": 1767060097547,
-      "contentHash": "117360bc6e2cfad7e5d6ac14a6d6fc59",
-      "sourceName": "contracts/interfaces/IDoubleRouterIntegration.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "IDoubleRouterIntegration"
-      ]
-    },
-    "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\contract\\contracts\\integrations\\DoubleRouterIntegration.sol": {
-      "lastModificationDate": 1768045562206,
-      "contentHash": "c6c31a438fc949164023062977d5a22d",
-      "sourceName": "contracts/integrations/DoubleRouterIntegration.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../core/ConfigManage.sol",
-        "../interfaces/IUniswapV2Router02.sol",
-        "../interfaces/IDoubleRouterIntegration.sol",
-        "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "DoubleRouterIntegration"
       ]
     },
     "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\contract\\contracts\\Mock\\MockRouter.sol": {
       "lastModificationDate": 1768045655661,
       "contentHash": "42cc27e37ede587a17c072305618021d",
-=======
-        "MockERC20"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/contracts/Mock/MockRouter.sol": {
-      "lastModificationDate": 1768890776710,
-      "contentHash": "1bdea8ea99d45123bd12f2f7c10e1c77",
->>>>>>> baf5eb509e8813c2010f97695ce185085dda9e42
       "sourceName": "contracts/Mock/MockRouter.sol",
       "solcConfig": {
         "version": "0.8.28",
@@ -3305,15 +1736,9 @@
         "MockRouter"
       ]
     },
-<<<<<<< HEAD
     "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\contract\\contracts\\Mock\\MockDEXRouter.sol": {
       "lastModificationDate": 1768042932963,
       "contentHash": "73a3e56322c8d550745ceca47a70f605",
-=======
-    "/home/wangpeng/defi_bot/contract/contracts/Mock/MockDEXRouter.sol": {
-      "lastModificationDate": 1768890776710,
-      "contentHash": "af125c1523bd93e8011bdf18bca57a12",
->>>>>>> baf5eb509e8813c2010f97695ce185085dda9e42
       "sourceName": "contracts/Mock/MockDEXRouter.sol",
       "solcConfig": {
         "version": "0.8.28",
@@ -3351,47 +1776,9 @@
         "MockDEXRouter"
       ]
     },
-    "/home/wangpeng/defi_bot/contract/contracts/interfaces/IFlashLoan.sol": {
-      "lastModificationDate": 1767167357856,
-      "contentHash": "60e70e78224fbce3c2b3ee929fea0682",
-      "sourceName": "contracts/interfaces/IFlashLoan.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "IFlashLoanSimpleReceiver"
-      ]
-    },
-    "/home/wangpeng/defi_bot/contract/contracts/Mock/MockUniswap/UniswapV2Factory.sol": {
-      "lastModificationDate": 1767167357844,
-      "contentHash": "d740c962bbd2685d6b636c96aeab6a53",
+    "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\contract\\contracts\\Mock\\MockUniswap\\UniswapV2Factory.sol": {
+      "lastModificationDate": 1767060097547,
+      "contentHash": "b327913cb2358c1d43b32ae720c0ea1f",
       "sourceName": "contracts/Mock/MockUniswap/UniswapV2Factory.sol",
       "solcConfig": {
         "version": "0.5.16",
@@ -3435,9 +1822,9 @@
         "UniswapV2Pair"
       ]
     },
-    "/home/wangpeng/defi_bot/contract/contracts/Mock/MockUniswap/UniswapV2Router02.sol": {
-      "lastModificationDate": 1767167357844,
-      "contentHash": "e59691b3da7893d29aa0061ef562206f",
+    "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\contract\\contracts\\Mock\\MockUniswap\\UniswapV2Router02.sol": {
+      "lastModificationDate": 1767060097547,
+      "contentHash": "9caae16d5a25a0b5f71c9d4b1073ca12",
       "sourceName": "contracts/Mock/MockUniswap/UniswapV2Router02.sol",
       "solcConfig": {
         "version": "0.6.6",
@@ -3478,6 +1865,129 @@
         "TransferHelper",
         "UniswapV2Library",
         "UniswapV2Router02"
+      ]
+    },
+    "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\contract\\contracts\\Mock\\MockDoubleRouterIntegration.sol": {
+      "lastModificationDate": 1770703547136,
+      "contentHash": "c7dd3a8bece55d1d49b28c4f6a6b488a",
+      "sourceName": "contracts/Mock/MockDoubleRouterIntegration.sol",
+      "solcConfig": {
+        "version": "0.8.28",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata",
+                "storageLayout"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../interfaces/IDoubleRouterIntegration.sol",
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
+        "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "MockDoubleRouterIntegration"
+      ]
+    },
+    "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\contract\\contracts\\Mock\\MockArbitrageCore.sol": {
+      "lastModificationDate": 1770704078637,
+      "contentHash": "047ad8b60ed340b9aa88f9dc7078c989",
+      "sourceName": "contracts/Mock/MockArbitrageCore.sol",
+      "solcConfig": {
+        "version": "0.8.28",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata",
+                "storageLayout"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
+        "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "MockArbitrageCore"
+      ]
+    },
+    "D:\\E\\SoTest\\Dapp_frontend\\defi_bot\\contracts\\contract\\contracts\\Mock\\MockUniswapV2Integration.sol": {
+      "lastModificationDate": 1770699458093,
+      "contentHash": "ae23997399b003275094f048b9aaf57e",
+      "sourceName": "contracts/Mock/MockUniswapV2Integration.sol",
+      "solcConfig": {
+        "version": "0.8.28",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata",
+                "storageLayout"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../interfaces/IUniswapV2Integration.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "MockUniswapV2Integration"
       ]
     }
   }

@@ -83,15 +83,7 @@ async function main() {
   console.log("✅ UniswapV2Integration (UUPS) deployed to:", uniswapV2Integration.target);
 
   // ----------------------------
-  // 5. 部署 FlashLoanRouter (普通合约)
-  // ----------------------------
-  const FlashLoanRouter = await hre.ethers.getContractFactory("FlashLoanRouter");
-  const flashLoanRouter = await FlashLoanRouter.deploy(configManage.target);
-  await flashLoanRouter.waitForDeployment();
-  console.log("✅ FlashLoanRouter deployed to:", flashLoanRouter.target);
-
-  // ----------------------------
-  // 6. 部署 SpotArbitrage (升级合约)
+  // 5. 部署 SpotArbitrage (升级合约) - 修改：移除了FlashLoanRouter部署
   // ----------------------------
   const ZERO_ADDRESS = hre.ethers.ZeroAddress;
   const SpotArbitrage = await hre.ethers.getContractFactory("SpotArbitrage");
@@ -107,12 +99,12 @@ async function main() {
   console.log("✅ SpotArbitrage (UUPS) deployed to:", spotArbitrage.target);
 
   // ----------------------------
-  // 7. 部署 ArbitrageCore (UUPS 可升级合约)
+  // 6. 部署 ArbitrageCore (UUPS 可升级合约) - 修改：移除了闪电贷参数
   // ----------------------------
   const ArbitrageCore = await hre.ethers.getContractFactory("ArbitrageCore");
   const arbitrageCore = await hre.upgrades.deployProxy(ArbitrageCore, [
     spotArbitrage.target,       // _spotArbitrage
-    flashLoanRouter.target,     // _flashLoanArbitrage
+    // 移除: flashLoanRouter.target,     // _flashLoanArbitrage - 已删除
     PLATFORM_WALLET,            // _platFormWallet
     configManage.target,        // _configManager
     BACK_CALLER                 // _backCaller
@@ -124,27 +116,27 @@ async function main() {
   console.log("✅ ArbitrageCore (UUPS) deployed to:", arbitrageCore.target);
 
   // ----------------------------
-  // 8. 解决循环依赖：设置 SpotArbitrage 的 ArbitrageCore 地址
+  // 7. 解决循环依赖：设置 SpotArbitrage 的 ArbitrageCore 地址
   // ----------------------------
   await spotArbitrage.setArbitrageCore(arbitrageCore.target);
   console.log("✅ SpotArbitrage ArbitrageCore set to:", arbitrageCore.target);
 
   // ----------------------------
-  // 9. 其他关联配置
+  // 8. 其他关联配置
   // ----------------------------
-  // 9.1 添加 Vault 到 ArbitrageCore
+  // 8.1 添加 Vault 到 ArbitrageCore
   await arbitrageCore.addVault(
     mockUSDC.target,
     arbitrageVault.target
   );
   console.log("✅ ArbitrageCore vault added mockUSDC .");
 
-  // 9.2 设置 ArbitrageCore 中的 backCaller
+  // 8.2 设置 ArbitrageCore 中的 backCaller
   await arbitrageCore.setBackCaller(BACK_CALLER);
   console.log("✅ ArbitrageCore backCaller set to:", BACK_CALLER);
 
   // ----------------------------
-  // 10. 部署 MockRouter (用于本地测试，可控套利)
+  // 9. 部署 MockRouter (用于本地测试，可控套利)
   // ----------------------------
   const MockRouter = await hre.ethers.getContractFactory("MockRouter");
   const mockRouter1 = await MockRouter.deploy();
@@ -159,14 +151,14 @@ async function main() {
   console.log("✅ DoubleRouterIntegration routers set.");
 
   // ----------------------------
-  // 11. 给测试账户铸造测试代币
+  // 10. 给测试账户铸造测试代币
   // ----------------------------
   // 给 deployer 铸造 10000 USDC
   await mockUSDC.mint(deployer.address, hre.ethers.parseUnits("10000", 6));
   console.log("✅ 铸造 10000 USDC 给测试账户");
 
   // ----------------------------
-  // 12. 保存部署信息
+  // 11. 保存部署信息
   // ----------------------------
   const deployments = {
     network: hre.network.name,
@@ -175,7 +167,7 @@ async function main() {
     doubleRouterIntegration: doubleRouterIntegration.target,
     uniswapV2Integration: uniswapV2Integration.target,
     spotArbitrage: spotArbitrage.target,
-    flashLoanRouter: flashLoanRouter.target,
+    // 移除: flashLoanRouter: flashLoanRouter.target, - 已删除
     arbitrageCore: arbitrageCore.target,
     mockRouter1: mockRouter1.target,
     mockRouter2: mockRouter2.target,

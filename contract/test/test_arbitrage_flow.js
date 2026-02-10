@@ -1,33 +1,44 @@
 const hre = require("hardhat");
 const fs = require('fs');
 
-// ===================== 你的精准合约地址(完全不变) =====================
-const MANUAL_CONFIG = {
-  mockUSDC: "0xD5bFeBDce5c91413E41cc7B24C8402c59A344f7c",
-  mockWETH: "0x77AD263Cd578045105FBFC88A477CAd808d39Cf6",
-  arbitrageVault: "0x38628490c3043E5D0bbB26d5a0a62fC77342e9d5",
-  arbitrageCore: "0xf201fFeA8447AB3d43c98Da3349e0749813C9009",
-  spotArbitrage: "0x6484EB0792c646A4827638Fc1B6F20461418eB00",
-  doubleRouterIntegration: "0x8aAC5570d54306Bb395bf2385ad327b7b706016b",
-  mockRouter1: "0x1bEfE2d8417e22Da2E0432560ef9B2aB68Ab75Ad",
-  mockRouter2: "0x04f1A5b9BD82a5020C49975ceAd160E98d8B77Af"
-};
+// 从部署文件动态获取合约地址
+const deploymentFile = './deployments/localhost.json';
+let deployedAddresses = {};
+
+if (fs.existsSync(deploymentFile)) {
+  deployedAddresses = JSON.parse(fs.readFileSync(deploymentFile, 'utf8'));
+} else {
+  console.error("❌ 部署文件不存在，请先运行部署脚本！");
+  process.exit(1);
+}
+
 const MAX_UINT256 = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
 async function main() {
   const [deployer] = await hre.ethers.getSigners();
   const deployerAddr = deployer.address;
-  const USDC = MANUAL_CONFIG.mockUSDC;
-  const WETH = MANUAL_CONFIG.mockWETH;
-  const VAULT = MANUAL_CONFIG.arbitrageVault;
-  const CORE = MANUAL_CONFIG.arbitrageCore;
-  const SPOT = MANUAL_CONFIG.spotArbitrage;
-  const DOUBLE_ROUTER = MANUAL_CONFIG.doubleRouterIntegration;
-  const ROUTER1 = MANUAL_CONFIG.mockRouter1;
-  const ROUTER2 = MANUAL_CONFIG.mockRouter2;
+  
+  // 从部署文件中获取合约地址
+  const USDC = deployedAddresses.mockUSDC;
+  const WETH = deployedAddresses.mockWETH;
+  const VAULT = deployedAddresses.arbitrageVault;
+  const CORE = deployedAddresses.arbitrageCore;
+  const SPOT = deployedAddresses.spotArbitrage;
+  const DOUBLE_ROUTER = deployedAddresses.doubleRouterIntegration;
+  const ROUTER1 = deployedAddresses.mockRouter1;
+  const ROUTER2 = deployedAddresses.mockRouter2;
 
   console.log("✅ 操作账户：", deployerAddr);
   console.log("=====================================================\n");
+  console.log("📋 已部署的合约地址:");
+  console.log("- MockUSDC:", USDC);
+  console.log("- MockWETH:", WETH);
+  console.log("- ArbitrageVault:", VAULT);
+  console.log("- ArbitrageCore:", CORE);
+  console.log("- SpotArbitrage:", SPOT);
+  console.log("- DoubleRouterIntegration:", DOUBLE_ROUTER);
+  console.log("- MockRouter1:", ROUTER1);
+  console.log("- MockRouter2:", ROUTER2);
 
   // 绑定合约
   const usdc = await hre.ethers.getContractAt("MockERC20", USDC);
@@ -90,12 +101,14 @@ async function main() {
     swapPath: [USDC, WETH, USDC],
     dexes: [ROUTER1, ROUTER2],
     expectProfit: hre.ethers.parseUnits("100",6),
-    minProfit: hre.ethers.parseUnits("0",6)    // 利润校验设为0，彻底规避该卡点
+    minProfit: hre.ethers.parseUnits("0",6),    // 利润校验设为0，彻底规避该卡点
+    isCex: false
   };
 
   // 6. 执行套利【终极兜底 Gas拉满+所有卡点修复】
+  // 修改：移除了第一个参数 0，因为现在 executeStrategy 只需要一个参数
   console.log("执行套利策略...");
-  const tx = await core.executeStrategy(0, arbitrageParams, {
+  const tx = await core.executeStrategy(arbitrageParams, {  // 移除了第一个参数 0
     gasLimit: 10000000, // Gas拉满，足够支撑所有跨合约调用
     gasPrice: hre.ethers.parseUnits("10", "gwei")
   });
@@ -114,4 +127,5 @@ async function main() {
 
 main().catch((err) => {
   console.error("❌ 错误详情：", err.message);
+  console.error("❌ 完整错误信息：", err);
 });
