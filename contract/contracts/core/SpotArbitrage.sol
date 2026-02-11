@@ -5,6 +5,7 @@ import "../interfaces/ISpotArbitrage.sol";
 import "../interfaces/IDoubleRouterIntegration.sol";
 import "../interfaces/IUniswapV2Integration.sol";
 
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -12,7 +13,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 
-contract SpotArbitrage is ISpotArbitrage, Initializable, UUPSUpgradeable, OwnableUpgradeable {
+contract SpotArbitrage is ISpotArbitrage, Initializable, UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     using SafeERC20 for IERC20;
     
     address public arbitrageCore;
@@ -33,6 +34,7 @@ contract SpotArbitrage is ISpotArbitrage, Initializable, UUPSUpgradeable, Ownabl
     ) public initializer {
         __Ownable_init(msg.sender);
         __UUPSUpgradeable_init();
+        __ReentrancyGuard_init();
         
         require(_doubleRouterIntegration != address(0), "Spot: invalid doubleRouterIntegration");
         require(_uniswapV2Integration != address(0), "Spot: invalid uniswapV2Integration");
@@ -95,7 +97,7 @@ contract SpotArbitrage is ISpotArbitrage, Initializable, UUPSUpgradeable, Ownabl
         uint256 expectProfit,
         uint256 minProfit,
         bool isCex
-    ) external onlyBackend returns (uint256 amountOut) {
+    ) external onlyBackend nonReentrant returns (uint256 amountOut) {
         // 检查金额是否已收到
         require(
             IERC20(asset).balanceOf(address(this)) >= amountIn,
