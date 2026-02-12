@@ -4,9 +4,7 @@ pragma solidity ^0.8.20;
 import "../interfaces/IArbitrage.sol";
 import "../interfaces/IArbitrageVault.sol";
 import "../interfaces/ISpotArbitrage.sol";
-import "../interfaces/IFlashLoanSimpleReceiver.sol";
 import "../interfaces/IConfigManager.sol";
-import "../router/FlashLoanRouter.sol";
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -20,16 +18,14 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
     *套利调度核心合约
     *调用套利策略执行
     *金库资金套利机器人的验证获利
-    *分润：暂定平台收取10%（即应配置100），此值放置在configManager中进行管理，以便管理员随时调整
-    *闪电贷套利机器人的套利结果，验证，分润流程在FlashLoanArbitrage合约中完成
+    *分润：平台收取利润的10%作为服务费，在configManager中进行管理
     */
 
     
 
     ISpotArbitrage public spotArbitrage;
-    IFlashLoanSimpleReceiver public flashLoanArbitrage;
     IConfigManager public configManager;    //参数管理   平台收取利润的10%作为服务费等
-         
+          
     address public spotArbImp;              // 实现套利(实现IArbitrage.sol)
     address public platFormWallet;
     address public backCaller;              //后端
@@ -50,15 +46,6 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
         uint256 timestamp
     );
 
-    //事件：闪电贷套利
-    event FlashLoanArbitrageExecuted(
-        address indexed initiator,
-        address indexed asset,
-        uint256 amountIn,
-        uint256 profit,
-        uint256 timestamp
-    );
-
     event VaultAdd(address indexed asset, address indexed vault);
 
     modifier onlybackCaller() {
@@ -71,13 +58,8 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
         _;
     }
 
-    // constructor () {
-    //     _disableInitializers();
-    // }
-
     function initialize(
         address _spotArbitrage,
-        address _flashLoanArbitrage,
         address _platFormWallet,
         address _configManager,
         address _backCaller
@@ -86,49 +68,16 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
         __ReentrancyGuard_init();
         __UUPSUpgradeable_init();
 
+        require(_spotArbitrage != address(0), "Invalid spot Arbitrage");
         require(_platFormWallet != address(0), "Invalid platForm Wallet");
         require(_configManager != address(0), "Invalid config Manager");
         require(_backCaller != address(0), "Invalid backend Caller");
 
-        // 为了解决部署时的循环依赖（core 需要 spot/flash 地址，而 spot/flash 构造函数又需要 core 地址），
-        // spot/flash 允许在初始化时为空，之后由 owner 通过 setter 绑定。
-        if (_spotArbitrage != address(0)) {
-            spotArbitrage = ISpotArbitrage(_spotArbitrage);
-        }
-        if (_flashLoanArbitrage != address(0)) {
-            flashLoanArbitrage = IFlashLoanSimpleReceiver(_flashLoanArbitrage);
-        }
+        spotArbitrage = ISpotArbitrage(_spotArbitrage);
         platFormWallet = _platFormWallet; //利润转账地址(项目方钱包地址)
         configManager = IConfigManager(_configManager);
         backCaller = _backCaller;
 
-    }
-
-    // ===================== 管理函数（用于部署后绑定依赖/轮换地址） =====================
-
-    function setSpotArbitrage(address _spotArbitrage) external onlyOwner {
-        require(_spotArbitrage != address(0), "Invalid spot Arbitrage");
-        spotArbitrage = ISpotArbitrage(_spotArbitrage);
-    }
-
-    function setFlashLoanArbitrage(address _flashLoanArbitrage) external onlyOwner {
-        require(_flashLoanArbitrage != address(0), "Invalid flashLoan Arbitrage");
-        flashLoanArbitrage = IFlashLoanSimpleReceiver(_flashLoanArbitrage);
-    }
-
-    function setPlatFormWallet(address _platFormWallet) external onlyOwner {
-        require(_platFormWallet != address(0), "Invalid platForm Wallet");
-        platFormWallet = _platFormWallet;
-    }
-
-    function setConfigManager(address _configManager) external onlyOwner {
-        require(_configManager != address(0), "Invalid config Manager");
-        configManager = IConfigManager(_configManager);
-    }
-
-    function setBackCaller(address _backCaller) external onlyOwner {
-        require(_backCaller != address(0), "Invalid backend Caller");
-        backCaller = _backCaller;
     }
 
     //金库函数：添加金库
@@ -184,44 +133,24 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
         configManager = IConfigManager(_configManager);
     }
 
-    function setFlashLoanArbitrage(address _flashLoanArbitrage) external onlyOwner {
-        require(_flashLoanArbitrage != address(0), "Invalid flashLoan Arbitrage");
-        flashLoanArbitrage = IFlashLoanSimpleReceiver(_flashLoanArbitrage);
-    }
-
     function setPlatFormWallet(address _platFormWallet) external onlyOwner {
         require(_platFormWallet != address(0), "Invalid platForm Wallet");
         platFormWallet = _platFormWallet;
     }
 
-    //核心函数：实现套利的调用，并对盈利&分润计算
     /**
     *入参：
     *原代币(输入)，
     *兑换代币（输出），注意输入的代币要和输出的代币相同，以便比较收益，路径如：ETH-USDT-ETH
     *购买数量（输入数量），
-    *交易路径(USDC,WETH,DAI,USDC三角套利后续扩展，当前先完成单点套利：ETH-USDT-ETH)，
+    *交易路径，
     *dex地址：在dex集成路由中
-    *
-    *自有资金套利&闪电贷套利，两种套利模式对象不同，前者取自金库，可多人打包进行，后者针对用户，闪电贷不可跨用户
-    *
     */
-    //枚举套利方案：自有资产（金库），闪电贷
-    enum StrategyTypes {
-        OWN_FUNDS, 
-        FLASH_LOAN
-    }
-    
 
     function executeStrategy(
-        StrategyTypes strategyTypes,
         IArbitrage.ArbitrageParams calldata params
     ) external nonReentrant whenNotPaused onlybackCaller {
-        if (strategyTypes == StrategyTypes.OWN_FUNDS ) {
-            _executedVaultArbitrage(params);
-        } else if (strategyTypes == StrategyTypes.FLASH_LOAN) {
-            _executedFlashLoanArbitrage(params);
-        }
+        _executedVaultArbitrage(params);
     }
 
 
@@ -235,6 +164,7 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
         address[] calldata dexes = params.dexes;
         uint256 expectProfit = params.expectProfit;
         uint256 minProfit = params.minProfit;
+        bool isCex = params.isCex;
 
         //参数验证
         require(amountIn > 0, "amountIn > 0");
@@ -265,7 +195,8 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
             swapPath,
             dexes,
             expectProfit,
-            minProfit
+            minProfit,
+            isCex
         );
         //记录套利后余额
         uint256 balanceAfter = ERC20Upgradeable(asset).balanceOf(address(this));
@@ -302,67 +233,7 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
         );
     }
 
-
-    // 带平台参数的闪电贷套利函数
-    function executeFlashLoanArbitrageWithPlatform(
-        FlashLoanRouter.LendingPlatForm platform,
-        IArbitrage.ArbitrageParams calldata params
-    ) external nonReentrant whenNotPaused onlybackCaller {
-        _executedFlashLoanArbitrageWithPlatform(platform, params);
-    }
-
-    //闪电贷套利
-    function _executedFlashLoanArbitrage(IArbitrage.ArbitrageParams calldata params) private {
-        // 由于原始函数没有平台参数，使用默认平台
-        _executedFlashLoanArbitrageWithPlatform(FlashLoanRouter.LendingPlatForm.Aave_V2, params);
-    }
-
-    
-    // 带平台参数的内部闪电贷套利函数
-    function _executedFlashLoanArbitrageWithPlatform(
-        FlashLoanRouter.LendingPlatForm platform,
-        IArbitrage.ArbitrageParams calldata params
-    ) private {
-        // 直接从params结构体获取值
-        address asset = params.asset;        // 借贷资产
-        address tokenOut = params.tokenOut;  // 输出代币
-        uint256 amountIn = params.amountIn;  // 借贷金额
-        address[] calldata swapPath = params.swapPath;  // 交易路径
-        address[] calldata dexes = params.dexes;        // DEX地址数组
-        uint256 expectProfit = params.expectProfit;     // 期望利润
-        uint256 minProfit = params.minProfit;           // 最小利润
-
-        //验证
-        require(asset != address(0), "Invalid asset");
-        require(amountIn > 0, "Amount must be > 0");
-        require(swapPath.length >= 3, "swapPath need 3 at least");
-        require(swapPath[0] == asset, "First token must be asset");
-        require(swapPath[0] == swapPath[swapPath.length - 1], "tokenIn = tokenOut");
-        
-        // 调用FlashLoanArbitrage合约执行闪电贷套利
-        flashLoanArbitrage.executeFlashLoan(
-            platform,    // 平台参数
-            asset,       // 借贷资产
-            tokenOut,    // 输出代币
-            amountIn,    // 借贷金额
-            swapPath,    // 交易路径
-            dexes,       // DEX地址
-            expectProfit,// 期望利润
-            minProfit    // 最小利润
-        );
-        //事件触发FlashLoanArbitrageExecuted
-        emit FlashLoanArbitrageExecuted(
-            msg.sender,
-            asset,
-            amountIn,
-            0, //利润在executeOperation中计算
-            block.timestamp
-        );
-
-    }
-
     function _authorizeUpgrade(address newImplementation) internal view override onlyOwner{
         require(newImplementation != address(0), "New implementation is zero address");
     }
-
 }

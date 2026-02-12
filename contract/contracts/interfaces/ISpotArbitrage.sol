@@ -11,6 +11,7 @@ interface ISpotArbitrage {
         address[] calldata swapPath,
         address[] calldata dexes,
         uint256 expectProfit,
-        uint256 minProfit
+        uint256 minProfit,
+        bool isCex
     ) external returns(uint256 amountOut);
 }
