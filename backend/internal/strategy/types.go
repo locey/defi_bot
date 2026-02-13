@@ -26,6 +26,7 @@ type ArbitrageOpportunity struct {
 	ValidUntil   time.Time        `json:"valid_until"`   // 有效期
 	Confidence   float64          `json:"confidence"`    // 置信度(0-1)
 	PathLength   int              `json:"path_length"`   // 路径长度
+	IsCex        bool             `json:"is_cex"`        // 是否为 CEX-DEX 混合套利路径
 }
 
 // PoolInfo 池子信息

@@ -393,6 +393,7 @@ func (e *StrategyEngine) evaluatePath(
 		ValidUntil:   time.Now().Add(e.config.ValidityDuration),
 		Confidence:   calculateConfidence(path, profitRateFloat),
 		PathLength:   len(path),
+		IsCex:        false, // DEX-DEX 套利路径
 	}
 
 	return opp, nil

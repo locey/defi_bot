@@ -152,6 +152,7 @@ func testCallDataBuild(web3Client *web3.Client) {
 	// 构建测试参数 (WETH -> USDC -> WETH)
 	params := &executor.ArbitrageParams{
 		Asset:    common.HexToAddress(WETH_ARB),
+		TokenOut: common.HexToAddress(WETH_ARB), // 环形套利：输出 = 输入代币
 		AmountIn: big.NewInt(1e16), // 0.01 ETH
 		SwapPath: []common.Address{
 			common.HexToAddress(WETH_ARB),
@@ -164,7 +165,7 @@ func testCallDataBuild(web3Client *web3.Client) {
 		},
 		ExpectProfit: big.NewInt(1e14), // 0.0001 ETH
 		MinProfit:    big.NewInt(1e13), // 0.00001 ETH
-		UseFlashLoan: false,
+		IsCex:        false,            // DEX-DEX 套利
 	}
 	
 	// 生成 CallData
@@ -175,9 +176,9 @@ func testCallDataBuild(web3Client *web3.Client) {
 	}
 	
 	fmt.Println("✅ CallData 构建成功")
-	fmt.Printf("   函数: executeStrategy\n")
-	fmt.Printf("   策略类型: OWN_FUNDS (0)\n")
+	fmt.Printf("   函数: executeStrategy(params)\n")
 	fmt.Printf("   路径: WETH -> USDC -> WETH\n")
+	fmt.Printf("   IsCex: false\n")
 	fmt.Printf("   DEXs: Uniswap V2 -> SushiSwap\n")
 	fmt.Printf("   输入金额: 0.01 ETH\n")
 	fmt.Printf("   CallData 长度: %d bytes\n", len(callData)/2-1)

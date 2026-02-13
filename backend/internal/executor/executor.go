@@ -84,16 +84,21 @@ func (e *ArbitrageExecutor) Execute(
 	}
 
 	// 3. 构建交易参数
+	// 套利路径为环形：起点 = 终点（如 WETH -> USDC -> WETH），tokenOut = 路径最后一个地址
+	tokenOut := opp.SwapPath[0]
+	if len(opp.SwapPath) > 1 {
+		tokenOut = opp.SwapPath[len(opp.SwapPath)-1]
+	}
+
 	params := &ArbitrageParams{
 		Asset:        opp.SwapPath[0],
+		TokenOut:     tokenOut,
 		AmountIn:     opp.AmountIn,
 		SwapPath:     opp.SwapPath,
 		Dexes:        opp.Dexes,
 		ExpectProfit: opp.ExpectProfit,
 		MinProfit:    opp.MinProfit,
-
-		// 当前合约实现的 FLASH_LOAN 参数编码不一致（后续再补），先默认走 OWN_FUNDS
-		UseFlashLoan: false,
+		IsCex:        opp.IsCex,
 	}
 
 	// 4. 执行交易
@@ -215,27 +220,17 @@ func (e *ArbitrageExecutor) parseExecutionResult(
 func (e *ArbitrageExecutor) parseActualProfit(receipt *types.Receipt) *big.Int {
 	// ArbitrageCore 事件：
 	// event VaultArbitrageExecuted(address indexed vault, address indexed asset, uint256 amountIn, uint256 profit, uint256 platFormFee, uint256 netProfitToVault, uint256 timestamp);
-	// event FlashLoanArbitrageExecuted(address indexed initiator, address indexed asset, uint256 amountIn, uint256 profit, uint256 timestamp);
 
 	vaultSig := crypto.Keccak256Hash([]byte("VaultArbitrageExecuted(address,address,uint256,uint256,uint256,uint256,uint256)"))
-	flashSig := crypto.Keccak256Hash([]byte("FlashLoanArbitrageExecuted(address,address,uint256,uint256,uint256)"))
 
 	for _, lg := range receipt.Logs {
 		if len(lg.Topics) == 0 {
 			continue
 		}
 
-		switch lg.Topics[0] {
-		case vaultSig:
+		if lg.Topics[0] == vaultSig {
 			// topics: [sig, vault, asset]
 			// data: amountIn(0:32), profit(32:64), platFormFee(64:96), netProfitToVault(96:128), timestamp(128:160)
-			if len(lg.Data) < 64 {
-				continue
-			}
-			return new(big.Int).SetBytes(lg.Data[32:64]) // profit
-		case flashSig:
-			// topics: [sig, initiator, asset]
-			// data: amountIn(0:32), profit(32:64), timestamp(64:96)
 			if len(lg.Data) < 64 {
 				continue
 			}
@@ -263,15 +258,16 @@ type ExecutionResult struct {
 	Error          string        `json:"error,omitempty"`
 }
 
-// ArbitrageParams 套利参数
+// ArbitrageParams 套利参数（与合约 IArbitrage.ArbitrageParams 对应）
 type ArbitrageParams struct {
 	Asset        common.Address
+	TokenOut     common.Address   // 输出代币地址
 	AmountIn     *big.Int
 	SwapPath     []common.Address
 	Dexes        []common.Address
 	ExpectProfit *big.Int
 	MinProfit    *big.Int
-	UseFlashLoan bool
+	IsCex        bool             // 是否为 CEX-DEX 套利
 }
 
 // GetStats 获取统计信息

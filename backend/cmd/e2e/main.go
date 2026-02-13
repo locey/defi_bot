@@ -192,14 +192,20 @@ func main() {
 
 	arbCore := common.HexToAddress(cfg.Contracts.ArbitrageCore)
 	cc := executor.NewContractCaller(web3Client, arbCore)
+	// 套利路径环形：tokenOut = 路径最后一个地址
+	tokenOut := best.SwapPath[0]
+	if len(best.SwapPath) > 1 {
+		tokenOut = best.SwapPath[len(best.SwapPath)-1]
+	}
 	params := &executor.ArbitrageParams{
 		Asset:        best.SwapPath[0],
+		TokenOut:     tokenOut,
 		AmountIn:     best.AmountIn,
 		SwapPath:     best.SwapPath,
 		Dexes:        best.Dexes,
 		ExpectProfit: best.ExpectProfit,
 		MinProfit:    best.MinProfit,
-		UseFlashLoan: false,
+		IsCex:        best.IsCex,
 	}
 
 	calldata, err := cc.DebugCallData(params)

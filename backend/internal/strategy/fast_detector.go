@@ -445,6 +445,7 @@ func (d *ArbitrageDetector) calculatePath(path *ArbitragePath) *ArbitrageOpportu
 		Timestamp:    time.Now(),
 		ValidUntil:   time.Now().Add(5 * time.Second), // 5秒有效期
 		Confidence:   calculatePathConfidence(path, profitRateFloat),
+		IsCex:        false, // DEX-DEX 套利路径
 	}
 
 	// 计算预期利润

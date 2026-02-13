@@ -335,14 +335,16 @@ func main() {
 		cc := executor.NewContractCaller(web3Client, arbCore)
 
 		// 构造测试参数
+		wethAddr := common.HexToAddress("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2")
 		testParams := &executor.ArbitrageParams{
-			Asset:        common.HexToAddress("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"), // WETH
+			Asset:        wethAddr, // WETH
+			TokenOut:     wethAddr, // 环形套利：输出 = 输入
 			AmountIn:     big.NewInt(1e18),                                                   // 1 WETH
-			SwapPath:     []common.Address{common.HexToAddress("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2")},
+			SwapPath:     []common.Address{wethAddr},
 			Dexes:        []common.Address{common.HexToAddress("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D")}, // Uniswap V2 Router
 			ExpectProfit: big.NewInt(1e16), // 0.01 WETH
 			MinProfit:    big.NewInt(1e15), // 0.001 WETH
-			UseFlashLoan: false,
+			IsCex:        false,
 		}
 
 		calldata, err := cc.DebugCallData(testParams)

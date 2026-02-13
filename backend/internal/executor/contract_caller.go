@@ -18,18 +18,20 @@ import (
 )
 
 // ArbitrageCore ABI（最小化：executeStrategy + 相关事件）
+// 合约变更：移除 StrategyTypes 枚举参数，ArbitrageParams 新增 isCex 字段，移除闪电贷相关函数和事件
 const ArbitrageCoreABI = `[
     {
         "inputs": [
-            {"internalType":"uint8","name":"strategyTypes","type":"uint8"},
             {
                 "components": [
                     {"internalType":"address","name":"asset","type":"address"},
+                    {"internalType":"address","name":"tokenOut","type":"address"},
                     {"internalType":"uint256","name":"amountIn","type":"uint256"},
                     {"internalType":"address[]","name":"swapPath","type":"address[]"},
                     {"internalType":"address[]","name":"dexes","type":"address[]"},
                     {"internalType":"uint256","name":"expectProfit","type":"uint256"},
-                    {"internalType":"uint256","name":"minProfit","type":"uint256"}
+                    {"internalType":"uint256","name":"minProfit","type":"uint256"},
+                    {"internalType":"bool","name":"isCex","type":"bool"}
                 ],
                 "internalType":"struct IArbitrage.ArbitrageParams",
                 "name":"params",
@@ -53,18 +55,6 @@ const ArbitrageCoreABI = `[
             {"indexed": false, "internalType":"uint256", "name":"timestamp", "type":"uint256"}
         ],
         "name": "VaultArbitrageExecuted",
-        "type": "event"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {"indexed": true, "internalType":"address", "name":"initiator", "type":"address"},
-            {"indexed": true, "internalType":"address", "name":"asset", "type":"address"},
-            {"indexed": false, "internalType":"uint256", "name":"amountIn", "type":"uint256"},
-            {"indexed": false, "internalType":"uint256", "name":"profit", "type":"uint256"},
-            {"indexed": false, "internalType":"uint256", "name":"timestamp", "type":"uint256"}
-        ],
-        "name": "FlashLoanArbitrageExecuted",
         "type": "event"
     }
 ]`
@@ -105,14 +95,7 @@ func (cc *ContractCaller) ExecuteArbitrage(
 		return nil, fmt.Errorf("keeper private key is empty")
 	}
 
-	// 当前合约 flash-loan 参数编码存在不一致（ArbitrageCore 内部 decode 与 IArbitrage.ArbitrageParams 不匹配）
-	// 先默认走 OWN_FUNDS(0)
-	strategyType := uint8(0)
-	if params.UseFlashLoan {
-		return nil, fmt.Errorf("flash-loan strategy not supported by backend caller yet (param encoding mismatch)")
-	}
-
-	callData, err := cc.buildCallData(strategyType, params)
+	callData, err := cc.buildCallData(params)
 	if err != nil {
 		return nil, err
 	}
@@ -205,28 +188,32 @@ func (cc *ContractCaller) ExecuteArbitrage(
 	return signed, nil
 }
 
-// buildCallData 构建调用数据
-func (cc *ContractCaller) buildCallData(strategyType uint8, params *ArbitrageParams) ([]byte, error) {
+// buildCallData 构建 executeStrategy(ArbitrageParams) 调用数据
+func (cc *ContractCaller) buildCallData(params *ArbitrageParams) ([]byte, error) {
 
-	// 构建参数结构体
+	// 构建参数结构体（与合约 IArbitrage.ArbitrageParams 一一对应）
 	paramsStruct := struct {
 		Asset        common.Address
+		TokenOut     common.Address
 		AmountIn     *big.Int
 		SwapPath     []common.Address
 		Dexes        []common.Address
 		ExpectProfit *big.Int
 		MinProfit    *big.Int
+		IsCex        bool
 	}{
 		Asset:        params.Asset,
+		TokenOut:     params.TokenOut,
 		AmountIn:     params.AmountIn,
 		SwapPath:     params.SwapPath,
 		Dexes:        params.Dexes,
 		ExpectProfit: params.ExpectProfit,
 		MinProfit:    params.MinProfit,
+		IsCex:        params.IsCex,
 	}
 
 	// 编码调用数据
-	callData, err := cc.contractABI.Pack("executeStrategy", strategyType, paramsStruct)
+	callData, err := cc.contractABI.Pack("executeStrategy", paramsStruct)
 	if err != nil {
 		return nil, err
 	}
@@ -265,8 +252,7 @@ func (cc *ContractCaller) SimulateArbitrage(
 
 // DebugCallData 返回 executeStrategy 的 calldata（便于排查/打印）
 func (cc *ContractCaller) DebugCallData(params *ArbitrageParams) (string, error) {
-	strategyType := uint8(0)
-	data, err := cc.buildCallData(strategyType, params)
+	data, err := cc.buildCallData(params)
 	if err != nil {
 		return "", err
 	}
