@@ -25,6 +25,24 @@ type Config struct {
 	Redis       RedisConfig               `mapstructure:"redis"`
 	Chains      map[string]ChainConfig    `mapstructure:"chains"`       // 多链配置
 	ActiveChain string                    `mapstructure:"active_chain"` // 当前活跃链名称
+
+	// Phase 4: 可观测性配置
+	Metrics  MetricsConfig  `mapstructure:"metrics"`  // Prometheus 指标
+	Telegram TelegramConfig `mapstructure:"telegram"` // Telegram 告警
+}
+
+// MetricsConfig Prometheus 指标配置
+type MetricsConfig struct {
+	Enabled bool   `mapstructure:"enabled"` // 是否启用
+	Port    int    `mapstructure:"port"`    // 指标端口（默认 9090）
+}
+
+// TelegramConfig Telegram 告警配置
+type TelegramConfig struct {
+	Enabled   bool   `mapstructure:"enabled"`    // 是否启用
+	BotToken  string `mapstructure:"bot_token"`  // Bot Token
+	ChatID    string `mapstructure:"chat_id"`    // 目标聊天 ID
+	RateLimit int    `mapstructure:"rate_limit"` // 每分钟最大消息数
 }
 
 // ChainConfig 单链配置
@@ -71,8 +89,24 @@ type BlockchainConfig struct {
 
 // ContractsConfig 合约配置
 type ContractsConfig struct {
+	// 核心合约
 	ArbitrageCore string `mapstructure:"arbitrage_core"`
 	ConfigManager string `mapstructure:"config_manager"`
+
+	// 套利执行合约
+	Vault           string `mapstructure:"vault"`
+	SpotArbitrage   string `mapstructure:"spot_arbitrage"`
+	FlashLoanRouter string `mapstructure:"flash_loan_router"`
+
+	// 集成合约
+	DoubleRouterIntegration string `mapstructure:"double_router_integration"`
+	UniswapV2Integration    string `mapstructure:"uniswap_v2_integration"`
+
+	// 工具合约
+	Multicall string `mapstructure:"multicall"`
+
+	// 外部合约
+	AaveLendingPool string `mapstructure:"aave_lending_pool"`
 }
 
 // KeeperConfig Keeper 配置
@@ -113,7 +147,14 @@ type SchedulerConfig struct {
 	CollectInterval int     `mapstructure:"collect_interval"`
 	AnalyzeInterval int     `mapstructure:"analyze_interval"`
 	CleanupInterval int     `mapstructure:"cleanup_interval"`
-	MinProfitRate   float64 `mapstructure:"min_profit_rate"` // ← 新增: 最小利润率阈值
+	MinProfitRate   float64 `mapstructure:"min_profit_rate"`
+
+	// Phase 1.1: 高性能模式配置
+	Mode               string  `mapstructure:"mode"`                  // "standard" 或 "high_performance"（默认 high_performance）
+	EnableExecution    bool    `mapstructure:"enable_execution"`      // 是否启用自动执行
+	DryRun             bool    `mapstructure:"dry_run"`               // 干运行模式（只检测不执行）
+	MinConfidence      float64 `mapstructure:"min_confidence"`        // 最小置信度阈值
+	MaxConcurrentExec  int     `mapstructure:"max_concurrent_exec"`   // 最大并发执行数
 }
 
 // ArbitrageConfig 套利配置

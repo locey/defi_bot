@@ -31,18 +31,21 @@ type ArbitrageOpportunity struct {
 
 // PoolInfo 池子信息
 type PoolInfo struct {
-	Address    common.Address `json:"address"`
-	Token0     common.Address `json:"token0"`
-	Token1     common.Address `json:"token1"`
-	Decimals0  uint           `json:"decimals0"` //token0 精度
-	Decimals1  uint           `json:"decimals1"` //token1 精度
-	Reserve0   *big.Int       `json:"reserve0"`
-	Reserve1   *big.Int       `json:"reserve1"`
-	Fee        uint64         `json:"fee"`         // basis points
-	DexName    string         `json:"dex_name"`    // 交易所展示名（如 "Uniswap V2"）
-	Protocol   string         `json:"protocol"`    // 协议类型（如 "uniswap_v2" / "uniswap_v3" / "sushiswap"）
-	DexAddress common.Address `json:"dex_address"` // Router地址
-	LastUpdate time.Time      `json:"last_update"`
+	Address      common.Address `json:"address"`
+	Token0       common.Address `json:"token0"`
+	Token1       common.Address `json:"token1"`
+	Decimals0    uint           `json:"decimals0"`      // token0 精度
+	Decimals1    uint           `json:"decimals1"`      // token1 精度
+	Reserve0     *big.Int       `json:"reserve0"`       // V2 储备量
+	Reserve1     *big.Int       `json:"reserve1"`       // V2 储备量
+	SqrtPriceX96 *big.Int       `json:"sqrt_price_x96"` // V3 价格 (Q64.96)
+	Liquidity    *big.Int       `json:"liquidity"`      // V3 当前流动性
+	Tick         int32          `json:"tick"`           // V3 当前 tick
+	Fee          uint64         `json:"fee"`            // basis points
+	DexName      string         `json:"dex_name"`       // 交易所展示名（如 "Uniswap V2"）
+	Protocol     string         `json:"protocol"`       // 协议类型（如 "uniswap_v2" / "uniswap_v3" / "sushiswap"）
+	DexAddress   common.Address `json:"dex_address"`    // Router地址
+	LastUpdate   time.Time      `json:"last_update"`
 }
 
 // PathNode 路径节点

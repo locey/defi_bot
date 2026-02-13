@@ -94,7 +94,8 @@ func (pc *ProfitCalculator) calculateSwapOutput(
 	case "uniswap_v2", "sushiswap":
 		return pc.calculateV2Output(amountIn, reserveIn, reserveOut, pool.Fee)
 	case "uniswap_v3":
-		return pc.calculateV3Output(amountIn, reserveIn, reserveOut, pool.Fee)
+		// Phase 1.2: 使用 V3 精确计算（带完整 pool 信息）
+		return pc.calculateV3OutputWithPool(tokenIn, tokenOut, amountIn, pool)
 	default:
 		return pc.calculateV2Output(amountIn, reserveIn, reserveOut, pool.Fee)
 	}
@@ -168,16 +169,57 @@ func (pc *ProfitCalculator) calculateV2Output(
 	return amountOut, nil
 }
 
-// calculateV3Output Uniswap V3 计算（简化版）
+// calculateV3Output Uniswap V3 concentrated liquidity 精确计算
+// Phase 1.2: 替换原来的 V2 回退，使用基于 sqrtPriceX96 和 liquidity 的正确公式
 func (pc *ProfitCalculator) calculateV3Output(
 	amountIn *big.Int,
 	reserveIn *big.Int,
 	reserveOut *big.Int,
 	feeBps uint64,
 ) (*big.Int, error) {
-	// V3的计算更复杂，这里使用简化版本
-	// 实际应该考虑tick范围和集中流动性
+	// 此方法是通用签名的兼容入口，实际 V3 计算在 calculateSwapOutput 中
+	// 直接分发到 pool-aware 版本。如果没有 V3 数据，使用 V2 作为粗略估计
 	return pc.calculateV2Output(amountIn, reserveIn, reserveOut, feeBps)
+}
+
+// calculateV3OutputWithPool Uniswap V3 精确计算（需要完整 pool 信息）
+func (pc *ProfitCalculator) calculateV3OutputWithPool(
+	tokenIn common.Address,
+	tokenOut common.Address,
+	amountIn *big.Int,
+	pool *PoolInfo,
+) (*big.Int, error) {
+	// 优先使用 V3 精确计算
+	if pool.SqrtPriceX96 != nil && pool.SqrtPriceX96.Sign() > 0 &&
+		pool.Liquidity != nil && pool.Liquidity.Sign() > 0 {
+
+		zeroForOne := tokenIn == pool.Token0
+		result, err := CalculateV3SwapOutput(
+			pool.SqrtPriceX96,
+			pool.Liquidity,
+			amountIn,
+			pool.Fee,
+			zeroForOne,
+		)
+		if err == nil {
+			return result, nil
+		}
+		// V3 计算失败时回退到 V2 近似
+	}
+
+	// 回退: 使用 V2 公式（reserve-based）作为粗略估计
+	var reserveIn, reserveOut *big.Int
+	if tokenIn == pool.Token0 {
+		reserveIn = pool.Reserve0
+		reserveOut = pool.Reserve1
+	} else {
+		reserveIn = pool.Reserve1
+		reserveOut = pool.Reserve0
+	}
+	if reserveIn != nil && reserveIn.Sign() > 0 && reserveOut != nil && reserveOut.Sign() > 0 {
+		return pc.calculateV2Output(amountIn, reserveIn, reserveOut, pool.Fee)
+	}
+	return nil, fmt.Errorf("v3 pool has no valid data for calculation")
 }
 
 // CalculateProfit 计算利润

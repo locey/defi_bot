@@ -210,24 +210,86 @@ func main() {
 		log.Main().Warn().Msg("未配置 Keeper 私钥或合约地址，仅分析模式（不会自动执行）")
 	}
 
-	// 11. 创建定时任务调度器
-	log.Main().Info().Msg("创建定时任务调度器...")
-	taskScheduler := scheduler.NewScheduler(
-		dataCollector,
-		strategyEngine,
-		arbitrageExecutor,
-		&cfg.Scheduler,
-	)
-
-	// 12. 启动调度器
-	if err := taskScheduler.Start(ctx); err != nil {
-		log.Main().Fatal().Err(err).Msg("启动调度器失败")
+	// 11. 创建调度器（Phase 1.1: 支持高性能模式）
+	schedulerMode := cfg.Scheduler.Mode
+	if schedulerMode == "" {
+		schedulerMode = "high_performance" // 默认使用高性能模式
 	}
 
-	// 13. 立即执行一次数据采集（DEX + CEX）
-	log.Main().Info().Msg("执行初始数据采集...")
-	if err := dataCollector.CollectAllData(); err != nil {
-		log.Main().Warn().Err(err).Msg("初始数据采集失败")
+	// Phase 1.1: 通用停止接口
+	type Stopper interface {
+		Stop()
+	}
+	var activeScheduler Stopper
+
+	switch schedulerMode {
+	case "high_performance":
+		log.Main().Info().Msg("创建高性能事件驱动调度器...")
+
+		// 构建基础代币列表
+		var baseTokens []common.Address
+		for _, t := range cfg.Tokens {
+			if t.Address != "" {
+				baseTokens = append(baseTokens, common.HexToAddress(t.Address))
+			}
+		}
+
+		hpConfig := &scheduler.HighPerformanceConfig{
+			WSURL:                   cfg.Blockchain.WSURL,
+			ChainID:                 cfg.Blockchain.ChainID,
+			BaseTokens:              baseTokens,
+			MaxConcurrentExecutions: cfg.Scheduler.MaxConcurrentExec,
+			MinConfidence:           cfg.Scheduler.MinConfidence,
+			EnableExecution:         cfg.Scheduler.EnableExecution,
+			DryRun:                  cfg.Scheduler.DryRun,
+		}
+		if hpConfig.MaxConcurrentExecutions == 0 {
+			hpConfig.MaxConcurrentExecutions = 3
+		}
+		if hpConfig.MinConfidence == 0 {
+			hpConfig.MinConfidence = 0.7
+		}
+
+		hpScheduler, err := scheduler.NewHighPerformanceScheduler(
+			db,
+			web3Client,
+			arbitrageExecutor,
+			hpConfig,
+		)
+		if err != nil {
+			log.Main().Warn().Err(err).Msg("高性能调度器创建失败，回退到标准模式")
+			schedulerMode = "standard" // 回退
+		} else {
+			if err := hpScheduler.Start(); err != nil {
+				log.Main().Warn().Err(err).Msg("高性能调度器启动失败，回退到标准模式")
+				schedulerMode = "standard"
+			} else {
+				activeScheduler = hpScheduler
+				log.Main().Info().Msg("高性能事件驱动调度器已启动")
+			}
+		}
+	}
+
+	// 标准模式（或高性能模式回退时）
+	if schedulerMode == "standard" || activeScheduler == nil {
+		log.Main().Info().Msg("创建标准定时任务调度器...")
+		taskScheduler := scheduler.NewScheduler(
+			dataCollector,
+			strategyEngine,
+			arbitrageExecutor,
+			&cfg.Scheduler,
+		)
+
+		if err := taskScheduler.Start(ctx); err != nil {
+			log.Main().Fatal().Err(err).Msg("启动调度器失败")
+		}
+		activeScheduler = taskScheduler
+
+		// 标准模式需要初始数据采集
+		log.Main().Info().Msg("执行初始数据采集...")
+		if err := dataCollector.CollectAllData(); err != nil {
+			log.Main().Warn().Err(err).Msg("初始数据采集失败")
+		}
 	}
 
 	// 14. 启动 API 服务器
@@ -255,7 +317,9 @@ func main() {
 
 	// 15. 优雅关闭
 	log.Main().Info().Msg("正在关闭服务...")
-	taskScheduler.Stop()
+	if activeScheduler != nil {
+		activeScheduler.Stop()
+	}
 	strategyEngine.Stop()
 	log.Main().Info().Msg("服务已关闭")
 	log.Close() // 关闭日志系统
