@@ -25,18 +25,17 @@ sequencer_url: "https://arb1-sequencer.arbitrum.io/rpc"
 # 合约地址
 # 注意：这些地址必须与 contract/deployments/arbitrum-addresses.json 一致
 contracts:
-  # 核心合约
-  arbitrage_core: "0x27ea15F931328474d75BE5B0a493278ba7041C74"
-  config_manager: "0x121D230710dc710f5AA29b73EFc8d403707173A3"
+  # 核心合约 — 2026-02-16 重新部署
+  arbitrage_core: "0x0D14428b4e297344C2C51D087934a3e3a9b822B9"
+  config_manager: "0x8dD68621209D31D2c3202F894B956DDEdF893697"
   
   # 套利执行合约
-  vault: "0xB7e37Fb429795E10A8D25752fFC69Fbab71df677"
-  spot_arbitrage: "0x7e9eC412aF1f8657b99Df8f419c5D98F11F41bd5"
-  flash_loan_router: "0x4A89d8B8B0376Fc8c7e2119445c828719BeC019E"
+  vault: "0xBE312B103f89489Df5bFf0A59d327c4C8B19d94F"
+  spot_arbitrage: "0xceCCf5D3f5ab1dAB5b13Fd5Cf7deeA9C3DBaad17"
   
   # 集成合约
-  double_router_integration: "0x67d905Da6b09733f1695db12A962066Ca85A95cC"
-  uniswap_v2_integration: "0xf9680677Da105F3B10538A55F6e214F9c72AA120"
+  double_router_integration: "0xE075114d8C9142c9497eabc10b4CAaf2794c95dc"
+  uniswap_v2_integration: "0x1c2897899948d35dbF394e5a1980986474cF0b27"
   
   # 工具合约
   multicall: "0xcA11bde05977b3631167028862bE2a173976CA11"
