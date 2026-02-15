@@ -9,7 +9,10 @@ import (
 	"syscall"
 	"time"
 
+	"math/big"
+
 	"github.com/defi-bot/backend/internal/api"
+	"github.com/defi-bot/backend/internal/cexdex"
 	"github.com/defi-bot/backend/internal/collector"
 	"github.com/defi-bot/backend/internal/config"
 	"github.com/defi-bot/backend/internal/database"
@@ -19,7 +22,7 @@ import (
 	"github.com/defi-bot/backend/internal/strategy"
 	"github.com/defi-bot/backend/pkg/cache"
 	"github.com/defi-bot/backend/pkg/cex"
-	"github.com/defi-bot/backend/pkg/log" // 导入自定义log包
+	"github.com/defi-bot/backend/pkg/log"
 	"github.com/defi-bot/backend/pkg/web3"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -247,7 +250,7 @@ func main() {
 			hpConfig.MaxConcurrentExecutions = 3
 		}
 		if hpConfig.MinConfidence == 0 {
-			hpConfig.MinConfidence = 0.7
+			hpConfig.MinConfidence = 0.3 // 降低阈值让更多机会通过，eth_call 模拟做最终验证
 		}
 
 		hpScheduler, err := scheduler.NewHighPerformanceScheduler(
@@ -290,6 +293,93 @@ func main() {
 		if err := dataCollector.CollectAllData(); err != nil {
 			log.Main().Warn().Err(err).Msg("初始数据采集失败")
 		}
+	}
+
+	// 13. CEX-DEX 套利检测器（如果配置了 Binance 且 CEXDEX 启用）
+	if cfg.CEXDEX.Enabled && cfg.Cex.Enabled && cfg.Cex.Binance.Enabled {
+		log.Main().Info().Msg("初始化 CEX-DEX 套利检测器...")
+
+		// 创建 CEX 价格监控器
+		cexMonitor := cexdex.NewPriceMonitor(&cexdex.PriceMonitorConfig{
+			Symbols:      cfg.Cex.Binance.Symbols,
+			BinanceWSURL: cfg.Cex.Binance.WSEndpoint,
+		})
+
+		// 创建 CEX-DEX 检测器
+		ttlDuration := time.Duration(cfg.CEXDEX.OpportunityTTL) * time.Second
+		cexdexDetector := cexdex.NewDetector(
+			&cexdex.DetectorConfig{
+				MinProfitRate:   cfg.CEXDEX.MinProfitRate,
+				MinProfitAmount: cfg.CEXDEX.MinProfitAmount,
+				MaxTradeAmount:  cfg.CEXDEX.MaxTradeAmount,
+				MinTradeAmount:  cfg.CEXDEX.MinTradeAmount,
+				OpportunityTTL:  ttlDuration,
+			},
+			cexMonitor,
+			nil, // DEX price provider (TODO: 接入 PriceCache)
+		)
+
+		// 启动 CEX 价格监控
+		go func() {
+			if err := cexMonitor.Start(ctx); err != nil {
+				log.Main().Warn().Err(err).Msg("CEX 价格监控启动失败")
+			}
+		}()
+
+		// 启动 CEX-DEX 检测器
+		go func() {
+			if err := cexdexDetector.Start(ctx); err != nil {
+				log.Main().Warn().Err(err).Msg("CEX-DEX 检测器启动失败")
+			}
+		}()
+
+		// 桥接 CEX-DEX 机会到主执行管道
+		go func() {
+			for opp := range cexdexDetector.GetOpportunityChan() {
+				// 将 CEXDEXOpportunity 转换为 ArbitrageOpportunity
+				arbOpp := &strategy.ArbitrageOpportunity{
+					ID:           opp.ID,
+					SwapPath:     []common.Address{opp.DEXPool}, // 简化路径
+					Dexes:        []common.Address{opp.DEXRouter},
+					DexNames:     []string{"CEX-DEX:" + opp.Direction},
+					ProfitRate:   opp.ProfitRate,
+					Confidence:   opp.Confidence,
+					Timestamp:    opp.CreatedAt,
+					ValidUntil:   opp.ValidUntil,
+					IsCex:        true,
+				}
+				// 转换金额 (USD -> wei 需要价格转换, 简化为直接设置)
+				if opp.TradeAmount > 0 {
+					arbOpp.AmountIn = new(big.Int).SetUint64(uint64(opp.TradeAmount * 1e6)) // USDC 精度
+				}
+				if opp.ExpectProfit > 0 {
+					arbOpp.ExpectProfit = new(big.Int).SetUint64(uint64(opp.ExpectProfit * 1e6))
+				}
+
+				log.Main().Info().
+					Str("id", opp.ID).
+					Str("direction", opp.Direction).
+					Float64("profit_rate", opp.ProfitRate*100).
+					Float64("net_profit_usd", opp.NetProfit).
+					Msg("CEX-DEX opportunity detected")
+
+				// 如果有执行器且启用执行，发送给执行器
+				if arbitrageExecutor != nil {
+					go func(o *strategy.ArbitrageOpportunity) {
+						result, err := arbitrageExecutor.Execute(ctx, o)
+						if err != nil {
+							log.Main().Warn().Err(err).Str("id", o.ID).Msg("CEX-DEX execution failed")
+						} else if result.Success {
+							log.Main().Info().Str("id", o.ID).Str("tx", result.TxHash).Msg("CEX-DEX execution success!")
+						}
+					}(arbOpp)
+				}
+			}
+		}()
+
+		log.Main().Info().Msg("✅ CEX-DEX 套利检测器已启动")
+	} else {
+		log.Main().Info().Msg("CEX-DEX 套利未启用（需要配置 Binance API 并启用 cexdex.enabled）")
 	}
 
 	// 14. 启动 API 服务器

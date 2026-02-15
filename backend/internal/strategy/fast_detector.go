@@ -503,15 +503,28 @@ func (d *ArbitrageDetector) calculatePath(path *ArbitragePath) *ArbitrageOpportu
 		IsCex:        false, // DEX-DEX 套利路径
 	}
 
-	// 计算预期利润
-	if optimalAmountIn != nil {
+	// 计算预期利润（wei 单位）
+	if optimalAmountIn != nil && optimalAmountIn.Sign() > 0 {
 		expectedProfit := new(big.Float).SetInt(optimalAmountIn)
 		expectedProfit.Mul(expectedProfit, big.NewFloat(profitRateFloat))
 		opp.ExpectProfit, _ = expectedProfit.Int(nil)
+
+		// 计算 MinProfit = Gas 成本的 2 倍（保守估计）
+		// Arbitrum Gas ~800K × 0.1 gwei = 0.00008 ETH
+		gasEstimateWei := new(big.Int).Mul(big.NewInt(800000), big.NewInt(100_000_000)) // 800K gas × 0.1 gwei
+		opp.MinProfit = new(big.Int).Mul(gasEstimateWei, big.NewInt(2))
+		opp.GasEstimate = 800000
 	}
 
 	calcTime := time.Since(startTime)
-	log.Strategy().Info().Str("path", path.ID).Float64("profit", profitRateFloat*100).Dur("calc_time", calcTime).Msg("ArbitrageDetector: Found opportunity")
+	log.Strategy().Info().
+		Str("path", path.ID).
+		Float64("profit_pct", profitRateFloat*100).
+		Str("expect_profit_wei", func() string { if opp.ExpectProfit != nil { return opp.ExpectProfit.String() } ; return "0" }()).
+		Float64("confidence", opp.Confidence).
+		Int("hops", path.PathLength).
+		Dur("calc_time", calcTime).
+		Msg("ArbitrageDetector: Found opportunity")
 
 	return opp
 }
@@ -653,30 +666,44 @@ func calculateMaxAmountForDecimals(decimals uint8) *big.Int {
 }
 
 // calculatePathConfidence 计算路径置信度
+// 改进版：更合理的置信度评估
 func calculatePathConfidence(path *ArbitragePath, profitRate float64) float64 {
 	// 基础置信度
-	confidence := 1.0
+	confidence := 0.8
 
-	// 路径越长，置信度越低
-	if path.PathLength > 3 {
-		confidence *= 0.8
-	}
-	if path.PathLength > 4 {
-		confidence *= 0.7
-	}
-
-	// 利润率太高可能是假数据
-	if profitRate > 0.05 {
-		confidence *= 0.7
-	}
-	if profitRate > 0.1 {
-		confidence *= 0.5
+	// 路径长度影响（3-hop 最佳）
+	switch path.PathLength {
+	case 3:
+		confidence *= 1.0 // 3-hop 最常见最可靠
+	case 4:
+		confidence *= 0.9 // 4-hop 稍低
+	default:
+		confidence *= 0.7 // 5+ hop 较低
 	}
 
-	// 历史成功率
+	// 利润率合理性检查（过高的利润率通常不真实）
+	if profitRate > 0.5 { // >50% 极不可能
+		confidence *= 0.1
+	} else if profitRate > 0.1 { // >10% 可疑
+		confidence *= 0.3
+	} else if profitRate > 0.05 { // >5% 需要验证
+		confidence *= 0.6
+	} else if profitRate > 0.003 { // 0.3%-5% 合理范围
+		confidence *= 1.0 // 不惩罚
+	}
+
+	// 历史成功率（有历史数据时加权）
 	if path.SuccessCount+path.FailCount > 0 {
 		successRate := float64(path.SuccessCount) / float64(path.SuccessCount+path.FailCount)
 		confidence *= (0.5 + 0.5*successRate)
+	}
+
+	// 确保置信度在 0-1 范围内
+	if confidence > 1.0 {
+		confidence = 1.0
+	}
+	if confidence < 0.01 {
+		confidence = 0.01
 	}
 
 	return confidence

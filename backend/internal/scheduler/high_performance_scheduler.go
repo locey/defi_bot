@@ -126,7 +126,7 @@ func defaultHighPerformanceConfig() *HighPerformanceConfig {
 		DetectorConfig:          nil, // 使用默认
 		MaxConcurrentExecutions: 3,
 		ExecutionTimeout:        30 * time.Second,
-		MinConfidence:           0.7,
+		MinConfidence:           0.3, // 降低阈值，让更多机会通过（eth_call 模拟会做最终验证）
 		EnableExecution:         false, // 默认不自动执行
 		DryRun:                  true,  // 默认干运行
 	}
@@ -444,7 +444,7 @@ func CreateHighPerformanceScheduler(
 		BaseTokens:              baseTokens,
 		MaxConcurrentExecutions: 3,
 		ExecutionTimeout:        30 * time.Second,
-		MinConfidence:           0.7,
+		MinConfidence:           0.3,
 		EnableExecution:         false,
 		DryRun:                  true,
 	}
