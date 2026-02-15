@@ -1,18 +1,21 @@
-require("@nomiclabs/hardhat-ethers");
 require("@nomicfoundation/hardhat-toolbox");
 require("@openzeppelin/hardhat-upgrades");
 require("hardhat-gas-reporter");
 require("dotenv").config(); 
 
-const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL; 
-const PRIVATE_KEY = process.env.PRIVATE_KEY; 
+// 私钥：优先从环境变量读取，没有则用安全的占位符（仅用于编译，不可实际部署）
+const DEPLOYER_PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY && process.env.DEPLOYER_PRIVATE_KEY.length >= 64
+  ? process.env.DEPLOYER_PRIVATE_KEY
+  : "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"; // Hardhat 默认测试账户 #0
+const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL || "https://ethereum-sepolia.publicnode.com";
+const MAINNET_RPC_URL = process.env.MAINNET_RPC_URL || "https://eth-mainnet.g.alchemy.com/v2/demo";
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   solidity: {
     compilers: [
       {
-        version: "0.8.28",
+        version: "0.8.33",
         settings: {
           optimizer: {
             enabled: true,
@@ -57,8 +60,18 @@ module.exports = {
     },
     sepolia: {
       url: SEPOLIA_RPC_URL,
-      accounts: [PRIVATE_KEY],
+      accounts: [DEPLOYER_PRIVATE_KEY],
       chainId: 11155111,
+    },
+    arbitrumSepolia: {
+      url: "https://sepolia-rollup.arbitrum.io/rpc",
+      accounts: [DEPLOYER_PRIVATE_KEY],
+      chainId: 421614,
+    },
+    arbitrumOne: {
+      url: process.env.ARBITRUM_RPC_URL || "https://arb1.arbitrum.io/rpc",
+      accounts: [DEPLOYER_PRIVATE_KEY],
+      chainId: 42161,
     },
   },
 };

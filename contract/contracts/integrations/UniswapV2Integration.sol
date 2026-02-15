@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "../interfaces/IUniswapV2Integration.sol";
-import "../interfaces/IUniswapV2Router02.sol";
+import "../router/IUniswapV2Router02.sol";
 import "../core/ConfigManage.sol";
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";

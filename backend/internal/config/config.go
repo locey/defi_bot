@@ -3,6 +3,8 @@ package config
 import (
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -227,12 +229,86 @@ type BinanceConfig struct {
 
 var globalConfig *Config
 
+// loadDotEnv 加载 .env 文件中的环境变量（如果存在）
+// 业界标准做法：.env 文件不提交到 Git，仅在本地/部署环境使用
+func loadDotEnv(configPath string) {
+	// 尝试在 config 文件所在目录的上级（backend/）查找 .env
+	configDir := filepath.Dir(configPath)
+	envPaths := []string{
+		filepath.Join(configDir, "..", ".env"),   // backend/.env
+		filepath.Join(configDir, ".env"),          // backend/configs/.env
+		".env",                                    // 当前目录
+	}
+
+	for _, envPath := range envPaths {
+		data, err := os.ReadFile(envPath)
+		if err != nil {
+			continue
+		}
+		// 逐行解析 KEY=VALUE 格式
+		for _, line := range strings.Split(string(data), "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			parts := strings.SplitN(line, "=", 2)
+			if len(parts) != 2 {
+				continue
+			}
+			key := strings.TrimSpace(parts[0])
+			value := strings.TrimSpace(parts[1])
+			// 不覆盖已有的环境变量（真实环境变量优先级最高）
+			if os.Getenv(key) == "" {
+				os.Setenv(key, value)
+			}
+		}
+		log.Printf("已加载环境变量: %s", envPath)
+		return
+	}
+}
+
+// overrideSensitiveFromEnv 强制从环境变量覆盖敏感配置
+// 即使 config.yaml 中有值，环境变量优先级更高
+func overrideSensitiveFromEnv(config *Config) {
+	// Keeper 私钥（最关键）
+	if pk := os.Getenv("KEEPER_PRIVATE_KEY"); pk != "" {
+		config.Keeper.PrivateKey = pk
+		log.Printf("Keeper 私钥已从环境变量加载")
+	}
+
+	// 数据库密码
+	if dbPass := os.Getenv("DATABASE_PASSWORD"); dbPass != "" {
+		config.Database.Password = dbPass
+	}
+
+	// Binance API
+	if apiKey := os.Getenv("BINANCE_API_KEY"); apiKey != "" {
+		config.Cex.Binance.APIKey = apiKey
+	}
+	if apiSecret := os.Getenv("BINANCE_API_SECRET"); apiSecret != "" {
+		config.Cex.Binance.APISecret = apiSecret
+	}
+
+	// RPC URL 覆盖
+	if rpcURL := os.Getenv("BLOCKCHAIN_RPC_URL"); rpcURL != "" {
+		config.Blockchain.RPCURL = rpcURL
+	}
+	if wsURL := os.Getenv("BLOCKCHAIN_WS_URL"); wsURL != "" {
+		config.Blockchain.WSURL = wsURL
+	}
+}
+
 // LoadConfig 加载配置文件
+// 加载优先级（从低到高）：config.yaml < .env 文件 < 真实环境变量
 func LoadConfig(configPath string) (*Config, error) {
+	// 1. 加载 .env 文件（如果存在）— 设置环境变量
+	loadDotEnv(configPath)
+
+	// 2. 加载 YAML 配置文件
 	viper.SetConfigFile(configPath)
 	viper.SetConfigType("yaml")
 
-	// 自动读取环境变量
+	// 3. 自动读取环境变量（Viper 层面，KEY_SUBKEY 映射到 key.subkey）
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
@@ -243,6 +319,17 @@ func LoadConfig(configPath string) (*Config, error) {
 	var config Config
 	if err := viper.Unmarshal(&config); err != nil {
 		return nil, fmt.Errorf("解析配置文件失败: %w", err)
+	}
+
+	// 4. 强制从环境变量覆盖敏感字段（最高优先级）
+	overrideSensitiveFromEnv(&config)
+
+	// 5. 安全检查：确保私钥不在日志中泄露
+	if config.Keeper.PrivateKey != "" {
+		maskedKey := config.Keeper.PrivateKey[:6] + "..." + config.Keeper.PrivateKey[len(config.Keeper.PrivateKey)-4:]
+		log.Printf("Keeper 私钥已配置: %s", maskedKey)
+	} else {
+		log.Printf("⚠️ Keeper 私钥未配置，系统将以只读模式运行（不执行交易）")
 	}
 
 	globalConfig = &config

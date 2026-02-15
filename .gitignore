@@ -8,12 +8,16 @@
 .env.local
 .env.*.local
 env
+backend/.env
 backend/env
-contract/env
 contract/.env
+contract/env
 **/private_keys/
 **/*.pem
 **/*.key
+# 本地配置覆盖（可能包含私钥）
+backend/configs/config.local.yaml
+backend/configs/config.secret.yaml
 
 # ============ 编译产物 ============
 # Go
