@@ -296,10 +296,17 @@ func (d *ArbitrageDetector) Stop() {
 	log.Strategy().Info().Msg("ArbitrageDetector: Stopped")
 }
 
-// eventLoop 事件循环
+// eventLoop 事件循环 + 定时全量扫描
 func (d *ArbitrageDetector) eventLoop(ctx context.Context, events <-chan cache.PriceChangeEvent) {
 	// 并发控制
 	semaphore := make(chan struct{}, d.config.MaxConcurrentCalc)
+
+	// 定时全量扫描：每30秒扫描所有路径（弥补事件驱动的盲区）
+	scanTicker := time.NewTicker(30 * time.Second)
+	defer scanTicker.Stop()
+
+	// 启动后立即做一次全量扫描
+	go d.fullScan(semaphore)
 
 	for {
 		select {
@@ -312,7 +319,55 @@ func (d *ArbitrageDetector) eventLoop(ctx context.Context, events <-chan cache.P
 				return
 			}
 			d.onPriceChange(event, semaphore)
+		case <-scanTicker.C:
+			// 定时全量扫描所有路径
+			go d.fullScan(semaphore)
 		}
+	}
+}
+
+// fullScan 全量扫描所有预计算路径，寻找套利机会
+// 弥补事件驱动的不足：即使价格变化 < 阈值，跨 DEX 的累积价差可能已经很大
+func (d *ArbitrageDetector) fullScan(semaphore chan struct{}) {
+	d.mu.RLock()
+	allPaths := make([]*ArbitragePath, 0, len(d.paths))
+	for _, p := range d.paths {
+		allPaths = append(allPaths, p)
+	}
+	d.mu.RUnlock()
+
+	scanned := 0
+	found := 0
+
+	for _, path := range allPaths {
+		select {
+		case semaphore <- struct{}{}:
+		default:
+			continue // 并发已满，跳过
+		}
+
+		opp := d.calculatePath(path)
+		<-semaphore
+
+		if opp != nil {
+			found++
+			select {
+			case d.opportunities <- opp:
+			default:
+				log.Strategy().Warn().Str("path", path.ID).Msg("ArbitrageDetector: opportunity buffer full")
+			}
+		}
+		scanned++
+	}
+
+	d.statsMu.Lock()
+	d.stats.EventsReceived += int64(scanned)
+	d.statsMu.Unlock()
+
+	if found > 0 {
+		log.Strategy().Info().Int("scanned", scanned).Int("found", found).Msg("ArbitrageDetector: Full scan complete - opportunities found!")
+	} else {
+		log.Strategy().Debug().Int("scanned", scanned).Msg("ArbitrageDetector: Full scan complete")
 	}
 }
 
