@@ -224,6 +224,7 @@ func main() {
 		Stop()
 	}
 	var activeScheduler Stopper
+	var highPerfScheduler *scheduler.HighPerformanceScheduler // 用于 CEX-DEX 套利
 
 	switch schedulerMode {
 	case "high_performance":
@@ -268,6 +269,7 @@ func main() {
 				schedulerMode = "standard"
 			} else {
 				activeScheduler = hpScheduler
+				highPerfScheduler = hpScheduler // 保存引用供 CEX-DEX 使用
 				log.Main().Info().Msg("高性能事件驱动调度器已启动")
 			}
 		}
@@ -301,9 +303,22 @@ func main() {
 
 		// 创建 CEX 价格监控器
 		cexMonitor := cexdex.NewPriceMonitor(&cexdex.PriceMonitorConfig{
-			Symbols:      cfg.Cex.Binance.Symbols,
-			BinanceWSURL: cfg.Cex.Binance.WSEndpoint,
+			Symbols:        cfg.Cex.Binance.Symbols,
+			BinanceWSURL:   cfg.Cex.Binance.WSEndpoint,
+			ReconnectDelay: 5 * time.Second,
+			PingInterval:   30 * time.Second,
+			BufferSize:     1000,
 		})
+
+		// 创建 DEX 价格适配器（连接到 PriceCache）
+		var dexPriceProvider cexdex.DEXPriceProvider
+		if highPerfScheduler != nil {
+			priceCache := highPerfScheduler.GetPriceCache()
+			if priceCache != nil {
+				dexPriceProvider = cexdex.NewDEXPriceAdapter(priceCache)
+				log.Main().Info().Msg("✅ DEX 价格适配器已创建，连接到 PriceCache")
+			}
+		}
 
 		// 创建 CEX-DEX 检测器
 		ttlDuration := time.Duration(cfg.CEXDEX.OpportunityTTL) * time.Second
@@ -316,7 +331,7 @@ func main() {
 				OpportunityTTL:  ttlDuration,
 			},
 			cexMonitor,
-			nil, // DEX price provider (TODO: 接入 PriceCache)
+			dexPriceProvider,
 		)
 
 		// 启动 CEX 价格监控
@@ -363,17 +378,19 @@ func main() {
 					Float64("net_profit_usd", opp.NetProfit).
 					Msg("CEX-DEX opportunity detected")
 
+				// TODO: 暂时禁用 CEX-DEX 执行，等待价格计算问题修复
 				// 如果有执行器且启用执行，发送给执行器
-				if arbitrageExecutor != nil {
-					go func(o *strategy.ArbitrageOpportunity) {
-						result, err := arbitrageExecutor.Execute(ctx, o)
-						if err != nil {
-							log.Main().Warn().Err(err).Str("id", o.ID).Msg("CEX-DEX execution failed")
-						} else if result.Success {
-							log.Main().Info().Str("id", o.ID).Str("tx", result.TxHash).Msg("CEX-DEX execution success!")
-						}
-					}(arbOpp)
-				}
+				// if arbitrageExecutor != nil {
+				// 	go func(o *strategy.ArbitrageOpportunity) {
+				// 		result, err := arbitrageExecutor.Execute(ctx, o)
+				// 		if err != nil {
+				// 			log.Main().Warn().Err(err).Str("id", o.ID).Msg("CEX-DEX execution failed")
+				// 		} else if result.Success {
+				// 			log.Main().Info().Str("id", o.ID).Str("tx", result.TxHash).Msg("CEX-DEX execution success!")
+				// 		}
+				// 	}(arbOpp)
+				// }
+				log.Main().Info().Msg("📋 CEX-DEX 执行已禁用（等待价格计算问题修复）")
 			}
 		}()
 

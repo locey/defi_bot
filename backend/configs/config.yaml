@@ -267,7 +267,7 @@ cex:
   binance:
     enabled: true
     api_endpoint: "https://api.binance.com"
-    ws_endpoint: "wss://stream.binance.com:9443"
+    ws_endpoint: "wss://stream.binance.com:9443/ws"
     api_key: ""
     api_secret: ""
     rate_limit: 1200

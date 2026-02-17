@@ -5,6 +5,7 @@ package cache
 import (
 	"math"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,6 +24,11 @@ type PoolPrice struct {
 	// 精度信息（业界标准：必须包含）
 	Decimals0   uint8          `json:"decimals0"` // Token0 精度
 	Decimals1   uint8          `json:"decimals1"` // Token1 精度
+	
+	// V3 特有字段
+	SqrtPriceX96 *big.Int      `json:"sqrt_price_x96,omitempty"` // V3: sqrt(price) * 2^96
+	Liquidity    *big.Int      `json:"liquidity,omitempty"`      // V3: 当前活跃流动性
+	IsV3         bool          `json:"is_v3"`                    // 是否为 V3 池子
 	
 	Price       float64        `json:"price"` // Token1/Token0
 	DexName     string         `json:"dex_name"`
@@ -99,8 +105,8 @@ func (c *PriceCache) Update(poolAddr string, reserve0, reserve1 *big.Int, blockN
 		oldPrice = old.(*PoolPrice)
 	}
 
-	// 计算新价格
-	newPriceFloat := calculatePrice(reserve0, reserve1)
+	// 计算原始价格 (reserve1/reserve0)
+	rawPrice := calculatePrice(reserve0, reserve1)
 
 	// 创建新价格对象
 	now := time.Now()
@@ -108,19 +114,30 @@ func (c *PriceCache) Update(poolAddr string, reserve0, reserve1 *big.Int, blockN
 		PoolAddress: poolAddr,
 		Reserve0:    new(big.Int).Set(reserve0),
 		Reserve1:    new(big.Int).Set(reserve1),
-		Price:       newPriceFloat,
+		Price:       rawPrice,
 		UpdatedAt:   now,
 		BlockNumber: blockNumber,
 	}
 
-	// 如果有旧数据，保留token信息
+	// 如果有旧数据，保留token信息和decimals
 	if oldPrice != nil {
 		newPrice.Token0 = oldPrice.Token0
 		newPrice.Token1 = oldPrice.Token1
 		newPrice.DexName = oldPrice.DexName
 		newPrice.Protocol = oldPrice.Protocol
 		newPrice.Fee = oldPrice.Fee
+		newPrice.Decimals0 = oldPrice.Decimals0
+		newPrice.Decimals1 = oldPrice.Decimals1
+
+		// 如果有 decimals 信息，调整价格
+		// V2 价格 = reserve1/reserve0（原始单位）
+		// 真实价格 = rawPrice * 10^(decimals0 - decimals1)
+		if oldPrice.Decimals0 > 0 || oldPrice.Decimals1 > 0 {
+			newPrice.Price = adjustPriceByDecimals(rawPrice, oldPrice.Decimals0, oldPrice.Decimals1)
+		}
 	}
+
+	newPriceFloat := newPrice.Price
 
 	// 存储新价格 (无锁写入)
 	c.prices.Store(poolAddr, newPrice)
@@ -147,6 +164,113 @@ func (c *PriceCache) Update(poolAddr string, reserve0, reserve1 *big.Int, blockN
 				OldReserve1: oldPrice.Reserve1,
 				NewReserve0: reserve0,
 				NewReserve1: reserve1,
+				ChangeRate:  changeRate,
+				BlockNumber: blockNumber,
+				Timestamp:   now,
+			}
+			c.notifySubscribers(event)
+		}
+	}
+}
+
+// UpdateV3 更新 V3 池子价格（使用 sqrtPriceX96）
+func (c *PriceCache) UpdateV3(poolAddr string, sqrtPriceX96, liquidity *big.Int, blockNumber uint64) {
+	// 获取旧价格
+	var oldPrice *PoolPrice
+	if old, ok := c.prices.Load(poolAddr); ok {
+		oldPrice = old.(*PoolPrice)
+	}
+	
+	// 计算价格 (从 sqrtPriceX96)
+	newPriceFloat := calculatePriceFromSqrtX96(sqrtPriceX96)
+	
+
+	// 创建新价格对象
+	now := time.Now()
+	newPrice := &PoolPrice{
+		PoolAddress:  poolAddr,
+		SqrtPriceX96: new(big.Int).Set(sqrtPriceX96),
+		Liquidity:    liquidity,
+		IsV3:         true,
+		Price:        newPriceFloat,
+		UpdatedAt:    now,
+		BlockNumber:  blockNumber,
+	}
+
+	// 如果有旧数据，保留 token 信息和 decimals
+	if oldPrice != nil {
+		newPrice.Token0 = oldPrice.Token0
+		newPrice.Token1 = oldPrice.Token1
+		newPrice.DexName = oldPrice.DexName
+		newPrice.Protocol = oldPrice.Protocol
+		newPrice.Fee = oldPrice.Fee
+		newPrice.Decimals0 = oldPrice.Decimals0
+		newPrice.Decimals1 = oldPrice.Decimals1
+
+		// 如果有 decimals 信息，重新计算价格
+		if oldPrice.Decimals0 > 0 || oldPrice.Decimals1 > 0 {
+			// V3 合约按地址排序：小地址是 token0，大地址是 token1
+			// sqrtPriceX96 给出的是 (token1_contract / token0_contract)
+			// 数据库的 token 顺序可能与合约不同
+			dbToken0Hex := strings.ToLower(oldPrice.Token0.Hex())
+			dbToken1Hex := strings.ToLower(oldPrice.Token1.Hex())
+			
+			// 确定合约实际的 decimals（按地址排序）
+			contractDec0, contractDec1 := oldPrice.Decimals0, oldPrice.Decimals1
+			dbOrderMatchesContract := dbToken0Hex < dbToken1Hex
+			
+			if !dbOrderMatchesContract {
+				// 数据库顺序与合约相反，交换 decimals
+				contractDec0, contractDec1 = oldPrice.Decimals1, oldPrice.Decimals0
+			}
+			
+			// 计算合约顺序的价格：token1_contract_real / token0_contract_real
+			contractPrice := calculatePriceFromSqrtX96WithDecimals(sqrtPriceX96, contractDec0, contractDec1)
+			
+			// 转换为数据库顺序的价格：db_token0_real / db_token1_real
+			// 与 V2 的 adjustPriceByDecimals 保持一致
+			if dbOrderMatchesContract {
+				// 数据库顺序与合约相同
+				// contract_token1/contract_token0 = db_token1/db_token0
+				// 需要 db_token0/db_token1 = 1 / contractPrice
+				if contractPrice > 0 {
+					newPriceFloat = 1.0 / contractPrice
+				}
+			} else {
+				// 数据库顺序与合约相反
+				// contract_token1/contract_token0 = db_token0/db_token1
+				// 这正是我们需要的
+				newPriceFloat = contractPrice
+			}
+			
+			newPrice.Price = newPriceFloat
+		}
+	}
+
+	// 存储新价格
+	c.prices.Store(poolAddr, newPrice)
+
+	// 更新统计
+	c.statsMu.Lock()
+	c.updateCount++
+	c.lastUpdateAt = now
+	c.statsMu.Unlock()
+
+	// 计算价格变化率并决定是否触发事件
+	if oldPrice != nil && oldPrice.Price > 0 {
+		changeRate := (newPriceFloat - oldPrice.Price) / oldPrice.Price
+
+		if math.Abs(changeRate) >= c.changeThreshold {
+			event := PriceChangeEvent{
+				PoolAddress: poolAddr,
+				Token0:      newPrice.Token0,
+				Token1:      newPrice.Token1,
+				OldPrice:    oldPrice.Price,
+				NewPrice:    newPriceFloat,
+				OldReserve0: oldPrice.Reserve0,
+				OldReserve1: oldPrice.Reserve1,
+				NewReserve0: nil,
+				NewReserve1: nil,
 				ChangeRate:  changeRate,
 				BlockNumber: blockNumber,
 				Timestamp:   now,
@@ -374,7 +498,7 @@ func (c *PriceCache) Stats() (updateCount, eventCount uint64, poolCount int, las
 // 辅助函数
 // ============================================================
 
-// calculatePrice 计算价格 (Token1/Token0)
+// calculatePrice 计算价格 (Token1/Token0) - 原始单位，不考虑 decimals
 func calculatePrice(reserve0, reserve1 *big.Int) float64 {
 	if reserve0 == nil || reserve1 == nil || reserve0.Sign() == 0 {
 		return 0
@@ -390,12 +514,37 @@ func calculatePrice(reserve0, reserve1 *big.Int) float64 {
 	return result
 }
 
-// makeTokenPairKey 生成交易对key（按字母顺序）
-func makeTokenPairKey(token0, token1 string) string {
-	if token0 < token1 {
-		return token0 + "-" + token1
+// adjustPriceByDecimals 根据 decimals 调整价格
+// 原始价格是 token1_raw / token0_raw
+// 真实价格 = rawPrice * 10^(decimals0 - decimals1)
+func adjustPriceByDecimals(rawPrice float64, decimals0, decimals1 uint8) float64 {
+	if rawPrice == 0 {
+		return 0
 	}
-	return token1 + "-" + token0
+
+	decimalDiff := int(decimals0) - int(decimals1)
+
+	if decimalDiff > 0 {
+		for i := 0; i < decimalDiff; i++ {
+			rawPrice *= 10
+		}
+	} else if decimalDiff < 0 {
+		for i := 0; i < -decimalDiff; i++ {
+			rawPrice /= 10
+		}
+	}
+
+	return rawPrice
+}
+
+// makeTokenPairKey 生成交易对key（按字母顺序，统一使用小写以避免大小写不一致问题）
+func makeTokenPairKey(token0, token1 string) string {
+	t0 := strings.ToLower(token0)
+	t1 := strings.ToLower(token1)
+	if t0 < t1 {
+		return t0 + "-" + t1
+	}
+	return t1 + "-" + t0
 }
 
 // containsString 检查slice是否包含字符串
@@ -406,4 +555,52 @@ func containsString(slice []string, s string) bool {
 		}
 	}
 	return false
+}
+
+// calculatePriceFromSqrtX96 从 sqrtPriceX96 计算价格
+// V3 价格公式: price = (sqrtPriceX96 / 2^96)^2 = sqrtPriceX96^2 / 2^192
+func calculatePriceFromSqrtX96(sqrtPriceX96 *big.Int) float64 {
+	if sqrtPriceX96 == nil || sqrtPriceX96.Sign() == 0 {
+		return 0
+	}
+
+	// sqrtPriceX96^2
+	sqrtPrice2 := new(big.Int).Mul(sqrtPriceX96, sqrtPriceX96)
+
+	// 2^192
+	q192 := new(big.Int).Exp(big.NewInt(2), big.NewInt(192), nil)
+
+	// 为了保持精度，使用 big.Float
+	price := new(big.Float).SetInt(sqrtPrice2)
+	divisor := new(big.Float).SetInt(q192)
+	price.Quo(price, divisor)
+
+	result, _ := price.Float64()
+	return result
+}
+
+// calculatePriceFromSqrtX96WithDecimals 从 sqrtPriceX96 计算价格（带 decimals 调整）
+func calculatePriceFromSqrtX96WithDecimals(sqrtPriceX96 *big.Int, decimals0, decimals1 uint8) float64 {
+	basePrice := calculatePriceFromSqrtX96(sqrtPriceX96)
+	if basePrice == 0 {
+		return 0
+	}
+
+	// 调整 decimals
+	// V3 原始价格是 token1/token0，需要根据 decimals 调整
+	// 如果 token0 有 18 decimals，token1 有 6 decimals
+	// 实际价格 = rawPrice * 10^(decimals0 - decimals1)
+	decimalDiff := int(decimals0) - int(decimals1)
+	
+	if decimalDiff > 0 {
+		for i := 0; i < decimalDiff; i++ {
+			basePrice *= 10
+		}
+	} else if decimalDiff < 0 {
+		for i := 0; i < -decimalDiff; i++ {
+			basePrice /= 10
+		}
+	}
+
+	return basePrice
 }

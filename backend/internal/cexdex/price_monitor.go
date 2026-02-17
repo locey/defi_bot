@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -148,9 +149,10 @@ func (m *PriceMonitor) connect() error {
 func (m *PriceMonitor) subscribe() error {
 	// 构建订阅消息
 	// 订阅 bookTicker（最优买卖报价）
+	// 注意：Binance WebSocket 流名称必须使用小写
 	streams := make([]string, len(m.config.Symbols))
 	for i, symbol := range m.config.Symbols {
-		streams[i] = symbol + "@bookTicker"
+		streams[i] = strings.ToLower(symbol) + "@bookTicker"
 	}
 
 	subscribeMsg := map[string]interface{}{
@@ -189,6 +191,14 @@ func (m *PriceMonitor) receiveLoop(ctx context.Context) {
 			log.Warn("读取 WebSocket 消息失败: %v", err)
 			m.reconnect(ctx)
 			continue
+		}
+
+		// 调试：打印第一条消息
+		if len(message) > 0 && len(message) < 500 {
+			msgStr := string(message)
+			if strings.Contains(msgStr, "ETHUSDT") {
+				log.Info("Binance 原始消息 (ETHUSDT): %s", msgStr[:min(len(msgStr), 200)])
+			}
 		}
 
 		m.handleMessage(message)
@@ -234,8 +244,14 @@ func (m *PriceMonitor) handleMessage(message []byte) {
 
 	// 更新缓存
 	m.pricesMu.Lock()
+	oldPrice := m.prices[ticker.Symbol]
 	m.prices[ticker.Symbol] = price
 	m.pricesMu.Unlock()
+
+	// 每 100 次打印一次 ETHUSDT 价格（避免日志泛滥）
+	if ticker.Symbol == "ETHUSDT" && (oldPrice == nil || int(price.Timestamp.Unix())%30 == 0) {
+		log.Info("Binance ETHUSDT 价格更新: bid=%.2f ask=%.2f", bidPrice, askPrice)
+	}
 
 	// 发送到通道
 	select {

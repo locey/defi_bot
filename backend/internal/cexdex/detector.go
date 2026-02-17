@@ -162,12 +162,23 @@ func (d *Detector) detectLoop(ctx context.Context) {
 // checkOpportunity 检查套利机会
 func (d *Detector) checkOpportunity(cexPrice *CEXPrice) {
 	if d.dexProvider == nil {
+		log.Debug("CEX-DEX: dexProvider is nil")
 		return
 	}
 
 	// 获取 DEX 价格
 	dexPrice, err := d.dexProvider.GetPrice(cexPrice.Symbol)
 	if err != nil {
+		log.Debug("CEX-DEX: GetPrice error for %s: %v", cexPrice.Symbol, err)
+		return
+	}
+
+	// DEX 价格为 0 表示没有找到对应的池子
+	if dexPrice == 0 {
+		// 每 30 秒打印一次，避免日志泛滥
+		if cexPrice.Symbol == "ETHUSDT" {
+			log.Info("CEX-DEX: DEX 价格为 0 (未找到池子) symbol=%s", cexPrice.Symbol)
+		}
 		return
 	}
 
@@ -177,12 +188,18 @@ func (d *Detector) checkOpportunity(cexPrice *CEXPrice) {
 
 	// 方向1: DEX -> CEX (在 DEX 买，在 CEX 卖)
 	spread1 := (cexPrice.BidPrice - dexPrice) / dexPrice
+	
+	// 方向2: CEX -> DEX (在 CEX 买，在 DEX 卖)
+	spread2 := (dexPrice - cexPrice.AskPrice) / cexPrice.AskPrice
+
+	// 输出价格比较（周期性）
+	log.Info("CEX-DEX 价格比较: symbol=%s cex_bid=%.4f cex_ask=%.4f dex=%.4f spread1=%.4f%% spread2=%.4f%% (min=%.4f%%)",
+		cexPrice.Symbol, cexPrice.BidPrice, cexPrice.AskPrice, dexPrice, spread1*100, spread2*100, d.config.MinProfitRate*100)
+
 	if spread1 > d.config.MinProfitRate {
 		d.createOpportunity(cexPrice.Symbol, "dex_to_cex", dexPrice, cexPrice.BidPrice, spread1)
 	}
 
-	// 方向2: CEX -> DEX (在 CEX 买，在 DEX 卖)
-	spread2 := (dexPrice - cexPrice.AskPrice) / cexPrice.AskPrice
 	if spread2 > d.config.MinProfitRate {
 		d.createOpportunity(cexPrice.Symbol, "cex_to_dex", cexPrice.AskPrice, dexPrice, spread2)
 	}

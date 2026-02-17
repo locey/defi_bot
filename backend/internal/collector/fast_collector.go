@@ -5,6 +5,7 @@ package collector
 import (
 	"context"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
@@ -35,6 +36,8 @@ type PoolTier struct {
 	PoolAddress string
 	Token0      common.Address
 	Token1      common.Address
+	Decimals0   uint8  // Token0 精度
+	Decimals1   uint8  // Token1 精度
 	DexName     string
 	Protocol    string
 	Fee         uint64
@@ -180,14 +183,16 @@ func (c *FastCollector) LoadAndClassifyPools() error {
 		return nil
 	}
 
-	// 查询所有活跃的交易对
+	// 查询所有活跃的交易对（包含 token decimals）
 	type PoolRow struct {
-		PairAddress   string `gorm:"column:pair_address"`
-		Token0Address string `gorm:"column:token0_address"`
-		Token1Address string `gorm:"column:token1_address"`
-		DexName       string `gorm:"column:dex_name"`
-		Protocol      string `gorm:"column:protocol"`
-		Fee           int    `gorm:"column:fee"`
+		PairAddress    string `gorm:"column:pair_address"`
+		Token0Address  string `gorm:"column:token0_address"`
+		Token1Address  string `gorm:"column:token1_address"`
+		Token0Decimals int    `gorm:"column:token0_decimals"`
+		Token1Decimals int    `gorm:"column:token1_decimals"`
+		DexName        string `gorm:"column:dex_name"`
+		Protocol       string `gorm:"column:protocol"`
+		Fee            int    `gorm:"column:fee"`
 	}
 
 	var pools []PoolRow
@@ -196,6 +201,8 @@ func (c *FastCollector) LoadAndClassifyPools() error {
 			tp.pair_address,
 			t0.address as token0_address,
 			t1.address as token1_address,
+			t0.decimals as token0_decimals,
+			t1.decimals as token1_decimals,
 			ex.name as dex_name,
 			ex.protocol as protocol,
 			ex.fee as fee
@@ -226,6 +233,8 @@ func (c *FastCollector) LoadAndClassifyPools() error {
 			PoolAddress: p.PairAddress,
 			Token0:      common.HexToAddress(p.Token0Address),
 			Token1:      common.HexToAddress(p.Token1Address),
+			Decimals0:   uint8(p.Token0Decimals),
+			Decimals1:   uint8(p.Token1Decimals),
 			DexName:     p.DexName,
 			Protocol:    p.Protocol,
 			Fee:         uint64(p.Fee),
@@ -239,13 +248,15 @@ func (c *FastCollector) LoadAndClassifyPools() error {
 		c.tier2Pools = append(c.tier2Pools, pool)
 	}
 
-	// 初始化价格缓存索引
+	// 初始化价格缓存索引（包含 decimals）
 	allPrices := make([]*cache.PoolPrice, 0, len(c.tier1Pools)+len(c.tier2Pools)+len(c.tier3Pools))
 	for _, pool := range append(append(c.tier1Pools, c.tier2Pools...), c.tier3Pools...) {
 		allPrices = append(allPrices, &cache.PoolPrice{
 			PoolAddress: pool.PoolAddress,
 			Token0:      pool.Token0,
 			Token1:      pool.Token1,
+			Decimals0:   pool.Decimals0,
+			Decimals1:   pool.Decimals1,
 			DexName:     pool.DexName,
 			Protocol:    pool.Protocol,
 			Fee:         pool.Fee,
@@ -405,38 +416,100 @@ func (c *FastCollector) pollTier3() {
 	c.pollPools(pools, 3)
 }
 
-// pollPools 使用Multicall批量轮询池子
+// pollPools 使用Multicall批量轮询池子（自动区分V2和V3）
 func (c *FastCollector) pollPools(pools []string, tier int) {
 	if len(pools) == 0 || c.multicall == nil {
 		return
+	}
+
+	// 分类池子
+	var v2Pools, v3Pools []string
+
+	c.mu.RLock()
+	var allPools []*PoolTier
+	switch tier {
+	case 1:
+		allPools = c.tier1Pools
+	case 2:
+		allPools = c.tier2Pools
+	case 3:
+		allPools = c.tier3Pools
+	}
+
+	// 创建地址到池子信息的映射
+	poolMap := make(map[string]*PoolTier)
+	for _, p := range allPools {
+		poolMap[p.PoolAddress] = p
+	}
+	c.mu.RUnlock()
+
+	for _, addr := range pools {
+		pool := poolMap[addr]
+		if pool == nil {
+			continue
+		}
+		if isV3Protocol(pool.Protocol) {
+			v3Pools = append(v3Pools, addr)
+		} else {
+			v2Pools = append(v2Pools, addr)
+		}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	startTime := time.Now()
-	results, err := c.multicall.GetReservesBatch(ctx, pools)
-	if err != nil {
-		log.Collector().Error().Int("tier", tier).Err(err).Msg("FastCollector: Multicall failed")
-		c.statsMu.Lock()
-		c.stats.FailedUpdates += uint64(len(pools))
-		c.statsMu.Unlock()
-		return
-	}
+	var successCount int
 
-	// 更新价格缓存
-	successCount := 0
-	for _, result := range results {
-		if result.Success && result.Reserve0 != nil && result.Reserve1 != nil {
-			c.priceCache.Update(
-				result.PoolAddress,
-				result.Reserve0,
-				result.Reserve1,
-				0, // Multicall不返回区块号
-			)
-			successCount++
+	// 处理 V2 池子
+	if len(v2Pools) > 0 {
+		v2Results, err := c.multicall.GetReservesBatch(ctx, v2Pools)
+		if err != nil {
+			log.Collector().Error().Int("tier", tier).Err(err).Msg("FastCollector: V2 Multicall failed")
+		} else {
+			for _, result := range v2Results {
+				if result.Success && result.Reserve0 != nil && result.Reserve1 != nil {
+					c.priceCache.Update(
+						result.PoolAddress,
+						result.Reserve0,
+						result.Reserve1,
+						0,
+					)
+					successCount++
+				}
+			}
 		}
 	}
+
+	// 处理 V3 池子
+	if len(v3Pools) > 0 {
+		v3Results, err := c.multicall.GetV3SlotBatch(ctx, v3Pools)
+		if err != nil {
+			log.Collector().Error().Int("tier", tier).Err(err).Msg("FastCollector: V3 Multicall failed")
+		} else {
+			for _, result := range v3Results {
+				if result.Success && result.SqrtPriceX96 != nil && result.SqrtPriceX96.Sign() > 0 {
+					// 使用 V3 专用的更新方法
+					c.priceCache.UpdateV3(
+						result.PoolAddress,
+						result.SqrtPriceX96,
+						result.Liquidity,
+						0,
+					)
+					successCount++
+				}
+			}
+		}
+	}
+
+	// 首次轮询完成后打印日志
+	log.Collector().Info().
+		Int("tier", tier).
+		Int("success", successCount).
+		Int("total", len(pools)).
+		Int("v2", len(v2Pools)).
+		Int("v3", len(v3Pools)).
+		Msg("FastCollector: Tier polling complete")
 
 	// 更新统计
 	c.statsMu.Lock()
@@ -457,6 +530,15 @@ func (c *FastCollector) pollPools(pools []string, tier int) {
 
 	duration := time.Since(startTime)
 	log.Collector().Debug().Int("tier", tier).Int("success", successCount).Int("total", len(pools)).Dur("duration", duration).Msg("FastCollector: Tier polling complete")
+}
+
+// isV3Protocol 判断是否为 V3 协议
+func isV3Protocol(protocol string) bool {
+	return protocol == "uniswap_v3" ||
+		protocol == "pancakeswap_v3" ||
+		protocol == "sushiswap_v3" ||
+		strings.Contains(strings.ToLower(protocol), "_v3") ||
+		strings.Contains(strings.ToLower(protocol), "v3")
 }
 
 // AddPool 手动添加池子到监控

@@ -23,10 +23,10 @@ import (
 // 采用事件驱动架构，实现毫秒级套利检测
 type HighPerformanceScheduler struct {
 	// 核心组件
-	priceCache *cache.PriceCache              // 内存价格缓存
-	collector  *collector.FastCollector       // 高速采集器
-	detector   *strategy.ArbitrageDetector    // 增量检测器
-	executor   *executor.ArbitrageExecutor    // 执行器
+	priceCache *cache.PriceCache           // 内存价格缓存
+	collector  *collector.FastCollector    // 高速采集器
+	detector   *strategy.ArbitrageDetector // 增量检测器
+	executor   *executor.ArbitrageExecutor // 执行器
 
 	// 依赖
 	db         *gorm.DB
@@ -38,14 +38,14 @@ type HighPerformanceScheduler struct {
 	config *HighPerformanceConfig
 
 	// 状态
-	running    bool
-	mu         sync.RWMutex
-	ctx        context.Context
-	cancel     context.CancelFunc
+	running bool
+	mu      sync.RWMutex
+	ctx     context.Context
+	cancel  context.CancelFunc
 
 	// 统计
-	stats      SchedulerStats
-	statsMu    sync.RWMutex
+	stats   SchedulerStats
+	statsMu sync.RWMutex
 }
 
 // HighPerformanceConfig 高性能配置
@@ -126,7 +126,7 @@ func defaultHighPerformanceConfig() *HighPerformanceConfig {
 		DetectorConfig:          nil, // 使用默认
 		MaxConcurrentExecutions: 3,
 		ExecutionTimeout:        30 * time.Second,
-		MinConfidence:           0.3, // 降低阈值，让更多机会通过（eth_call 模拟会做最终验证）
+		MinConfidence:           0.3,   // 降低阈值，让更多机会通过（eth_call 模拟会做最终验证）
 		EnableExecution:         false, // 默认不自动执行
 		DryRun:                  true,  // 默认干运行
 	}
@@ -415,6 +415,11 @@ func (s *HighPerformanceScheduler) IsRunning() bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.running
+}
+
+// GetPriceCache 获取价格缓存（用于 CEX-DEX 套利）
+func (s *HighPerformanceScheduler) GetPriceCache() *cache.PriceCache {
+	return s.priceCache
 }
 
 // ============================================================

@@ -77,6 +77,46 @@ const erc20ABI = `[
 	}
 ]`
 
+// UniswapV3 Pool ABI (slot0)
+const uniswapV3PoolABI = `[
+	{
+		"inputs": [],
+		"name": "slot0",
+		"outputs": [
+			{"name": "sqrtPriceX96", "type": "uint160"},
+			{"name": "tick", "type": "int24"},
+			{"name": "observationIndex", "type": "uint16"},
+			{"name": "observationCardinality", "type": "uint16"},
+			{"name": "observationCardinalityNext", "type": "uint16"},
+			{"name": "feeProtocol", "type": "uint8"},
+			{"name": "unlocked", "type": "bool"}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "liquidity",
+		"outputs": [{"name": "", "type": "uint128"}],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "token0",
+		"outputs": [{"name": "", "type": "address"}],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "token1",
+		"outputs": [{"name": "", "type": "address"}],
+		"stateMutability": "view",
+		"type": "function"
+	}
+]`
+
 // Call3 单个调用
 type Call3 struct {
 	Target       common.Address
@@ -90,7 +130,7 @@ type Result3 struct {
 	ReturnData []byte
 }
 
-// ReserveResult 储备量查询结果
+// ReserveResult 储备量查询结果 (V2)
 type ReserveResult struct {
 	PoolAddress    string
 	Reserve0       *big.Int
@@ -100,12 +140,23 @@ type ReserveResult struct {
 	Error          error
 }
 
+// V3SlotResult UniswapV3 slot0 查询结果
+type V3SlotResult struct {
+	PoolAddress   string
+	SqrtPriceX96  *big.Int // sqrt(price) * 2^96
+	Tick          int32    // 当前 tick
+	Liquidity     *big.Int // 当前活跃流动性
+	Success       bool
+	Error         error
+}
+
 // Multicall Multicall3客户端
 type Multicall struct {
 	client           *Client
 	multicallAddr    common.Address
 	multicallABI     abi.ABI
 	pairABI          abi.ABI
+	v3PoolABI        abi.ABI
 	erc20ABI         abi.ABI
 	maxCallsPerBatch int
 	timeout          time.Duration
@@ -130,6 +181,11 @@ func NewMulticall(client *Client, maxCallsPerBatch int, timeout time.Duration) (
 		return nil, fmt.Errorf("parse pair ABI failed: %w", err)
 	}
 
+	v3PoolABI, err := abi.JSON(strings.NewReader(uniswapV3PoolABI))
+	if err != nil {
+		return nil, fmt.Errorf("parse v3 pool ABI failed: %w", err)
+	}
+
 	erc20ABI, err := abi.JSON(strings.NewReader(erc20ABI))
 	if err != nil {
 		return nil, fmt.Errorf("parse erc20 ABI failed: %w", err)
@@ -140,6 +196,7 @@ func NewMulticall(client *Client, maxCallsPerBatch int, timeout time.Duration) (
 		multicallAddr:    common.HexToAddress(Multicall3Address),
 		multicallABI:     multicallABI,
 		pairABI:          pairABI,
+		v3PoolABI:        v3PoolABI,
 		erc20ABI:         erc20ABI,
 		maxCallsPerBatch: maxCallsPerBatch,
 		timeout:          timeout,
@@ -408,4 +465,166 @@ func (m *Multicall) SetBatchSize(size int) {
 	if size > 0 {
 		m.maxCallsPerBatch = size
 	}
+}
+
+// ============================================================
+// UniswapV3 方法
+// ============================================================
+
+// GetV3SlotBatch 批量获取 UniswapV3 池子的 slot0 和 liquidity
+// 每个池子需要 2 个调用（slot0 + liquidity），所以实际批大小减半
+func (m *Multicall) GetV3SlotBatch(ctx context.Context, poolAddrs []string) ([]*V3SlotResult, error) {
+	if len(poolAddrs) == 0 {
+		return nil, nil
+	}
+
+	results := make([]*V3SlotResult, 0, len(poolAddrs))
+
+	// 分批处理（每个池子需要 2 个调用）
+	batchSize := m.maxCallsPerBatch / 2
+	if batchSize <= 0 {
+		batchSize = 250
+	}
+
+	for i := 0; i < len(poolAddrs); i += batchSize {
+		end := i + batchSize
+		if end > len(poolAddrs) {
+			end = len(poolAddrs)
+		}
+
+		batch := poolAddrs[i:end]
+		batchResults, err := m.executeV3SlotBatch(ctx, batch)
+		if err != nil {
+			// 如果整批失败，为每个地址返回错误
+			for _, addr := range batch {
+				results = append(results, &V3SlotResult{
+					PoolAddress: addr,
+					Success:     false,
+					Error:       err,
+				})
+			}
+			continue
+		}
+
+		results = append(results, batchResults...)
+	}
+
+	return results, nil
+}
+
+// executeV3SlotBatch 执行单批 V3 slot0 + liquidity 查询
+func (m *Multicall) executeV3SlotBatch(ctx context.Context, poolAddrs []string) ([]*V3SlotResult, error) {
+	// 构建调用数据
+	slot0Data, err := m.v3PoolABI.Pack("slot0")
+	if err != nil {
+		return nil, fmt.Errorf("pack slot0 failed: %w", err)
+	}
+
+	liquidityData, err := m.v3PoolABI.Pack("liquidity")
+	if err != nil {
+		return nil, fmt.Errorf("pack liquidity failed: %w", err)
+	}
+
+	// 每个池子 2 个调用
+	calls := make([]Call3, len(poolAddrs)*2)
+	for i, addr := range poolAddrs {
+		poolAddr := common.HexToAddress(addr)
+		calls[i*2] = Call3{
+			Target:       poolAddr,
+			AllowFailure: true,
+			CallData:     slot0Data,
+		}
+		calls[i*2+1] = Call3{
+			Target:       poolAddr,
+			AllowFailure: true,
+			CallData:     liquidityData,
+		}
+	}
+
+	// 执行 multicall
+	rawResults, err := m.executeMulticall(ctx, calls)
+	if err != nil {
+		return nil, err
+	}
+
+	// 解析结果
+	results := make([]*V3SlotResult, len(poolAddrs))
+	for i := range poolAddrs {
+		slot0Result := rawResults[i*2]
+		liquidityResult := rawResults[i*2+1]
+
+		result := &V3SlotResult{
+			PoolAddress: poolAddrs[i],
+			Success:     slot0Result.Success && liquidityResult.Success,
+		}
+
+		if slot0Result.Success && len(slot0Result.ReturnData) >= 64 {
+			// 解析 slot0 返回值
+			// sqrtPriceX96 是 uint160，占 32 bytes（左填充）
+			// tick 是 int24，占 32 bytes（有符号扩展）
+			result.SqrtPriceX96 = new(big.Int).SetBytes(slot0Result.ReturnData[0:32])
+			
+			// tick 是 int24，需要符号扩展
+			tickBytes := slot0Result.ReturnData[32:64]
+			tickBig := new(big.Int).SetBytes(tickBytes)
+			// 检查是否为负数（第 24 位）
+			if tickBig.Bit(23) == 1 {
+				// 负数，需要符号扩展
+				mask := new(big.Int).Lsh(big.NewInt(1), 24)
+				tickBig.Sub(tickBig, mask)
+			}
+			result.Tick = int32(tickBig.Int64())
+		} else if !slot0Result.Success {
+			result.Error = fmt.Errorf("slot0 call failed")
+		}
+
+		if liquidityResult.Success && len(liquidityResult.ReturnData) >= 32 {
+			result.Liquidity = new(big.Int).SetBytes(liquidityResult.ReturnData[0:32])
+		} else if result.Error == nil && !liquidityResult.Success {
+			result.Error = fmt.Errorf("liquidity call failed")
+		}
+
+		results[i] = result
+	}
+
+	return results, nil
+}
+
+// SqrtPriceX96ToPrice 将 sqrtPriceX96 转换为价格（token1/token0）
+// price = (sqrtPriceX96 / 2^96)^2 = sqrtPriceX96^2 / 2^192
+func SqrtPriceX96ToPrice(sqrtPriceX96 *big.Int, token0Decimals, token1Decimals int) float64 {
+	if sqrtPriceX96 == nil || sqrtPriceX96.Sign() == 0 {
+		return 0
+	}
+
+	// sqrtPriceX96^2
+	sqrtPrice2 := new(big.Int).Mul(sqrtPriceX96, sqrtPriceX96)
+
+	// 2^192
+	q192 := new(big.Int).Exp(big.NewInt(2), big.NewInt(192), nil)
+
+	// price = sqrtPriceX96^2 / 2^192
+	// 为了保持精度，先乘以 10^18 再除
+	scale := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+	scaled := new(big.Int).Mul(sqrtPrice2, scale)
+	priceScaled := new(big.Int).Div(scaled, q192)
+
+	// 转为 float64
+	priceFloat, _ := new(big.Float).SetInt(priceScaled).Float64()
+	price := priceFloat / 1e18
+
+	// 调整 decimals
+	// V3 价格是 token1/token0，需要调整 decimals
+	decimalDiff := token0Decimals - token1Decimals
+	if decimalDiff > 0 {
+		for i := 0; i < decimalDiff; i++ {
+			price *= 10
+		}
+	} else if decimalDiff < 0 {
+		for i := 0; i < -decimalDiff; i++ {
+			price /= 10
+		}
+	}
+
+	return price
 }
