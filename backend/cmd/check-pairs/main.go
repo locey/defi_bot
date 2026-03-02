@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	fmt.Println("=== 检查交易对和储备量数据 ===\n")
+	fmt.Println("=== 检查交易对和储备量数据 ===")
 
 	// 加载配置
 	cfg, err := config.LoadConfig("configs/config.test.yaml")

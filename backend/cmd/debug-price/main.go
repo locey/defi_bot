@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	fmt.Println("=== 调试价格计算 ===\n")
+	fmt.Println("=== 调试价格计算 ===")
 
 	cfg, err := config.LoadConfig("configs/config.yaml")
 	if err != nil {

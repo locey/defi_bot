@@ -161,17 +161,32 @@ func (a *DEXPriceAdapter) GetPrice(symbol string) (float64, error) {
 	}
 
 	// 从 PriceCache 获取池子价格
-	baseHex := mapping.BaseToken.Hex()   // 如 WBTC
-	quoteHex := mapping.QuoteToken.Hex() // 如 USDT
+	// 统一使用小写地址，与 makeTokenPairKey 保持一致
+	baseHex := strings.ToLower(mapping.BaseToken.Hex())
+	quoteHex := strings.ToLower(mapping.QuoteToken.Hex())
 
 	pools := a.priceCache.GetByTokenPair(baseHex, quoteHex)
-
 	if len(pools) == 0 {
 		pools = a.priceCache.GetByTokenPair(quoteHex, baseHex)
 	}
 
+	// 备用：直接遍历所有池子（应对索引未建立的时序问题）
 	if len(pools) == 0 {
-		return 0, nil
+		all := a.priceCache.GetAll()
+		for _, p := range all {
+			t0 := strings.ToLower(p.Token0.Hex())
+			t1 := strings.ToLower(p.Token1.Hex())
+			if (t0 == baseHex && t1 == quoteHex) || (t0 == quoteHex && t1 == baseHex) {
+				pools = append(pools, p)
+			}
+		}
+		if len(pools) > 0 {
+			log.Info("CEX-DEX: 通过全量扫描找到 %s 的 %d 个池子（索引可能未建立）", symbol, len(pools))
+		} else {
+			log.Debug("CEX-DEX: DEX 价格为 0 (未找到池子) symbol=%s base=%s quote=%s allPools=%d",
+				symbol, baseHex[:10], quoteHex[:10], len(all))
+			return 0, nil
+		}
 	}
 
 	// 选择最佳池子策略：
@@ -225,7 +240,7 @@ func (a *DEXPriceAdapter) GetPrice(symbol string) (float64, error) {
 		return 0, nil
 	}
 
-	// 价格存储的是 db_token0/db_token1（已调整 decimals）
+	// PriceCache 存储的 Price 是 token1/token0（已调整 decimals）
 	// CEX 价格 "ETHUSDT = 1978" 表示 1 ETH = 1978 USDT，即 quoteToken/baseToken
 	// 我们需要返回 quoteToken/baseToken
 	poolPrice := bestPool.Price
@@ -233,17 +248,15 @@ func (a *DEXPriceAdapter) GetPrice(symbol string) (float64, error) {
 
 	var finalPrice float64
 	if baseIsToken0 {
-		// 池子的 db_token0 是 baseToken（如 WETH），db_token1 是 quoteToken（如 USDT）
-		// poolPrice = db_token0/db_token1 = baseToken/quoteToken（如 WETH/USDT）
-		// 需要 quoteToken/baseToken = 1/poolPrice
+		// base 是 token0, quote 是 token1
+		// poolPrice = token1/token0 = quote/base -> 正是我们需要的
+		finalPrice = poolPrice
+	} else {
+		// base 是 token1, quote 是 token0
+		// poolPrice = token1/token0 = base/quote -> 需要取倒数
 		if poolPrice > 0 {
 			finalPrice = 1.0 / poolPrice
 		}
-	} else {
-		// 池子的 db_token0 是 quoteToken（如 USDT），db_token1 是 baseToken（如 WBTC）
-		// poolPrice = db_token0/db_token1 = quoteToken/baseToken（如 USDT/WBTC = 68220）
-		// 这正是我们需要的！
-		finalPrice = poolPrice
 	}
 
 	return finalPrice, nil

@@ -4,14 +4,15 @@ package executor
 import (
 	"context"
 	"fmt"
-	"math"
 	"math/big"
 	"strings"
 
+	"github.com/defi-bot/backend/pkg/log"
 	"github.com/defi-bot/backend/pkg/web3"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -64,6 +65,7 @@ type ContractCaller struct {
 	web3Client      *web3.Client
 	contractAddress common.Address
 	contractABI     abi.ABI
+	execRPCClient   *ethclient.Client // 独立的执行 RPC（公共节点，避免与数据采集竞争）
 }
 
 // NewContractCaller 创建合约调用器
@@ -77,11 +79,20 @@ func NewContractCaller(
 		panic(fmt.Sprintf("failed to parse ABI: %v", err))
 	}
 
-	return &ContractCaller{
+	cc := &ContractCaller{
 		web3Client:      web3Client,
 		contractAddress: contractAddress,
 		contractABI:     parsedABI,
 	}
+
+	// 独立的公共 RPC 用于交易提交（nonce 查询 + 发送）
+	execClient, dialErr := ethclient.Dial("https://arbitrum-one.publicnode.com")
+	if dialErr == nil {
+		cc.execRPCClient = execClient
+		log.Executor().Info().Msg("Using publicnode RPC for tx submission")
+	}
+
+	return cc
 }
 
 // ExecuteArbitrage 执行套利
@@ -106,37 +117,29 @@ func (cc *ContractCaller) ExecuteArbitrage(
 	}
 
 	from := crypto.PubkeyToAddress(pk.PublicKey)
-	client := cc.web3Client.GetClient()
 
-	nonce, err := client.PendingNonceAt(ctx, from)
+	// 使用独立的公共 RPC 做交易提交，避免与 Multicall 数据采集竞争 Alchemy 带宽
+	execClient := cc.web3Client.GetClient()
+	if cc.execRPCClient != nil {
+		execClient = cc.execRPCClient
+	}
+
+	nonce, err := execClient.PendingNonceAt(ctx, from)
 	if err != nil {
 		return nil, fmt.Errorf("get nonce failed: %w", err)
 	}
 
-	// gas estimate
-	gasLimit, err := client.EstimateGas(ctx, ethereum.CallMsg{
-		From:  from,
-		To:    &cc.contractAddress,
-		Data:  callData,
-		Value: big.NewInt(0),
-	})
-	if err != nil {
-		// 估算失败时给一个保守默认值
-		gasLimit = 800000
-	}
+	// Gas 使用固定值（Arbitrum 上 Gas 估算开销大且容易超时）
+	gasLimit := uint64(1_000_000) // 1M Gas（保守值）
 
-	// 加 20% buffer
-	gasLimit = uint64(math.Ceil(float64(gasLimit) * 1.2))
-
-	// Prefer EIP-1559 if baseFee is available
-	header, hErr := client.HeaderByNumber(ctx, nil)
+	// EIP-1559 交易
+	header, hErr := execClient.HeaderByNumber(ctx, nil)
 	if hErr == nil && header != nil && header.BaseFee != nil {
-		tipCap, tipErr := client.SuggestGasTipCap(ctx)
+		tipCap, tipErr := execClient.SuggestGasTipCap(ctx)
 		if tipErr != nil {
-			tipCap = big.NewInt(2_000_000_000) // 2 gwei fallback
+			tipCap = big.NewInt(100_000_000) // 0.1 gwei (Arbitrum 便宜)
 		}
-		feeCap := new(big.Int).Mul(header.BaseFee, big.NewInt(2))
-		feeCap.Add(feeCap, tipCap)
+		feeCap := new(big.Int).Add(new(big.Int).Mul(header.BaseFee, big.NewInt(2)), tipCap)
 
 		tx := types.NewTx(&types.DynamicFeeTx{
 			ChainID:   cc.web3Client.GetChainID(),
@@ -154,16 +157,16 @@ func (cc *ContractCaller) ExecuteArbitrage(
 		if err != nil {
 			return nil, fmt.Errorf("sign tx failed: %w", err)
 		}
-		if err := client.SendTransaction(ctx, signed); err != nil {
+		if err := execClient.SendTransaction(ctx, signed); err != nil {
 			return nil, fmt.Errorf("send tx failed: %w", err)
 		}
 		return signed, nil
 	}
 
 	// Legacy fallback
-	gasPrice, err := client.SuggestGasPrice(ctx)
+	gasPrice, err := execClient.SuggestGasPrice(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("suggest gas price failed: %w", err)
+		gasPrice = big.NewInt(100_000_000) // 0.1 gwei fallback
 	}
 
 	tx := types.NewTx(&types.LegacyTx{
@@ -181,7 +184,7 @@ func (cc *ContractCaller) ExecuteArbitrage(
 		return nil, fmt.Errorf("sign tx failed: %w", err)
 	}
 
-	if err := client.SendTransaction(ctx, signed); err != nil {
+	if err := execClient.SendTransaction(ctx, signed); err != nil {
 		return nil, fmt.Errorf("send tx failed: %w", err)
 	}
 
@@ -242,12 +245,28 @@ func (cc *ContractCaller) sendTransaction(
 }
 
 // SimulateArbitrage 模拟套利（不发送交易）
+// 使用 eth_call 模拟 executeStrategy，检测交易是否会 revert
+// 返回预估 Gas；如果 revert 则返回 error
 func (cc *ContractCaller) SimulateArbitrage(
 	ctx context.Context,
 	params *ArbitrageParams,
 ) (*big.Int, error) {
-	// TODO: 实现套利模拟
-	return big.NewInt(0), fmt.Errorf("simulation not implemented")
+	callData, err := cc.buildCallData(params)
+	if err != nil {
+		return nil, fmt.Errorf("build calldata: %w", err)
+	}
+
+	// 使用 EstimateGas 作为模拟：如果交易会 revert，EstimateGas 也会失败
+	gasEstimate, err := cc.web3Client.GetClient().EstimateGas(ctx, ethereum.CallMsg{
+		To:    &cc.contractAddress,
+		Data:  callData,
+		Value: big.NewInt(0),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("simulation reverted: %w", err)
+	}
+
+	return big.NewInt(int64(gasEstimate)), nil
 }
 
 // DebugCallData 返回 executeStrategy 的 calldata（便于排查/打印）

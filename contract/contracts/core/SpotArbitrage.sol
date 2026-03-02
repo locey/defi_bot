@@ -88,6 +88,14 @@ contract SpotArbitrage is ISpotArbitrage, Initializable, UUPSUpgradeable, Ownabl
         backendCaller = _backendCaller;
     }
     
+    modifier onlyAuthorizedCaller() {
+        require(
+            msg.sender == arbitrageCore || msg.sender == owner(),
+            "Spot: not authorized"
+        );
+        _;
+    }
+
     function executeSwaps(
         address asset,
         address tokenOut,
@@ -97,7 +105,7 @@ contract SpotArbitrage is ISpotArbitrage, Initializable, UUPSUpgradeable, Ownabl
         uint256 expectProfit,
         uint256 minProfit,
         bool isCex
-    ) external onlyBackend nonReentrant returns (uint256 amountOut) {
+    ) external onlyAuthorizedCaller nonReentrant returns (uint256 amountOut) {
         // 检查金额是否已收到
         require(
             IERC20(asset).balanceOf(address(this)) >= amountIn,

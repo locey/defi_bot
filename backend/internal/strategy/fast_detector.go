@@ -6,6 +6,7 @@ import (
 	"context"
 	"math/big"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -51,6 +52,9 @@ type ArbitrageDetector struct {
 	priceCache *cache.PriceCache
 	profitCalc *ProfitCalculator
 
+	// DEX 名称 → Router 地址映射（构建 Dexes 数组给合约用）
+	dexRouters map[string]common.Address
+
 	// 预计算的路径
 	mu          sync.RWMutex
 	paths       []*ArbitragePath
@@ -94,12 +98,18 @@ func NewArbitrageDetector(
 	return &ArbitrageDetector{
 		priceCache:    priceCache,
 		profitCalc:    profitCalc,
+		dexRouters:    make(map[string]common.Address),
 		paths:         make([]*ArbitragePath, 0),
 		pathsByPool:   make(map[string][]*ArbitragePath),
 		config:        config,
 		opportunities: make(chan *ArbitrageOpportunity, config.OpportunityBufferSize),
 		stopCh:        make(chan struct{}),
 	}
+}
+
+// SetDexRouters 设置 DEX 名称到 Router 地址的映射
+func (d *ArbitrageDetector) SetDexRouters(routers map[string]common.Address) {
+	d.dexRouters = routers
 }
 
 // defaultDetectorConfig 默认配置
@@ -422,8 +432,19 @@ func (d *ArbitrageDetector) calculatePath(path *ArbitragePath) *ArbitrageOpportu
 	prices := make([]*cache.PoolPrice, len(path.Pools))
 	for i, poolAddr := range path.Pools {
 		price, ok := d.priceCache.Get(poolAddr)
-		if !ok || price.Reserve0 == nil || price.Reserve1 == nil {
-			return nil // 缺少价格数据
+		if !ok {
+			return nil
+		}
+		// V3 池子检查 SqrtPriceX96 + Liquidity，V2 池子检查 Reserve0 + Reserve1
+		if price.IsV3 {
+			if price.SqrtPriceX96 == nil || price.SqrtPriceX96.Sign() <= 0 ||
+				price.Liquidity == nil || price.Liquidity.Sign() <= 0 {
+				return nil
+			}
+		} else {
+			if price.Reserve0 == nil || price.Reserve1 == nil {
+				return nil
+			}
 		}
 		prices[i] = price
 	}
@@ -440,28 +461,67 @@ func (d *ArbitrageDetector) calculatePath(path *ArbitragePath) *ArbitrageOpportu
 		tokenIn := path.Tokens[i]
 		tokenOut := path.Tokens[i+1]
 
-		// 计算换出数量
 		var amountOut *big.Float
-		if tokenIn == price.Token0 {
-			// Token0 -> Token1
-			amountOut = calculateSwapOutput(
-				currentAmount,
-				new(big.Float).SetInt(price.Reserve0),
-				new(big.Float).SetInt(price.Reserve1),
-				price.Fee,
-			)
-		} else {
-			// Token1 -> Token0
-			amountOut = calculateSwapOutput(
-				currentAmount,
-				new(big.Float).SetInt(price.Reserve1),
-				new(big.Float).SetInt(price.Reserve0),
-				price.Fee,
-			)
-		}
-		_ = tokenOut // 消除未使用警告
 
-		if amountOut.Sign() <= 0 {
+		// V3 池子：使用 sqrtPriceX96 + liquidity 精确计算
+		if price.IsV3 && price.SqrtPriceX96 != nil && price.SqrtPriceX96.Sign() > 0 &&
+			price.Liquidity != nil && price.Liquidity.Sign() > 0 {
+			currentAmountInt, _ := currentAmount.Int(nil)
+			if currentAmountInt == nil || currentAmountInt.Sign() <= 0 {
+				return nil
+			}
+
+			// V3 合约中 token0 < token1（按地址排序），但 PriceCache 中 Token0 是数据库顺序
+			// sqrtPriceX96 始终是合约级别的 token1/token0
+			// 需要用合约排序来确定 zeroForOne
+			tokenInHex := strings.ToLower(tokenIn.Hex())
+			dbToken0Hex := strings.ToLower(price.Token0.Hex())
+			dbToken1Hex := strings.ToLower(price.Token1.Hex())
+
+			dbOrderMatchesContract := dbToken0Hex < dbToken1Hex
+			var zeroForOne bool
+			if dbOrderMatchesContract {
+				zeroForOne = tokenInHex == dbToken0Hex // db_token0 == contract_token0
+			} else {
+				zeroForOne = tokenInHex == dbToken1Hex // db_token1 == contract_token0（因为 db 顺序和合约相反）
+			}
+
+			amountOutInt, err := CalculateV3SwapOutput(
+				price.SqrtPriceX96,
+				price.Liquidity,
+				currentAmountInt,
+				price.Fee,
+				zeroForOne,
+			)
+			if err != nil || amountOutInt == nil || amountOutInt.Sign() <= 0 {
+				return nil
+			}
+			amountOut = new(big.Float).SetInt(amountOutInt)
+		} else {
+			// V2 池子：使用恒定乘积公式
+			if price.Reserve0 == nil || price.Reserve1 == nil ||
+				price.Reserve0.Sign() <= 0 || price.Reserve1.Sign() <= 0 {
+				return nil
+			}
+			if tokenIn == price.Token0 {
+				amountOut = calculateSwapOutput(
+					currentAmount,
+					new(big.Float).SetInt(price.Reserve0),
+					new(big.Float).SetInt(price.Reserve1),
+					price.Fee,
+				)
+			} else {
+				amountOut = calculateSwapOutput(
+					currentAmount,
+					new(big.Float).SetInt(price.Reserve1),
+					new(big.Float).SetInt(price.Reserve0),
+					price.Fee,
+				)
+			}
+		}
+		_ = tokenOut
+
+		if amountOut == nil || amountOut.Sign() <= 0 {
 			return nil
 		}
 		currentAmount = amountOut
@@ -489,18 +549,29 @@ func (d *ArbitrageDetector) calculatePath(path *ArbitragePath) *ArbitrageOpportu
 	// 计算最优投入金额（简化版，后续可优化）
 	optimalAmountIn := calculateOptimalAmount(prices, path.Tokens)
 
+	// 构建 DEX Router 地址列表（合约需要 dexes.length == swapPath.length - 1）
+	dexAddresses := make([]common.Address, 0, len(path.DexNames))
+	for _, dexName := range path.DexNames {
+		if addr, ok := d.dexRouters[dexName]; ok {
+			dexAddresses = append(dexAddresses, addr)
+		} else {
+			return nil // 无法找到 DEX Router 地址
+		}
+	}
+
 	// 构建机会对象
 	opp := &ArbitrageOpportunity{
 		ID:           path.ID + "_" + time.Now().Format("20060102150405"),
 		SwapPath:     path.Tokens,
+		Dexes:        dexAddresses,
 		DexNames:     path.DexNames,
 		AmountIn:     optimalAmountIn,
 		ProfitRate:   profitRateFloat,
 		PathLength:   path.PathLength,
 		Timestamp:    time.Now(),
-		ValidUntil:   time.Now().Add(5 * time.Second), // 5秒有效期
+		ValidUntil:   time.Now().Add(30 * time.Second),
 		Confidence:   calculatePathConfidence(path, profitRateFloat),
-		IsCex:        false, // DEX-DEX 套利路径
+		IsCex:        false,
 	}
 
 	// 计算预期利润（wei 单位）
@@ -603,30 +674,43 @@ func calculateSwapOutput(amountIn, reserveIn, reserveOut *big.Float, feeBps uint
 // calculateOptimalAmount 计算最优投入金额（简化版）
 // 业界标准：基于代币精度动态计算
 func calculateOptimalAmount(prices []*cache.PoolPrice, tokens []common.Address) *big.Int {
-	// 简化实现：基于第一个池子的流动性
 	if len(prices) == 0 || len(tokens) == 0 {
-		return big.NewInt(1e18) // 默认1个代币（18位精度）
+		return big.NewInt(1e18)
 	}
 
 	firstPool := prices[0]
-	var relevantReserve *big.Int
 	var tokenDecimals uint8
-	
+
 	if tokens[0] == firstPool.Token0 {
-		relevantReserve = firstPool.Reserve0
 		tokenDecimals = firstPool.Decimals0
 	} else {
-		relevantReserve = firstPool.Reserve1
 		tokenDecimals = firstPool.Decimals1
 	}
 
-	// 最优金额 = 储备量 * 1%（简化假设）
-	optimalAmount := new(big.Int).Div(relevantReserve, big.NewInt(100))
+	// V3 池子没有 Reserve，用基于精度的固定测试金额
+	// V2 池子用储备量的 1%
+	var optimalAmount *big.Int
 
-	// 动态计算最大/最小值（基于代币精度）
+	if firstPool.IsV3 || firstPool.Reserve0 == nil || firstPool.Reserve1 == nil {
+		// V3 或缺少 Reserve 数据：使用基于精度的固定金额（如 0.1 个代币）
+		optimalAmount = calculateTestAmountForDecimals(tokenDecimals)
+	} else {
+		var relevantReserve *big.Int
+		if tokens[0] == firstPool.Token0 {
+			relevantReserve = firstPool.Reserve0
+		} else {
+			relevantReserve = firstPool.Reserve1
+		}
+		if relevantReserve != nil && relevantReserve.Sign() > 0 {
+			optimalAmount = new(big.Int).Div(relevantReserve, big.NewInt(100))
+		} else {
+			optimalAmount = calculateTestAmountForDecimals(tokenDecimals)
+		}
+	}
+
 	maxAmount := calculateMaxAmountForDecimals(tokenDecimals)
 	minAmount := calculateMinAmountForDecimals(tokenDecimals)
-	
+
 	if optimalAmount.Cmp(maxAmount) > 0 {
 		optimalAmount = maxAmount
 	}

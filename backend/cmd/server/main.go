@@ -238,14 +238,27 @@ func main() {
 			}
 		}
 
+		// 构建 DEX 名称 → Router 地址映射
+		dexRouters := make(map[string]common.Address)
+		for _, d := range cfg.Dexes {
+			if d.Router != "" && d.Name != "" {
+				dexRouters[d.Name] = common.HexToAddress(d.Router)
+			}
+		}
+
 		hpConfig := &scheduler.HighPerformanceConfig{
 			WSURL:                   cfg.Blockchain.WSURL,
 			ChainID:                 cfg.Blockchain.ChainID,
 			BaseTokens:              baseTokens,
+			DexRouters:              dexRouters,
 			MaxConcurrentExecutions: cfg.Scheduler.MaxConcurrentExec,
 			MinConfidence:           cfg.Scheduler.MinConfidence,
 			EnableExecution:         cfg.Scheduler.EnableExecution,
 			DryRun:                  cfg.Scheduler.DryRun,
+			// eth_call 模拟配置
+			ContractAddress:  cfg.Contracts.ArbitrageCore,
+			KeeperPrivateKey: cfg.Keeper.PrivateKey,
+			EnableSimulation: cfg.Contracts.ArbitrageCore != "",
 		}
 		if hpConfig.MaxConcurrentExecutions == 0 {
 			hpConfig.MaxConcurrentExecutions = 3
@@ -378,19 +391,14 @@ func main() {
 					Float64("net_profit_usd", opp.NetProfit).
 					Msg("CEX-DEX opportunity detected")
 
-				// TODO: 暂时禁用 CEX-DEX 执行，等待价格计算问题修复
-				// 如果有执行器且启用执行，发送给执行器
-				// if arbitrageExecutor != nil {
-				// 	go func(o *strategy.ArbitrageOpportunity) {
-				// 		result, err := arbitrageExecutor.Execute(ctx, o)
-				// 		if err != nil {
-				// 			log.Main().Warn().Err(err).Str("id", o.ID).Msg("CEX-DEX execution failed")
-				// 		} else if result.Success {
-				// 			log.Main().Info().Str("id", o.ID).Str("tx", result.TxHash).Msg("CEX-DEX execution success!")
-				// 		}
-				// 	}(arbOpp)
-				// }
-				log.Main().Info().Msg("📋 CEX-DEX 执行已禁用（等待价格计算问题修复）")
+				// CEX-DEX 套利机会发现后，仅记录日志（执行在 Phase 2 实现）
+				log.Main().Info().
+					Str("id", opp.ID).
+					Str("direction", opp.Direction).
+					Float64("dex_price", opp.DEXPrice).
+					Float64("cex_price", opp.CEXPrice).
+					Float64("net_profit_usd", opp.NetProfit).
+					Msg("📊 CEX-DEX 机会记录（Phase 2 将实现执行）")
 			}
 		}()
 

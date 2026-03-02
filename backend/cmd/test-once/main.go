@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	fmt.Println("=== 单次采集测试 ===\n")
+	fmt.Println("=== 单次采集测试 ===")
 
 	// 1. 加载配置
 	cfg, err := config.LoadConfig("configs/config.yaml")

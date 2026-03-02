@@ -20,7 +20,7 @@ import (
 )
 
 func main() {
-	fmt.Println("=== 测试调度器 - 检查 pair_reserves 是否会持续更新 ===\n")
+	fmt.Println("=== 测试调度器 - 检查 pair_reserves 是否会持续更新 ===")
 
 	// 1. 加载配置（测试时可以使用测试网或主网配置）
 	// 测试网: "configs/config.test.yaml"

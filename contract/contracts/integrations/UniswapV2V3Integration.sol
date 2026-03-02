@@ -99,18 +99,18 @@ contract UniswapV2V3Integration is ReentrancyGuard {
             param.amountIn,
             v2AmountOutMin,
             v2Path,
-            param.recipient,
+            address(this),   // Phase 0.6: 发到本合约，V3 需要从这里发起 swap
             deadline
         );
         uint256 v2AmountOutActual = v2SwapResults[1];
         require(v2AmountOutActual >= v2AmountOutMin, "V2 swap slippage exceeded");
 
-        // 4. V3 兑换：tokenOut → tokenIn（高价卖出 tokenOut，换回更多 tokenIn）
-        // 4.1 V3 预演报价（无实际交易，仅计算预期产出）
+        // 4. V3 兑换：tokenOut → tokenIn（高价卖出 V2 买到的 tokenOut，换回 tokenIn）
+        // Phase 0.6 修复: V3 报价和 swap 方向必须是 tokenOut → tokenIn
         IUniswapV3QuoterV2.QuoteExactInputSingleParams memory params = IUniswapV3QuoterV2.QuoteExactInputSingleParams({
-            tokenIn: param.tokenIn,
-            tokenOut: param.tokenOut,
-            amountIn: param.amountIn,
+            tokenIn: param.tokenOut,        // V2 买到的 tokenOut 作为 V3 输入
+            tokenOut: param.tokenIn,        // 换回原始 tokenIn
+            amountIn: v2AmountOutActual,    // 用 V2 实际输出量
             fee: param.v3Fee,
             sqrtPriceLimitX96: 0
         });
@@ -121,13 +121,14 @@ contract UniswapV2V3Integration is ReentrancyGuard {
         uint256 v3SlippageBps = _calculateSlippageBps(v3AmountOutExpected, param.minProfit, v2AmountOutActual);
         uint256 v3AmountOutMin = _calculateMinOutput(v3AmountOutExpected, v3SlippageBps);
 
-        // 4.3 安全授权 + 执行 V3 兑换
+        // 4.3 授权 V3 Router 花费 tokenOut
         IERC20(param.tokenOut).approve(uniswapV3Router, 0);
         IERC20(param.tokenOut).approve(uniswapV3Router, v2AmountOutActual);
 
+        // Phase 0.6 修复: V3 swap 方向也是 tokenOut → tokenIn
         IUniswapV3Router.ExactInputSingleParams memory v3Params = IUniswapV3Router.ExactInputSingleParams({
-            tokenIn: param.tokenIn,
-            tokenOut: param.tokenOut,
+            tokenIn: param.tokenOut,
+            tokenOut: param.tokenIn,
             fee: param.v3Fee,
             recipient: param.recipient,
             deadline: deadline,

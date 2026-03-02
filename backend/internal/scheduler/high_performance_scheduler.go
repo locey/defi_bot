@@ -5,6 +5,7 @@ package scheduler
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"sync"
 	"time"
 
@@ -27,6 +28,7 @@ type HighPerformanceScheduler struct {
 	collector  *collector.FastCollector    // 高速采集器
 	detector   *strategy.ArbitrageDetector // 增量检测器
 	executor   *executor.ArbitrageExecutor // 执行器
+	simulator  *executor.Simulator         // eth_call 模拟器
 
 	// 依赖
 	db         *gorm.DB
@@ -63,6 +65,9 @@ type HighPerformanceConfig struct {
 	// 基础代币（套利路径起点）
 	BaseTokens []common.Address
 
+	// DEX 名称 → Router 地址映射
+	DexRouters map[string]common.Address
+
 	// 执行配置
 	MaxConcurrentExecutions int           // 最大并发执行数
 	ExecutionTimeout        time.Duration // 执行超时
@@ -71,6 +76,11 @@ type HighPerformanceConfig struct {
 	// 功能开关
 	EnableExecution bool // 是否启用自动执行
 	DryRun          bool // 干运行模式（只检测不执行）
+
+	// 模拟器配置
+	ContractAddress  string // ArbitrageCore 合约地址
+	KeeperPrivateKey string // Keeper 私钥（用于 eth_call 的 from 地址）
+	EnableSimulation bool   // 是否启用 eth_call 模拟验证
 }
 
 // SchedulerStats 调度器统计
@@ -174,7 +184,29 @@ func (s *HighPerformanceScheduler) initComponents() error {
 		nil, // profitCalc 可选
 		s.config.DetectorConfig,
 	)
+	// 设置 DEX Router 映射
+	if s.config.DexRouters != nil {
+		s.detector.SetDexRouters(s.config.DexRouters)
+		log.Scheduler().Info().Int("dex_count", len(s.config.DexRouters)).Msg("  ✓ DexRouters configured")
+	}
 	log.Scheduler().Info().Msg("  ✓ ArbitrageDetector initialized")
+
+	// 6. 创建 eth_call 模拟器（如果配置了合约地址）
+	if s.config.ContractAddress != "" && s.config.EnableSimulation {
+		sim, simErr := executor.NewSimulator(
+			s.web3Client,
+			common.HexToAddress(s.config.ContractAddress),
+			s.config.KeeperPrivateKey,
+		)
+		if simErr != nil {
+			log.Scheduler().Warn().Err(simErr).Msg("  ⚠ Simulator creation failed (will skip simulation)")
+		} else {
+			s.simulator = sim
+			log.Scheduler().Info().Msg("  ✓ Simulator initialized (eth_call verification enabled)")
+		}
+	} else {
+		log.Scheduler().Info().Msg("  ℹ Simulator not configured (simulation disabled)")
+	}
 
 	log.Scheduler().Info().Msg("HighPerformanceScheduler: All components initialized")
 	return nil
@@ -298,35 +330,84 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 
 	// 检查置信度
 	if opp.Confidence < s.config.MinConfidence {
-		log.Scheduler().Warn().Float64("confidence", opp.Confidence).Float64("min", s.config.MinConfidence).Msg("  ⚠ Skipped: low confidence")
-		return
+		return // 低置信度直接丢弃（不再打印日志减少刷屏）
+	}
+
+	// 限制 amountIn（模拟用小金额，不依赖 Vault）
+	maxVaultAmount := new(big.Int).SetUint64(100_000_000_000_000) // 0.0001 ETH（用于模拟）
+	if opp.AmountIn == nil || opp.AmountIn.Cmp(maxVaultAmount) > 0 {
+		opp.AmountIn = maxVaultAmount
+	}
+	opp.MinProfit = big.NewInt(0)
+	if opp.ExpectProfit == nil || opp.ExpectProfit.Sign() <= 0 {
+		opp.ExpectProfit = big.NewInt(1)
+	}
+
+	// eth_call 模拟验证（免费，不消耗 Gas）
+	// 只有模拟通过的机会才值得花 Gas 执行
+	if s.simulator != nil {
+		simCtx, simCancel := context.WithTimeout(context.Background(), 8*time.Second)
+		simParams := &executor.ArbitrageParams{
+			Asset:        opp.SwapPath[0],
+			TokenOut:     opp.SwapPath[len(opp.SwapPath)-1],
+			AmountIn:     opp.AmountIn,
+			SwapPath:     opp.SwapPath,
+			Dexes:        opp.Dexes,
+			ExpectProfit: opp.ExpectProfit,
+			MinProfit:    opp.MinProfit,
+		}
+
+		simResult, simErr := s.simulator.SimulateArbitrage(simCtx, simParams)
+		simCancel()
+
+		if simErr != nil || !simResult.Profitable {
+			errMsg := ""
+			if simErr != nil { errMsg = simErr.Error() } else { errMsg = simResult.Error }
+			startToken := ""
+			if len(opp.SwapPath) > 0 { startToken = opp.SwapPath[0].Hex()[:14] }
+			log.Scheduler().Info().
+				Str("path", opp.ID).
+				Str("start_token", startToken).
+				Str("reason", errMsg).
+				Float64("profit_pct", opp.ProfitRate*100).
+				Msg("  ❌ eth_call reverted")
+			return
+		}
+
+		// 模拟通过了！这是一个链上此刻确实有利润的机会
+		log.Scheduler().Info().
+			Str("path", opp.ID).
+			Float64("profit_pct", opp.ProfitRate*100).
+			Str("net_profit", simResult.NetProfit.String()).
+			Uint64("gas_used", simResult.GasUsed).
+			Msg("✅ eth_call PASSED — real opportunity!")
 	}
 
 	// 检查是否启用执行
 	if !s.config.EnableExecution || s.config.DryRun {
-		log.Scheduler().Info().Str("path", opp.ID).Msg("  📋 Dry run mode: would execute path")
+		log.Scheduler().Info().Str("path", opp.ID).Msg("  [dry-run] Would execute this verified opportunity")
 		return
 	}
 
-	// 检查执行器
 	if s.executor == nil {
-		log.Scheduler().Warn().Msg("  ⚠ Skipped: executor not configured")
 		return
 	}
 
-	// 获取信号量
+	log.Scheduler().Info().
+		Str("path", opp.ID).
+		Float64("profit_pct", opp.ProfitRate*100).
+		Str("amount_in", opp.AmountIn.String()).
+		Msg("🚀 Executing verified opportunity")
+
 	select {
 	case semaphore <- struct{}{}:
 	default:
-		log.Scheduler().Warn().Msg("  ⚠ Skipped: max concurrent executions reached")
 		return
 	}
 
-	// 异步执行
-	go func() {
-		defer func() { <-semaphore }()
-		s.executeOpportunity(opp)
-	}()
+	s.executeOpportunity(opp)
+	<-semaphore
+	time.Sleep(500 * time.Millisecond)
 }
 
 // executeOpportunity 执行套利机会
@@ -337,8 +418,8 @@ func (s *HighPerformanceScheduler) executeOpportunity(opp *strategy.ArbitrageOpp
 	s.stats.ExecutionsAttempted++
 	s.statsMu.Unlock()
 
-	// 创建超时context
-	ctx, cancel := context.WithTimeout(s.ctx, s.config.ExecutionTimeout)
+	// 使用独立的 context（避免被 scheduler 的 context 取消影响）
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	// 执行

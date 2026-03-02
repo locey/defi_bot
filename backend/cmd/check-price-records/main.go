@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	fmt.Println("=== 检查价格记录 ===\n")
+	fmt.Println("=== 检查价格记录 ===")
 
 	cfg, err := config.LoadConfig("configs/config.yaml")
 	if err != nil {

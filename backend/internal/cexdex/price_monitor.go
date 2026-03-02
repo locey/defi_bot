@@ -186,6 +186,8 @@ func (m *PriceMonitor) receiveLoop(ctx context.Context) {
 		default:
 		}
 
+		// 设置读超时，防止连接悄悄断开后永久阻塞
+		m.conn.SetReadDeadline(time.Now().Add(30 * time.Second))
 		_, message, err := m.conn.ReadMessage()
 		if err != nil {
 			log.Warn("读取 WebSocket 消息失败: %v", err)

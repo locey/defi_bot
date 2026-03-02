@@ -101,7 +101,15 @@ func (e *ArbitrageExecutor) Execute(
 		IsCex:        opp.IsCex,
 	}
 
-	// 4. 执行交易
+	// 4. 跳过 eth_call 模拟（速度优先），直接提交交易
+	// 合约内部有 require(profit >= minProfit) 保护，revert 只损失 Gas
+	log.Executor().Info().
+		Str("path", opp.ID).
+		Str("amount_in", params.AmountIn.String()).
+		Int("dexes", len(params.Dexes)).
+		Msg("🚀 Submitting transaction (no simulation)")
+
+	// 5. 执行交易
 	tx, err := e.contractCaller.ExecuteArbitrage(ctx, e.keeperPrivateKey, params)
 	if err != nil {
 		return &ExecutionResult{
@@ -111,12 +119,12 @@ func (e *ArbitrageExecutor) Execute(
 		}, err
 	}
 
-	// 5. 记录待确认交易
+	// 6. 记录待确认交易
 	e.pendingTxMu.Lock()
 	e.pendingTx[tx.Hash().Hex()] = tx
 	e.pendingTxMu.Unlock()
 
-	// 6. 等待交易确认
+	// 7. 等待交易确认
 	receipt, err := e.waitForReceipt(ctx, tx)
 	if err != nil {
 		return &ExecutionResult{
@@ -127,22 +135,22 @@ func (e *ArbitrageExecutor) Execute(
 		}, err
 	}
 
-	// 7. 解析执行结果
+	// 8. 解析执行结果
 	result := e.parseExecutionResult(opp, tx, receipt, startTime)
 
-	// 8. 更新统计
+	// 9. 更新统计
 	if result.Success {
 		e.totalExecuted++
 		e.totalProfit.Add(e.totalProfit, result.ActualProfit)
 		e.totalGasSpent.Add(e.totalGasSpent, result.GasCost)
 	}
 
-	// 9. 保存执行记录到数据库
+	// 10. 保存执行记录到数据库
 	if err := e.saveExecutionRecord(opp, result); err != nil {
 		log.Warn("Save execution record failed: %v", err)
 	}
 
-	// 10. 清理待确认交易
+	// 11. 清理待确认交易
 	e.pendingTxMu.Lock()
 	delete(e.pendingTx, tx.Hash().Hex())
 	e.pendingTxMu.Unlock()
@@ -261,13 +269,13 @@ type ExecutionResult struct {
 // ArbitrageParams 套利参数（与合约 IArbitrage.ArbitrageParams 对应）
 type ArbitrageParams struct {
 	Asset        common.Address
-	TokenOut     common.Address   // 输出代币地址
+	TokenOut     common.Address // 输出代币地址
 	AmountIn     *big.Int
 	SwapPath     []common.Address
 	Dexes        []common.Address
 	ExpectProfit *big.Int
 	MinProfit    *big.Int
-	IsCex        bool             // 是否为 CEX-DEX 套利
+	IsCex        bool // 是否为 CEX-DEX 套利
 }
 
 // GetStats 获取统计信息

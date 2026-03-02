@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "../core/ConfigManage.sol";
 import "../router/IUniswapV2Router02.sol";
+import "../router/IUniswapV3Router.sol";
 import "../interfaces/IDoubleRouterIntegration.sol";
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -17,6 +18,10 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration, Initializable, UUP
     ConfigManage public configManage;
     uint256 public slippageTolerance;
     address[] public mrouters;
+
+    // V3 Router 白名单 + 费率配置
+    mapping(address => bool) public isV3Router;
+    mapping(address => uint24) public v3RouterFee; // router → 默认 fee tier
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -55,6 +60,12 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration, Initializable, UUP
         return mrouters;
     }
 
+    // 设置 V3 Router 白名单和费率
+    function setV3Router(address router, bool enabled, uint24 fee) external onlyOwner {
+        isV3Router[router] = enabled;
+        v3RouterFee[router] = fee;
+    }
+
     function doubleRouterArbCheck(
         uint amountIn,
         address[] calldata path,
@@ -75,7 +86,7 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration, Initializable, UUP
             address from = path[i];
             address to = path[i + 1];
 
-            address[] memory stepPath;
+            address[] memory stepPath = new address[](2);
             stepPath[0] = from;
             stepPath[1] = to;
 
@@ -114,9 +125,11 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration, Initializable, UUP
         require(swapPath[swapPath.length - 1] == tokenOut, "tokenOut mismatch with swapPath");
         require(IERC20(tokenIn).balanceOf(spot) >= amountIn, "insufficient tokenIn balance");
 
+        // 将代币从 spot 拉到本合约（V3 Router 需要从 msg.sender 拉取）
+        IERC20(tokenIn).safeTransferFrom(spot, address(this), amountIn);
+
         uint256 currentAmount = amountIn;
-        uint256 deadline = block.timestamp + 300;
-        uint256 aveProfit = expectProfit / dexes.length;
+        uint256 deadline = block.timestamp + 120;
         for (uint i = 0; i < dexes.length; i++) {
             currentAmount = _executeSingleSwap(
                 spot,
@@ -125,10 +138,14 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration, Initializable, UUP
                 swapPath[i + 1],
                 currentAmount,
                 deadline,
-                aveProfit
+                0 // 不做单跳利润检查，在最后检查总利润
             );
         }
-        require(currentAmount > minProfit, "no profit hop");
+        require(currentAmount >= amountIn + minProfit, "DoubleRouter: insufficient profit");
+
+        // 将最终代币转回 spot（SpotArbitrage）
+        IERC20(tokenOut).safeTransfer(spot, currentAmount);
+
         amountOut = currentAmount;
     }
 
@@ -141,44 +158,44 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration, Initializable, UUP
         uint256 deadline,
         uint256 aveProfit
     ) internal returns (uint256 outAmount) {
-        IERC20(fromToken).approve(routerAddr, 0);
         IERC20(fromToken).approve(routerAddr, currentAmount);
 
-        address[] memory path = new address[](2);
-        path[0] = fromToken;
-        path[1] = toToken;
+        if (isV3Router[routerAddr]) {
+            // V3 Router: 使用 exactInputSingle
+            uint24 fee = v3RouterFee[routerAddr];
+            if (fee == 0) fee = 3000;
 
-        uint[] memory amounts = IUniswapV2Router02(routerAddr).getAmountsOut(currentAmount, path);
-        uint256 expectedOut = amounts[amounts.length - 1];
-        
-        require(expectedOut > currentAmount, "No profit potential");
-        require(expectedOut >= currentAmount + aveProfit, "Insufficient profit margin");
-        
-        uint256 maxLoss = expectedOut - currentAmount - aveProfit;
-        require(maxLoss > 0, "No slippage room");
-        
-        uint256 slippageBps;
-        unchecked {
-            slippageBps = (maxLoss * 10000) / expectedOut;
-        }
-        
-        if (slippageBps > slippageTolerance) {
-            slippageBps = slippageTolerance;
-        }
-        
-        uint256 minOut;
-        unchecked {
-            minOut = (expectedOut * (10000 - slippageBps)) / 10000;
-        }
-        minOut = minOut == 0 ? 1 : minOut;
+            outAmount = IUniswapV3Router(routerAddr).exactInputSingle(
+                IUniswapV3Router.ExactInputSingleParams({
+                    tokenIn: fromToken,
+                    tokenOut: toToken,
+                    fee: fee,
+                    recipient: address(this), // 留在本合约（下一跳需要）
+                    deadline: deadline,
+                    amountIn: currentAmount,
+                    amountOutMinimum: 1,
+                    sqrtPriceLimitX96: 0
+                })
+            );
+        } else {
+            // V2 Router
+            address[] memory path = new address[](2);
+            path[0] = fromToken;
+            path[1] = toToken;
 
-        outAmount = IUniswapV2Router02(routerAddr).swapExactTokensForTokens(
-            currentAmount,
-            minOut,
-            path,
-            spot,
-            deadline
-        )[1];
+            uint[] memory amounts = IUniswapV2Router02(routerAddr).getAmountsOut(currentAmount, path);
+            uint256 expectedOut = amounts[amounts.length - 1];
+            uint256 minOut = (expectedOut * (10000 - slippageTolerance)) / 10000;
+            minOut = minOut == 0 ? 1 : minOut;
+
+            outAmount = IUniswapV2Router02(routerAddr).swapExactTokensForTokens(
+                currentAmount,
+                minOut,
+                path,
+                address(this), // 留在本合约（下一跳需要）
+                deadline
+            )[1];
+        }
 
         emit DoubleRouterSwap2(routerAddr, fromToken, toToken, currentAmount, outAmount);
     }

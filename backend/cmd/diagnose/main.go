@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	fmt.Println("=== 诊断 pair_reserves 表更新问题 ===\n")
+	fmt.Println("=== 诊断 pair_reserves 表更新问题 ===")
 
 	// 1. 加载配置
 	cfg, err := config.LoadConfig("configs/config.test.yaml")

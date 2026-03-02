@@ -36,8 +36,8 @@ type PoolTier struct {
 	PoolAddress string
 	Token0      common.Address
 	Token1      common.Address
-	Decimals0   uint8  // Token0 精度
-	Decimals1   uint8  // Token1 精度
+	Decimals0   uint8 // Token0 精度
+	Decimals1   uint8 // Token1 精度
 	DexName     string
 	Protocol    string
 	Fee         uint64
@@ -67,20 +67,20 @@ type FastCollector struct {
 	stopCh  chan struct{}
 
 	// 统计
-	stats     CollectorStats
-	statsMu   sync.RWMutex
+	stats   CollectorStats
+	statsMu sync.RWMutex
 }
 
 // CollectorStats 采集器统计
 type CollectorStats struct {
-	Tier1Updates   uint64
-	Tier2Updates   uint64
-	Tier3Updates   uint64
-	TotalUpdates   uint64
-	FailedUpdates  uint64
-	LastTier1Time  time.Time
-	LastTier2Time  time.Time
-	LastTier3Time  time.Time
+	Tier1Updates  uint64
+	Tier2Updates  uint64
+	Tier3Updates  uint64
+	TotalUpdates  uint64
+	FailedUpdates uint64
+	LastTier1Time time.Time
+	LastTier2Time time.Time
+	LastTier3Time time.Time
 }
 
 // NewFastCollector 创建高性能采集器
@@ -110,20 +110,20 @@ func NewFastCollector(
 func defaultFastCollectorConfig() *FastCollectorConfig {
 	return &FastCollectorConfig{
 		Tier1: TierConfig{
-			MinTVL:       10000000,    // $10M
-			MinVolume24h: 5000000,     // $5M
+			MinTVL:       10000000, // $10M
+			MinVolume24h: 5000000,  // $5M
 			Method:       "websocket",
 			Interval:     0,
 		},
 		Tier2: TierConfig{
-			MinTVL:       500000,      // $500K
-			MinVolume24h: 100000,      // $100K
+			MinTVL:       500000, // $500K
+			MinVolume24h: 100000, // $100K
 			Method:       "multicall",
-			Interval:     time.Second, // 1秒
+			Interval:     3 * time.Second, // 3秒（从1秒提高，释放 RPC 带宽给交易）
 		},
 		Tier3: TierConfig{
-			MinTVL:       50000,            // $50K
-			MinVolume24h: 10000,            // $10K
+			MinTVL:       50000, // $50K
+			MinVolume24h: 10000, // $10K
 			Method:       "multicall",
 			Interval:     5 * time.Minute, // 5分钟
 		},
@@ -228,6 +228,16 @@ func (c *FastCollector) LoadAndClassifyPools() error {
 	c.tier2Pools = make([]*PoolTier, 0)
 	c.tier3Pools = make([]*PoolTier, 0)
 
+	// 主流代币地址（用于分层优先级判断）
+	coreTokens := map[string]bool{
+		strings.ToLower("0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"): true, // WETH
+		strings.ToLower("0xaf88d065e77c8cC2239327C5EDb3A432268e5831"): true, // USDC
+		strings.ToLower("0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8"): true, // USDCe
+		strings.ToLower("0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9"): true, // USDT
+		strings.ToLower("0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f"): true, // WBTC
+		strings.ToLower("0x912CE59144191C1204E64559FE8253a0e49E6548"): true, // ARB
+	}
+
 	for _, p := range pools {
 		pool := &PoolTier{
 			PoolAddress: p.PairAddress,
@@ -238,14 +248,24 @@ func (c *FastCollector) LoadAndClassifyPools() error {
 			DexName:     p.DexName,
 			Protocol:    p.Protocol,
 			Fee:         uint64(p.Fee),
-			TVL:         0, // 数据库暂无 TVL 数据
-			Volume24h:   0, // 数据库暂无 Volume 数据
 		}
 
-		// 分层逻辑（由于没有 TVL/Volume 数据，所有池子放入 Tier2 使用 Multicall）
-		// 未来可以根据储备量或其他指标进行分层
-		pool.Tier = 2
-		c.tier2Pools = append(c.tier2Pools, pool)
+		// 智能分层：
+		// Tier1 (WebSocket 实时): 主流代币对（两个代币都是核心代币）→ 延迟 ~100ms
+		// Tier2 (Multicall 3s):  至少一个核心代币的池子 → 延迟 ~3s
+		t0Core := coreTokens[strings.ToLower(p.Token0Address)]
+		t1Core := coreTokens[strings.ToLower(p.Token1Address)]
+
+		if t0Core && t1Core && len(c.tier1Pools) < 30 {
+			// 两个都是核心代币 → Tier1（WebSocket 实时推送）
+			pool.Tier = 1
+			c.tier1Pools = append(c.tier1Pools, pool)
+		} else if (t0Core || t1Core) && len(c.tier2Pools) < 50 {
+			// 至少一个核心代币 → Tier2
+			pool.Tier = 2
+			c.tier2Pools = append(c.tier2Pools, pool)
+		}
+		// 其余忽略（减少 RPC 负载）
 	}
 
 	// 初始化价格缓存索引（包含 decimals）
@@ -260,6 +280,7 @@ func (c *FastCollector) LoadAndClassifyPools() error {
 			DexName:     pool.DexName,
 			Protocol:    pool.Protocol,
 			Fee:         pool.Fee,
+			IsV3:        isV3Protocol(pool.Protocol),
 		})
 	}
 	c.priceCache.BuildIndex(allPrices)

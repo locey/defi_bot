@@ -213,13 +213,13 @@ func (d *Detector) createOpportunity(symbol, direction string, buyPrice, sellPri
 	// 计算预期利润
 	expectProfit := tradeAmount * profitRate
 
-	// 估算 Gas 成本（简化）
-	gasCost := 5.0 // 假设 $5 Gas 成本
+	// 估算 Gas 成本（Arbitrum 实际: ~200K gas × 0.1 gwei × $2500/ETH ≈ $0.05）
+	gasCost := 0.05
 
 	// 计算净利润
 	netProfit := expectProfit - gasCost
 
-	// 检查是否满足最小利润要求
+	// 检查是否满足最小利润要求（默认 MinProfitAmount 为 0，不再误过滤）
 	if netProfit < d.config.MinProfitAmount {
 		return
 	}
@@ -229,12 +229,23 @@ func (d *Detector) createOpportunity(symbol, direction string, buyPrice, sellPri
 
 	oppID := fmt.Sprintf("%s_%s_%d", symbol, direction, time.Now().UnixNano())
 
+	// direction="dex_to_cex": buyPrice=DEX价格, sellPrice=CEX买价
+	// direction="cex_to_dex": buyPrice=CEX卖价, sellPrice=DEX价格
+	var cexPriceVal, dexPriceVal float64
+	if direction == "dex_to_cex" {
+		dexPriceVal = buyPrice
+		cexPriceVal = sellPrice
+	} else {
+		cexPriceVal = buyPrice
+		dexPriceVal = sellPrice
+	}
+
 	opp := &CEXDEXOpportunity{
 		ID:           oppID,
 		Symbol:       symbol,
 		Direction:    direction,
-		CEXPrice:     buyPrice,
-		DEXPrice:     sellPrice,
+		CEXPrice:     cexPriceVal,
+		DEXPrice:     dexPriceVal,
 		PriceSpread:  sellPrice - buyPrice,
 		ProfitRate:   profitRate,
 		TradeAmount:  tradeAmount,

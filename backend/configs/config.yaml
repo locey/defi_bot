@@ -226,6 +226,11 @@ scheduler:
   analyze_interval: 5    # 更频繁分析
   cleanup_interval: 24
   min_profit_rate: 0.1   # 降低到 0.1%（L2 Gas 便宜）
+  mode: high_performance
+  enable_execution: false  # 暂停执行，优化期间只检测不交易
+  dry_run: true            # 恢复 dry-run 保护资金
+  min_confidence: 0.5
+  max_concurrent_exec: 1
 
 # 套利配置
 arbitrage:

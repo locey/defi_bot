@@ -150,7 +150,7 @@ func (s *Simulator) SimulateArbitrage(
 }
 
 // buildCallData 构建 executeStrategy(ArbitrageParams) 调用数据
-// 与 ContractCaller.buildCallData 相同逻辑
+// 链上合约 executeStrategy 只接收 1 个参数（ArbitrageParams 含 isCex 字段）
 func (s *Simulator) buildCallData(params *ArbitrageParams) ([]byte, error) {
 	paramsStruct := struct {
 		Asset        common.Address

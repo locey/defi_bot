@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	fmt.Println("=== 检查代币精度和价格计算 ===\n")
+	fmt.Println("=== 检查代币精度和价格计算 ===")
 
 	// 1. 加载配置
 	cfg, err := config.LoadConfig("configs/config.yaml")

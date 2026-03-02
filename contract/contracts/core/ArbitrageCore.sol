@@ -202,10 +202,8 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
         uint256 balanceAfter = ERC20Upgradeable(asset).balanceOf(address(this));
         
         //计算利润，分成（注意验证minProfit）
-        uint256 actProfit ;
-        unchecked {
-            actProfit = balanceAfter - balanceBefore;
-        }
+        require(balanceAfter >= balanceBefore, "ArbitrageCore: arbitrage resulted in loss");
+        uint256 actProfit = balanceAfter - balanceBefore;
         require(actProfit > minProfit, "Profit below minimum");
 
         //计算分润 分成比例由configManager管理

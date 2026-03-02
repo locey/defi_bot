@@ -118,7 +118,7 @@ tokens:
     address: "0xdAC17F958D2ee523a2206206994597C13D831ec7"
     decimals: 6
   - symbol: "DAI"
-    address: "0x6B175474E89094C44Da98b954EescdeCB5BfC01"
+    address: "0x6B175474E89094C44Da98b954EedeAC495271d0F"
     decimals: 18
   - symbol: "WBTC"
     address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599"

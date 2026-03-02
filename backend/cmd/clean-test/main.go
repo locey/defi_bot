@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	fmt.Println("=== 清理测试数据 ===\n")
+	fmt.Println("=== 清理测试数据 ===")
 
 	// 1. 加载配置
 	cfg, err := config.LoadConfig("configs/config.yaml")

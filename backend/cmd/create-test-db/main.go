@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	fmt.Println("=== 创建测试数据库 ===\n")
+	fmt.Println("=== 创建测试数据库 ===")
 
 	// 连接到默认的 postgres 数据库
 	dsn := "host=127.0.0.1 port=5432 user=defi_user password=defi_pass123 dbname=postgres sslmode=disable TimeZone=Asia/Shanghai"

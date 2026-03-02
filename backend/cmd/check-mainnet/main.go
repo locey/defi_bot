@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	fmt.Println("=== 检查主网数据库的采集历史 ===\n")
+	fmt.Println("=== 检查主网数据库的采集历史 ===")
 
 	// 连接主网数据库
 	cfg := &config.DatabaseConfig{
