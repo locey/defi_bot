@@ -24,11 +24,12 @@ import (
 // 采用事件驱动架构，实现毫秒级套利检测
 type HighPerformanceScheduler struct {
 	// 核心组件
-	priceCache *cache.PriceCache           // 内存价格缓存
-	collector  *collector.FastCollector    // 高速采集器
-	detector   *strategy.ArbitrageDetector // 增量检测器
-	executor   *executor.ArbitrageExecutor // 执行器
-	simulator  *executor.Simulator         // eth_call 模拟器
+	priceCache     *cache.PriceCache           // 内存价格缓存
+	collector      *collector.FastCollector    // 高速采集器
+	detector       *strategy.ArbitrageDetector // 增量检测器（预设路径）
+	spreadScanner  *strategy.SpreadScanner     // 动态价差扫描器（自动发现）
+	executor       *executor.ArbitrageExecutor // 执行器
+	simulator      *executor.Simulator         // eth_call 模拟器
 
 	// 依赖
 	db         *gorm.DB
@@ -81,6 +82,10 @@ type HighPerformanceConfig struct {
 	ContractAddress  string // ArbitrageCore 合约地址
 	KeeperPrivateKey string // Keeper 私钥（用于 eth_call 的 from 地址）
 	EnableSimulation bool   // 是否启用 eth_call 模拟验证
+
+	// 动态价差扫描器配置
+	EnableSpreadScanner bool // 是否启用自动发现跨 DEX 价差（不依赖预设代币列表）
+	MinSpreadBps        int  // 触发价差阈值（basis points，默认 30 = 0.3%）
 }
 
 // SchedulerStats 调度器统计
@@ -191,7 +196,17 @@ func (s *HighPerformanceScheduler) initComponents() error {
 	}
 	log.Scheduler().Info().Msg("  ✓ ArbitrageDetector initialized")
 
-	// 6. 创建 eth_call 模拟器（如果配置了合约地址）
+	// 6. 创建动态价差扫描器（自动发现跨 DEX 套利，不依赖预设代币列表）
+	if s.config.EnableSpreadScanner {
+		minBps := s.config.MinSpreadBps
+		if minBps <= 0 {
+			minBps = 30 // 默认 0.3%
+		}
+		s.spreadScanner = strategy.NewSpreadScanner(s.priceCache, minBps)
+		log.Scheduler().Info().Int("min_spread_bps", minBps).Msg("  ✓ SpreadScanner initialized (auto-discovery mode)")
+	}
+
+	// 7. 创建 eth_call 模拟器（如果配置了合约地址）
 	if s.config.ContractAddress != "" && s.config.EnableSimulation {
 		sim, simErr := executor.NewSimulator(
 			s.web3Client,
@@ -253,9 +268,16 @@ func (s *HighPerformanceScheduler) Start() error {
 		return fmt.Errorf("start detector failed: %w", err)
 	}
 
-	// Step 5: 启动执行循环
+	// Step 5: 启动执行循环（处理预设路径检测器的机会）
 	log.Scheduler().Info().Msg("Step 5: Starting execution loop...")
 	go s.executionLoop()
+
+	// Step 5b: 启动动态价差扫描器（自动发现跨 DEX 机会）
+	if s.spreadScanner != nil {
+		log.Scheduler().Info().Msg("Step 5b: Starting SpreadScanner (auto-discovery)...")
+		s.spreadScanner.Start(s.ctx)
+		go s.spreadScannerLoop()
+	}
 
 	// Step 6: 启动统计打印
 	go s.statsLoop()
@@ -290,11 +312,81 @@ func (s *HighPerformanceScheduler) Stop() {
 	if s.detector != nil {
 		s.detector.Stop()
 	}
+	if s.spreadScanner != nil {
+		s.spreadScanner.Stop()
+	}
 	if s.wsClient != nil {
 		s.wsClient.Close()
 	}
 
 	log.Scheduler().Info().Msg("HighPerformanceScheduler: Stopped")
+}
+
+// spreadScannerLoop 处理动态价差扫描器发现的机会
+func (s *HighPerformanceScheduler) spreadScannerLoop() {
+	if s.spreadScanner == nil {
+		return
+	}
+	semaphore := make(chan struct{}, 1) // 价差机会串行处理，防止并发
+
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		case spreadOpp, ok := <-s.spreadScanner.Opportunities():
+			if !ok {
+				return
+			}
+			// 将 SpreadOpportunity 转换为标准 ArbitrageOpportunity 然后处理
+			arbOpp := s.convertSpreadOpportunity(spreadOpp)
+			if arbOpp != nil {
+				s.handleOpportunity(arbOpp, semaphore)
+			}
+		}
+	}
+}
+
+// convertSpreadOpportunity 将跨 DEX 价差机会转换为标准套利机会格式
+func (s *HighPerformanceScheduler) convertSpreadOpportunity(opp *strategy.SpreadOpportunity) *strategy.ArbitrageOpportunity {
+	if opp == nil || len(opp.SwapPath) < 3 || len(opp.DexPath) < 2 {
+		return nil
+	}
+
+	// 使用 Vault 余额的 80% 作为测试金额（保守）
+	amountIn := new(big.Int).SetUint64(80_000_000_000_000) // 0.00008 WETH 等值
+
+	log.Scheduler().Info().
+		Str("token0", opp.Token0.Hex()[:14]).
+		Str("token1", opp.Token1.Hex()[:14]).
+		Str("buy_dex", opp.BuyPool.DexName).
+		Str("sell_dex", opp.SellPool.DexName).
+		Float64("spread_pct", opp.SpreadFloat*100).
+		Int("spread_bps", opp.SpreadBps).
+		Msg("🔍 SpreadScanner: Auto-discovered cross-DEX opportunity")
+
+	return &strategy.ArbitrageOpportunity{
+		ID:         opp.ID,
+		SwapPath:   opp.SwapPath,
+		Dexes:      opp.DexPath,
+		DexNames:   opp.DexNames,
+		AmountIn:   amountIn,
+		ProfitRate: opp.SpreadFloat,
+		PathLength: len(opp.SwapPath) - 1,
+		Confidence: calculateSpreadConfidence(opp.SpreadFloat),
+		Timestamp:  opp.DiscoveredAt,
+		ValidUntil: opp.DiscoveredAt.Add(15 * time.Second),
+		MinProfit:  big.NewInt(0),
+		ExpectProfit: big.NewInt(1),
+	}
+}
+
+// calculateSpreadConfidence 根据价差计算置信度
+func calculateSpreadConfidence(spread float64) float64 {
+	if spread > 0.05 { return 0.9 }   // >5%
+	if spread > 0.02 { return 0.8 }   // >2%
+	if spread > 0.01 { return 0.7 }   // >1%
+	if spread > 0.005 { return 0.6 }  // >0.5%
+	return 0.5
 }
 
 // executionLoop 执行循环

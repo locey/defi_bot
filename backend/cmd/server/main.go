@@ -259,6 +259,9 @@ func main() {
 			ContractAddress:  cfg.Contracts.ArbitrageCore,
 			KeeperPrivateKey: cfg.Keeper.PrivateKey,
 			EnableSimulation: cfg.Contracts.ArbitrageCore != "",
+			// 动态价差扫描器（自动发现跨 DEX 套利，不依赖预设代币列表）
+			EnableSpreadScanner: true,
+			MinSpreadBps:        30, // 0.3% 最小触发价差
 		}
 		if hpConfig.MaxConcurrentExecutions == 0 {
 			hpConfig.MaxConcurrentExecutions = 3
