@@ -75,6 +75,15 @@ func (e *ArbitrageExecutor) SetDB(db *gorm.DB) {
 	e.db = db
 }
 
+// GetVaultAvailable 查询指定 token 对应 Vault 的可用余额
+// 供调度器在执行前 cap amountIn，防止 `amountIn too much` revert
+func (e *ArbitrageExecutor) GetVaultAvailable(ctx context.Context, asset common.Address) (*big.Int, error) {
+	if e.contractCaller == nil {
+		return nil, fmt.Errorf("contract caller not initialized")
+	}
+	return e.contractCaller.GetVaultAvailable(ctx, asset)
+}
+
 // Execute 执行套利机会
 func (e *ArbitrageExecutor) Execute(
 	ctx context.Context,

@@ -227,8 +227,8 @@ scheduler:
   cleanup_interval: 24
   min_profit_rate: 0.1   # 降低到 0.1%（L2 Gas 便宜）
   mode: high_performance
-  enable_execution: false  # 暂停执行，优化期间只检测不交易
-  dry_run: true            # 恢复 dry-run 保护资金
+  enable_execution: true   # 开启执行（eth_call 模拟作为保护层，只有通过验证的机会才提交）
+  dry_run: false           # 关闭 dry-run，允许真实交易
   min_confidence: 0.5
   max_concurrent_exec: 1
 

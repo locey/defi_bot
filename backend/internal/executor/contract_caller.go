@@ -18,8 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-// ArbitrageCore ABI（最小化：executeStrategy + 相关事件）
-// 合约变更：移除 StrategyTypes 枚举参数，ArbitrageParams 新增 isCex 字段，移除闪电贷相关函数和事件
+// ArbitrageCore ABI（最小化：executeStrategy + getVaultInfo + 相关事件）
 const ArbitrageCoreABI = `[
     {
         "inputs": [
@@ -45,6 +44,17 @@ const ArbitrageCoreABI = `[
         "type": "function"
     },
     {
+        "inputs": [{"internalType":"address","name":"asset","type":"address"}],
+        "name": "getVaultInfo",
+        "outputs": [
+            {"internalType":"address","name":"vaultAddress","type":"address"},
+            {"internalType":"uint256","name":"totalAssets","type":"uint256"},
+            {"internalType":"uint256","name":"availableAssets","type":"uint256"}
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
         "anonymous": false,
         "inputs": [
             {"indexed": true, "internalType":"address", "name":"vault", "type":"address"},
@@ -67,6 +77,7 @@ type ContractCaller struct {
 	contractABI     abi.ABI
 	execRPCClient   *ethclient.Client // 独立的执行 RPC（公共节点，避免与数据采集竞争）
 	keeperAddress   common.Address    // Keeper 地址（用于 eth_call 的 From 字段）
+	privateTxSender *PrivateTxSender  // 私有交易发送器（防 MEV 抢跑，Arbitrum FCFS 下可选）
 }
 
 // NewContractCaller 创建合约调用器
@@ -93,7 +104,40 @@ func NewContractCaller(
 		log.Executor().Info().Msg("Using publicnode RPC for tx submission")
 	}
 
+	// 初始化私有交易发送器（防 MEV 抢跑，Arbitrum FCFS 场景下自动降级到公共 RPC）
+	privateSender, privErr := NewPrivateTxSender(DefaultPrivateTxConfig())
+	if privErr == nil {
+		cc.privateTxSender = privateSender
+		log.Executor().Info().Msg("PrivateTxSender initialized (Arbitrum FCFS mode)")
+	}
+
 	return cc
+}
+
+// GetVaultAvailable 查询指定 asset 在 ArbitrageCore 的 Vault 可用余额
+// 用于在执行前判断 amountIn 是否超过 Vault 余额（避免 `amountIn too much` revert）
+func (cc *ContractCaller) GetVaultAvailable(ctx context.Context, asset common.Address) (*big.Int, error) {
+	callData, err := cc.contractABI.Pack("getVaultInfo", asset)
+	if err != nil {
+		return nil, fmt.Errorf("pack getVaultInfo: %w", err)
+	}
+
+	result, err := cc.web3Client.GetClient().CallContract(ctx, ethereum.CallMsg{
+		From: cc.keeperAddress,
+		To:   &cc.contractAddress,
+		Data: callData,
+	}, nil)
+	if err != nil {
+		return nil, fmt.Errorf("getVaultInfo call: %w", err)
+	}
+	if len(result) < 96 {
+		return nil, fmt.Errorf("getVaultInfo: unexpected result length %d", len(result))
+	}
+
+	// 返回值：(vaultAddress, totalAssets, availableAssets)
+	// availableAssets 在 result[64:96]
+	available := new(big.Int).SetBytes(result[64:96])
+	return available, nil
 }
 
 // ExecuteArbitrage 执行套利
@@ -158,7 +202,12 @@ func (cc *ContractCaller) ExecuteArbitrage(
 		if err != nil {
 			return nil, fmt.Errorf("sign tx failed: %w", err)
 		}
-		if err := execClient.SendTransaction(ctx, signed); err != nil {
+		// 优先走私有 RPC（防 MEV），Arbitrum FCFS 下 fallback 到公共 RPC
+		if cc.privateTxSender != nil {
+			if err := cc.privateTxSender.SendTransaction(ctx, signed, execClient); err != nil {
+				return nil, fmt.Errorf("send tx failed: %w", err)
+			}
+		} else if err := execClient.SendTransaction(ctx, signed); err != nil {
 			return nil, fmt.Errorf("send tx failed: %w", err)
 		}
 		return signed, nil
@@ -185,7 +234,11 @@ func (cc *ContractCaller) ExecuteArbitrage(
 		return nil, fmt.Errorf("sign tx failed: %w", err)
 	}
 
-	if err := execClient.SendTransaction(ctx, signed); err != nil {
+	if cc.privateTxSender != nil {
+		if err := cc.privateTxSender.SendTransaction(ctx, signed, execClient); err != nil {
+			return nil, fmt.Errorf("send tx failed: %w", err)
+		}
+	} else if err := execClient.SendTransaction(ctx, signed); err != nil {
 		return nil, fmt.Errorf("send tx failed: %w", err)
 	}
 

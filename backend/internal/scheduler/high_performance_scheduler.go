@@ -425,12 +425,48 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 		return // 低置信度直接丢弃（不再打印日志减少刷屏）
 	}
 
-	// 限制 amountIn（不超过 0.1 ETH，避免超出 Vault 余额或闪电贷上限）
-	maxVaultAmount := new(big.Int).SetUint64(100_000_000_000_000_000) // 0.1 ETH
+	// 限制 amountIn：不超过 Vault 可用余额，避免 `amountIn too much` revert
+	hardLimit := new(big.Int).SetUint64(100_000_000_000_000_000) // 绝对上限 0.1 ETH
 	if opp.AmountIn == nil || opp.AmountIn.Sign() <= 0 {
 		opp.AmountIn = new(big.Int).SetUint64(10_000_000_000_000_000) // 默认 0.01 ETH
-	} else if opp.AmountIn.Cmp(maxVaultAmount) > 0 {
-		opp.AmountIn = maxVaultAmount
+	}
+
+	// 查询链上 Vault 可用余额并 cap（防止 `amountIn too much` revert）
+	if len(opp.SwapPath) > 0 && s.executor != nil {
+		vaultCtx, vaultCancel := context.WithTimeout(context.Background(), 3*time.Second)
+		available, vaultErr := s.executor.GetVaultAvailable(vaultCtx, opp.SwapPath[0])
+		vaultCancel()
+		if vaultErr == nil && available != nil && available.Sign() > 0 {
+			// 使用 Vault 余额的 90%（留 10% 缓冲防止并发竞争）
+			safeAmount := new(big.Int).Mul(available, big.NewInt(9))
+			safeAmount.Div(safeAmount, big.NewInt(10))
+			if opp.AmountIn.Cmp(safeAmount) > 0 {
+				opp.AmountIn = safeAmount
+				log.Scheduler().Debug().
+					Str("asset", opp.SwapPath[0].Hex()[:14]).
+					Str("vault_available", available.String()).
+					Str("capped_amount", opp.AmountIn.String()).
+					Msg("amountIn capped to Vault available balance")
+			}
+		} else if vaultErr != nil {
+			// Vault 查询失败（可能 Vault 不存在），跳过此机会
+			log.Scheduler().Debug().
+				Str("asset", opp.SwapPath[0].Hex()[:14]).
+				Err(vaultErr).
+				Msg("  ⚠️ Vault query failed, skipping opportunity")
+			return
+		} else if available != nil && available.Sign() == 0 {
+			// Vault 余额为 0，直接跳过
+			log.Scheduler().Debug().
+				Str("asset", opp.SwapPath[0].Hex()[:14]).
+				Msg("  ⚠️ Vault balance=0, skipping opportunity")
+			return
+		}
+	}
+
+	// 再次检查绝对上限
+	if opp.AmountIn.Cmp(hardLimit) > 0 {
+		opp.AmountIn = hardLimit
 	}
 
 	// 保留策略计算出的 MinProfit（合约利润保护），不再强制清零
