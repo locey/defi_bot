@@ -128,19 +128,24 @@ func (c *PriceCache) Update(poolAddr string, reserve0, reserve1 *big.Int, blockN
 		newPrice.Fee = oldPrice.Fee
 		newPrice.Decimals0 = oldPrice.Decimals0
 		newPrice.Decimals1 = oldPrice.Decimals1
+	}
 
-		// 如果有 decimals 信息，调整价格
-		// V2 价格 = reserve1/reserve0（原始单位）
-		// 真实价格 = rawPrice * 10^(decimals0 - decimals1)
-		if oldPrice.Decimals0 > 0 || oldPrice.Decimals1 > 0 {
-			newPrice.Price = adjustPriceByDecimals(rawPrice, oldPrice.Decimals0, oldPrice.Decimals1)
-		}
+	// 如果有 decimals 信息，调整价格（无论是否首次更新）
+	// V2 价格 = reserve1/reserve0（原始单位）
+	// 真实价格 = rawPrice * 10^(decimals0 - decimals1)
+	if newPrice.Decimals0 > 0 || newPrice.Decimals1 > 0 {
+		newPrice.Price = adjustPriceByDecimals(rawPrice, newPrice.Decimals0, newPrice.Decimals1)
 	}
 
 	newPriceFloat := newPrice.Price
 
 	// 存储新价格 (无锁写入)
 	c.prices.Store(poolAddr, newPrice)
+
+	// 如果有 Token0/Token1 元数据，更新 byTokenPair 索引（修复：Update 路径也需建索引）
+	if newPrice.Token0 != (common.Address{}) {
+		c.updateIndex(newPrice)
+	}
 
 	// 更新统计
 	c.statsMu.Lock()
@@ -170,6 +175,21 @@ func (c *PriceCache) Update(poolAddr string, reserve0, reserve1 *big.Int, blockN
 			}
 			c.notifySubscribers(event)
 		}
+	} else if oldPrice == nil && newPriceFloat > 0 {
+		// 首次更新也触发事件，让检测器在启动后立即开始工作
+		event := PriceChangeEvent{
+			PoolAddress: poolAddr,
+			Token0:      newPrice.Token0,
+			Token1:      newPrice.Token1,
+			OldPrice:    0,
+			NewPrice:    newPriceFloat,
+			NewReserve0: reserve0,
+			NewReserve1: reserve1,
+			ChangeRate:  1.0,
+			BlockNumber: blockNumber,
+			Timestamp:   now,
+		}
+		c.notifySubscribers(event)
 	}
 }
 
@@ -206,49 +226,50 @@ func (c *PriceCache) UpdateV3(poolAddr string, sqrtPriceX96, liquidity *big.Int,
 		newPrice.Fee = oldPrice.Fee
 		newPrice.Decimals0 = oldPrice.Decimals0
 		newPrice.Decimals1 = oldPrice.Decimals1
+	}
 
-		// 如果有 decimals 信息，重新计算价格
-		if oldPrice.Decimals0 > 0 || oldPrice.Decimals1 > 0 {
-			// V3 合约按地址排序：小地址是 token0，大地址是 token1
-			// sqrtPriceX96 给出的是 (token1_contract / token0_contract)
-			// 数据库的 token 顺序可能与合约不同
-			dbToken0Hex := strings.ToLower(oldPrice.Token0.Hex())
-			dbToken1Hex := strings.ToLower(oldPrice.Token1.Hex())
-			
-			// 确定合约实际的 decimals（按地址排序）
-			contractDec0, contractDec1 := oldPrice.Decimals0, oldPrice.Decimals1
-			dbOrderMatchesContract := dbToken0Hex < dbToken1Hex
-			
-			if !dbOrderMatchesContract {
-				// 数据库顺序与合约相反，交换 decimals
-				contractDec0, contractDec1 = oldPrice.Decimals1, oldPrice.Decimals0
-			}
-			
-			// 计算合约顺序的价格：token1_contract_real / token0_contract_real
-			contractPrice := calculatePriceFromSqrtX96WithDecimals(sqrtPriceX96, contractDec0, contractDec1)
-			
-			// 转换为数据库顺序的价格：db_token0_real / db_token1_real
-			// 与 V2 的 adjustPriceByDecimals 保持一致
-			if dbOrderMatchesContract {
-				// 数据库顺序与合约相同
-				// contract_token1/contract_token0 = db_token1/db_token0
-				// 需要 db_token0/db_token1 = 1 / contractPrice
-				if contractPrice > 0 {
-					newPriceFloat = 1.0 / contractPrice
-				}
-			} else {
-				// 数据库顺序与合约相反
-				// contract_token1/contract_token0 = db_token0/db_token1
-				// 这正是我们需要的
-				newPriceFloat = contractPrice
-			}
-			
-			newPrice.Price = newPriceFloat
+	// 如果有 decimals 信息，重新计算价格（无论是否首次更新）
+	if newPrice.Decimals0 > 0 || newPrice.Decimals1 > 0 {
+		// V3 合约按地址排序：小地址是 token0，大地址是 token1
+		// sqrtPriceX96 给出的是 (token1_contract / token0_contract)
+		// 数据库的 token 顺序可能与合约不同
+		dbToken0Hex := strings.ToLower(newPrice.Token0.Hex())
+		dbToken1Hex := strings.ToLower(newPrice.Token1.Hex())
+
+		// 确定合约实际的 decimals（按地址排序）
+		contractDec0, contractDec1 := newPrice.Decimals0, newPrice.Decimals1
+		dbOrderMatchesContract := dbToken0Hex < dbToken1Hex
+
+		if !dbOrderMatchesContract {
+			// 数据库顺序与合约相反，交换 decimals
+			contractDec0, contractDec1 = newPrice.Decimals1, newPrice.Decimals0
 		}
+
+		// 计算合约顺序的价格：token1_contract_real / token0_contract_real
+		contractPrice := calculatePriceFromSqrtX96WithDecimals(sqrtPriceX96, contractDec0, contractDec1)
+
+		// 统一语义：Price 字段始终表示 db_token1/db_token0（与 V2 一致）
+		// V3 sqrtPriceX96 给出 contract_token1/contract_token0
+		if dbOrderMatchesContract {
+			// db 顺序与合约相同：contractPrice = db_token1/db_token0，直接使用
+			newPriceFloat = contractPrice
+		} else {
+			// db 顺序与合约相反：contractPrice = db_token0/db_token1，取倒数
+			if contractPrice > 0 {
+				newPriceFloat = 1.0 / contractPrice
+			}
+		}
+
+		newPrice.Price = newPriceFloat
 	}
 
 	// 存储新价格
 	c.prices.Store(poolAddr, newPrice)
+
+	// 如果有 Token0/Token1 元数据，更新 byTokenPair 索引（修复：UpdateV3 路径也需建索引）
+	if newPrice.Token0 != (common.Address{}) {
+		c.updateIndex(newPrice)
+	}
 
 	// 更新统计
 	c.statsMu.Lock()
@@ -277,6 +298,19 @@ func (c *PriceCache) UpdateV3(poolAddr string, sqrtPriceX96, liquidity *big.Int,
 			}
 			c.notifySubscribers(event)
 		}
+	} else if oldPrice == nil && newPriceFloat > 0 {
+		// 首次更新也触发事件（V3 池子）
+		event := PriceChangeEvent{
+			PoolAddress: poolAddr,
+			Token0:      newPrice.Token0,
+			Token1:      newPrice.Token1,
+			OldPrice:    0,
+			NewPrice:    newPriceFloat,
+			ChangeRate:  1.0,
+			BlockNumber: blockNumber,
+			Timestamp:   now,
+		}
+		c.notifySubscribers(event)
 	}
 }
 

@@ -425,12 +425,19 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 		return // 低置信度直接丢弃（不再打印日志减少刷屏）
 	}
 
-	// 限制 amountIn（模拟用小金额，不依赖 Vault）
-	maxVaultAmount := new(big.Int).SetUint64(100_000_000_000_000) // 0.0001 ETH（用于模拟）
-	if opp.AmountIn == nil || opp.AmountIn.Cmp(maxVaultAmount) > 0 {
+	// 限制 amountIn（不超过 0.1 ETH，避免超出 Vault 余额或闪电贷上限）
+	maxVaultAmount := new(big.Int).SetUint64(100_000_000_000_000_000) // 0.1 ETH
+	if opp.AmountIn == nil || opp.AmountIn.Sign() <= 0 {
+		opp.AmountIn = new(big.Int).SetUint64(10_000_000_000_000_000) // 默认 0.01 ETH
+	} else if opp.AmountIn.Cmp(maxVaultAmount) > 0 {
 		opp.AmountIn = maxVaultAmount
 	}
-	opp.MinProfit = big.NewInt(0)
+
+	// 保留策略计算出的 MinProfit（合约利润保护），不再强制清零
+	// MinProfit=0 会使合约 require(actProfit > 0) 形同虚设，亏损也不拦截
+	if opp.MinProfit == nil {
+		opp.MinProfit = big.NewInt(0)
+	}
 	if opp.ExpectProfit == nil || opp.ExpectProfit.Sign() <= 0 {
 		opp.ExpectProfit = big.NewInt(1)
 	}
@@ -614,21 +621,22 @@ func CreateHighPerformanceScheduler(
 	}
 
 	// 构建配置
+	chainID := int64(42161) // 默认 Arbitrum One
+	if appConfig != nil {
+		chainID = int64(appConfig.Blockchain.ChainID)
+	}
+
 	cfg := &HighPerformanceConfig{
 		CollectorConfig:         nil, // 使用默认
 		DetectorConfig:          nil, // 使用默认
 		WSURL:                   "",  // 从appConfig获取（如果有）
-		ChainID:                 1,   // 默认以太坊主网
+		ChainID:                 chainID,
 		BaseTokens:              baseTokens,
 		MaxConcurrentExecutions: 3,
 		ExecutionTimeout:        30 * time.Second,
 		MinConfidence:           0.3,
 		EnableExecution:         false,
 		DryRun:                  true,
-	}
-
-	if appConfig != nil {
-		cfg.ChainID = int64(appConfig.Blockchain.ChainID)
 	}
 
 	return NewHighPerformanceScheduler(db, web3Client, nil, cfg)

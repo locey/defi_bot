@@ -23,12 +23,16 @@ func NewProtocolFactory(web3Client *web3.Client) *ProtocolFactory {
 func (f *ProtocolFactory) CreateProtocol(protocolName string) (Protocol, error) {
 	switch protocolName {
 	// === V2 兼容协议（AMM） ===
-	case "uniswap_v2", "sushiswap", "pancakeswap_v2", "shibaswap", "biswap", "":
-		// 空字符串默认为 V2（向后兼容）
+	case "uniswap_v2", "sushiswap", "pancakeswap_v2", "shibaswap", "biswap",
+		"quickswap",    // Polygon QuickSwap V2（兼容 Uni V2 接口）
+		"velodrome_v2", // Optimism Velodrome V2（兼容 Uni V2 接口）
+		"camelot",      // Arbitrum Camelot（兼容 Uni V2 接口）
+		"":
 		return NewUniswapV2Protocol(f.web3Client), nil
 
 	// === V3 协议（集中流动性 AMM） ===
-	case "uniswap_v3", "pancakeswap_v3":
+	case "uniswap_v3", "pancakeswap_v3",
+		"quickswap_v3": // Polygon QuickSwap V3（兼容 Uni V3 接口）
 		return NewUniswapV3Protocol(f.web3Client), nil
 
 	// === StableSwap 协议（稳定币交换） ===

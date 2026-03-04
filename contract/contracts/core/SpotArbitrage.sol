@@ -193,10 +193,10 @@ contract SpotArbitrage is ISpotArbitrage, Initializable, UUPSUpgradeable, Ownabl
             remainingPath[i] = swapPath[i + 1];
         }
 
-        // DEX数量比路径少1
+        // DEX数量比路径少1（从 dexes[1] 开始，dexes[0] 是 CEX 的占位符）
         address[] memory remainingDexes = new address[](dexes.length - 1);
         for (uint i = 0; i < remainingDexes.length; i++) {
-            remainingDexes[i] = dexes[i];
+            remainingDexes[i] = dexes[i + 1];
         }
 
         IERC20(intermediateToken).approve(address(doubleRouterIntegration), intermediateAmount);

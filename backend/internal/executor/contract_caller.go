@@ -66,6 +66,7 @@ type ContractCaller struct {
 	contractAddress common.Address
 	contractABI     abi.ABI
 	execRPCClient   *ethclient.Client // 独立的执行 RPC（公共节点，避免与数据采集竞争）
+	keeperAddress   common.Address    // Keeper 地址（用于 eth_call 的 From 字段）
 }
 
 // NewContractCaller 创建合约调用器
@@ -245,6 +246,11 @@ func (cc *ContractCaller) sendTransaction(
 }
 
 // SimulateArbitrage 模拟套利（不发送交易）
+// SetKeeperAddress 设置 Keeper 地址（用于 eth_call 的 From 字段，必须与合约 backCaller 一致）
+func (cc *ContractCaller) SetKeeperAddress(addr common.Address) {
+	cc.keeperAddress = addr
+}
+
 // 使用 eth_call 模拟 executeStrategy，检测交易是否会 revert
 // 返回预估 Gas；如果 revert 则返回 error
 func (cc *ContractCaller) SimulateArbitrage(
@@ -257,11 +263,18 @@ func (cc *ContractCaller) SimulateArbitrage(
 	}
 
 	// 使用 EstimateGas 作为模拟：如果交易会 revert，EstimateGas 也会失败
-	gasEstimate, err := cc.web3Client.GetClient().EstimateGas(ctx, ethereum.CallMsg{
+	// From 字段必须是 backCaller（合约权限检查用），否则永远 revert
+	callMsg := ethereum.CallMsg{
+		From:  cc.keeperAddress,
 		To:    &cc.contractAddress,
 		Data:  callData,
 		Value: big.NewInt(0),
-	})
+	}
+	if cc.keeperAddress == (common.Address{}) {
+		log.Executor().Warn().Msg("SimulateArbitrage: keeperAddress not set, eth_call From=0x0 will fail permission check")
+	}
+
+	gasEstimate, err := cc.web3Client.GetClient().EstimateGas(ctx, callMsg)
 	if err != nil {
 		return nil, fmt.Errorf("simulation reverted: %w", err)
 	}

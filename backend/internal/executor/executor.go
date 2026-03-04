@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
@@ -56,6 +57,15 @@ func NewArbitrageExecutor(
 	}
 
 	executor.contractCaller = NewContractCaller(web3Client, arbitrageCoreAddress)
+
+	// 设置 Keeper 地址到 ContractCaller（用于 eth_call 的 From 字段）
+	if keeperPrivateKey != "" {
+		pk, err := crypto.HexToECDSA(strings.TrimPrefix(keeperPrivateKey, "0x"))
+		if err == nil {
+			keeperAddr := crypto.PubkeyToAddress(pk.PublicKey)
+			executor.contractCaller.SetKeeperAddress(keeperAddr)
+		}
+	}
 
 	return executor
 }
@@ -164,9 +174,9 @@ func (e *ArbitrageExecutor) waitForReceipt(
 	tx *types.Transaction,
 ) (*types.Receipt, error) {
 
-	// 最多等待2分钟
+	// 最多等待2分钟，每 250ms 轮询一次（Arbitrum 出块约 250ms）
 	timeout := time.After(2 * time.Minute)
-	ticker := time.NewTicker(time.Second)
+	ticker := time.NewTicker(250 * time.Millisecond)
 	defer ticker.Stop()
 
 	for {

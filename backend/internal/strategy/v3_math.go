@@ -57,9 +57,9 @@ func CalculateV3SwapOutput(
 	}
 
 	// 1. 扣除手续费
-	// V3 的 fee 是以百万分之一为单位（如 3000 = 0.3%，500 = 0.05%）
-	// 但我们的 feeBps 是 basis points，需要转换
-	// feeBps 30 = 0.3% = V3 fee 3000
+	// feeBps 是基点（basis points）：30 = 0.3%，5 = 0.05%，100 = 1%
+	// 注意：这里用的是 bps（来自 exchange.fee 列），不是 V3 合约的 fee tier（ppm）
+	// feeAmount = amountIn * feeBps / 10000
 	feeAmount := new(big.Int).Mul(amountIn, big.NewInt(int64(feeBps)))
 	feeAmount.Div(feeAmount, big.NewInt(10000))
 	amountInAfterFee := new(big.Int).Sub(amountIn, feeAmount)

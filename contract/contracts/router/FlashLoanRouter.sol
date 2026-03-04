@@ -19,10 +19,14 @@ contract FlashLoanRouter {
     mapping(LendingPlatForm => PlatFormConfig) public platFormConfigs;
 
     address public immutable admin;
+    mapping(address => bool) public authorizedCallers;
+
+    event AuthorizedCallerUpdated(address indexed caller, bool authorized);
 
     //初始化构造Aave_V2等平台的地址配置
     constructor(address _configManage) {
         admin = msg.sender;
+        authorizedCallers[msg.sender] = true;
         configManage = ConfigManage(_configManage);
         platFormConfigs[LendingPlatForm.Aave_V2] = PlatFormConfig({
             // lendingPool: 0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7,
@@ -33,8 +37,23 @@ contract FlashLoanRouter {
     }
 
     modifier onlyAdmin() {
-        require(msg.sender == admin, "no admin no right");
+        require(msg.sender == admin, "FlashLoanRouter: not admin");
         _;
+    }
+
+    modifier onlyAuthorized() {
+        require(msg.sender == admin || authorizedCallers[msg.sender], "FlashLoanRouter: not authorized");
+        _;
+    }
+
+    function setAuthorizedCaller(address caller, bool authorized) external onlyAdmin {
+        require(caller != address(0), "FlashLoanRouter: zero address");
+        authorizedCallers[caller] = authorized;
+        emit AuthorizedCallerUpdated(caller, authorized);
+    }
+
+    function getLendingPool(LendingPlatForm platform) external view returns (address) {
+        return platFormConfigs[platform].lendingPool;
     }
 
     //更新配置接口 可新增
@@ -62,7 +81,7 @@ contract FlashLoanRouter {
         address asset,
         uint256 amount,
         bytes calldata params
-    )external {
+    ) external onlyAuthorized {
         //1.校验平台配置
         PlatFormConfig memory config = platFormConfigs[platform];
         require(config.lendingPool != address(0), "platform not invalid");

@@ -107,8 +107,13 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
         address initiator,
         bytes calldata params
     ) external override nonReentrant whenNotPaused returns (bool) {
-        // 关键：校验调用者是闪电贷路由合约（防止伪造调用）
-        require(msg.sender == address(flashLoanRouter), "FlashLoanArbitrage: only flashLoanRouter can call");
+        // Phase 0.1 修复: msg.sender 是 Aave LendingPool（不是 FlashLoanRouter）
+        // Aave 回调链: LendingPool.flashLoanSimple() -> receiver.executeOperation()
+        address expectedPool = flashLoanRouter.getLendingPool(FlashLoanRouter.LendingPlatForm.Aave_V2);
+        require(msg.sender == expectedPool, "FlashLoanArbitrage: caller must be LendingPool");
+
+        // Phase 0.1 修复: initiator 是调用 LendingPool 的地址 = FlashLoanRouter
+        require(initiator == address(flashLoanRouter), "FlashLoanArbitrage: initiator must be FlashLoanRouter");
 
         // 解码参数
         (
@@ -121,9 +126,8 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
             uint256 minProfit
         ) = abi.decode(params, (address, address, uint256, address[], address[], uint256, uint256));
 
-        // 基础校验
-        require(_initiator == initiator, "FlashLoanArbitrage: invalid initiator");
-        require(swapPath.length >= 2, "FlashLoanArbitrage: swapPath length must >=2"); // 防止数组越界
+        // 基础校验（移除 _initiator == initiator 对比：params 中是 ArbitrageCore，Aave 的 initiator 是 FlashLoanRouter）
+        require(swapPath.length >= 2, "FlashLoanArbitrage: swapPath length must >=2");
         require(dexes.length > 0, "FlashLoanArbitrage: dexes cannot be empty");
         require(amountIn > 0, "FlashLoanArbitrage: amountIn must >0");
 
@@ -134,7 +138,8 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
             swapPath,
             dexes,
             expectProfit,
-            minProfit
+            minProfit,
+            false // isCex = false（闪电贷走 DEX-DEX 路径）
         ) returns (uint256 amountOut) {
             // 计算总债务和利润 总借款+手续费
             uint256 totalDebt = amount + premium;
@@ -149,13 +154,10 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
             uint256 contractBalance = IERC20(asset).balanceOf(address(this));
             require(contractBalance >= totalDebt, "FlashLoanArbitrage: insufficient balance to repay");
 
-            // 1. 偿还闪电贷
-            IERC20(asset).approve(address(flashLoanRouter), totalDebt);
+            // Phase 0.1 修复: approve 给 LendingPool（Aave 在回调返回后自动 transferFrom）
+            IERC20(asset).approve(msg.sender, totalDebt);
 
-            // 2. 支付平台手续费
-            // if (platformFee > 0) {
-            //     IERC20(asset).transfer(feeRecipient, platformFee);
-            // }
+            // 利润转到平台钱包（approve 之后，Aave 扣款在函数返回后）
             IERC20(asset).transfer(platFormWallet, grossProfit);
 
             // 3. 记录执行历史

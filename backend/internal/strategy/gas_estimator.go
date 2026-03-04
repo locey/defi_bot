@@ -164,3 +164,64 @@ func (ge *GasEstimator) IsGasReasonable(
 
 	return currentPrice.Cmp(maxGasPrice) <= 0, currentPrice, nil
 }
+
+// EstimateArbitrumTotalGasCost 估算 Arbitrum 上的总 Gas 成本（L2 执行费 + L1 数据费）
+// Arbitrum 是 L2，每笔交易除 L2 Gas 外，还需支付将 calldata 发布到 L1 的费用
+// L1 数据费 = calldata 字节数 * L1 Gas Price * 16（每字节约 16 L1 gas）
+// 返回值：以 wei 为单位的总 Gas 成本估算
+func (ge *GasEstimator) EstimateArbitrumTotalGasCost(
+	ctx context.Context,
+	path []PathNode,
+	calldataSize int, // calldata 字节数（套利合约调用约 700-1000 字节）
+) (*big.Int, error) {
+	// 1. L2 执行 Gas 成本
+	gasEstimate := ge.estimateGasUsage(path)
+	l2GasPrice, err := ge.getGasPrice(ctx)
+	if err != nil {
+		// fallback: 0.1 gwei
+		l2GasPrice = big.NewInt(100_000_000)
+	}
+	l2Cost := new(big.Int).Mul(new(big.Int).SetUint64(gasEstimate), l2GasPrice)
+
+	// 2. L1 数据费估算
+	// 通过查询 ArbGasInfo 预编译合约获取 L1 BaseFee
+	// 合约地址：0x000000000000000000000000000000000000006C
+	// 方法：getL1BaseFeeEstimate() returns (uint256)
+	l1GasPrice, l1Err := ge.getL1GasPrice(ctx)
+	if l1Err != nil {
+		// fallback: 假设 L1 BaseFee = 20 gwei（以太坊正常水平）
+		l1GasPrice = new(big.Int).Mul(big.NewInt(20), big.NewInt(1_000_000_000))
+	}
+
+	if calldataSize <= 0 {
+		calldataSize = 800 // 默认套利 calldata 约 800 字节
+	}
+	// L1 数据费 = calldataBytes * 16 * l1GasPrice（16 gas/byte 是 non-zero 字节的标准）
+	l1DataGas := int64(calldataSize) * 16
+	l1Cost := new(big.Int).Mul(big.NewInt(l1DataGas), l1GasPrice)
+
+	// 3. 总成本
+	totalCost := new(big.Int).Add(l2Cost, l1Cost)
+	return totalCost, nil
+}
+
+// getL1GasPrice 获取 Arbitrum L1 BaseFee 估算（用于 L1 数据费计算）
+func (ge *GasEstimator) getL1GasPrice(ctx context.Context) (*big.Int, error) {
+	// ArbGasInfo 预编译合约地址（Arbitrum 所有链通用）
+	arbGasInfoAddr := common.HexToAddress("0x000000000000000000000000000000000000006C")
+
+	// getL1BaseFeeEstimate() 方法的 selector: keccak256("getL1BaseFeeEstimate()")[:4]
+	// = 0xf5d6ded7
+	callData := []byte{0xf5, 0xd6, 0xde, 0xd7}
+
+	result, err := ge.web3Client.GetClient().CallContract(ctx, ethereum.CallMsg{
+		To:   &arbGasInfoAddr,
+		Data: callData,
+	}, nil)
+	if err != nil || len(result) < 32 {
+		return nil, fmt.Errorf("getL1BaseFeeEstimate failed: %w", err)
+	}
+
+	l1BaseFee := new(big.Int).SetBytes(result[:32])
+	return l1BaseFee, nil
+}

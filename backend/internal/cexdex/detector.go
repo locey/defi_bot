@@ -173,12 +173,18 @@ func (d *Detector) checkOpportunity(cexPrice *CEXPrice) {
 		return
 	}
 
-	// DEX 价格为 0 表示没有找到对应的池子
-	if dexPrice == 0 {
-		// 每 30 秒打印一次，避免日志泛滥
-		if cexPrice.Symbol == "ETHUSDT" {
-			log.Info("CEX-DEX: DEX 价格为 0 (未找到池子) symbol=%s", cexPrice.Symbol)
-		}
+	// DEX 价格合理性校验：
+	//   1. 为 0 表示找不到池子
+	//   2. 价格偏离 CEX 超过 99.9% 或超过 1000 倍，说明池子找错或价格方向反了
+	//      （真实 CEX-DEX 价差通常 < 5%，偶发极端情况也不超过 20%）
+	refPrice := cexPrice.BidPrice
+	if refPrice <= 0 {
+		refPrice = cexPrice.AskPrice
+	}
+	if dexPrice == 0 || refPrice <= 0 ||
+		dexPrice < refPrice*0.001 || dexPrice > refPrice*1000 {
+		log.Info("CEX-DEX: 无效 DEX 价格，跳过 symbol=%s dex=%.6g cex=%.4f",
+			cexPrice.Symbol, dexPrice, refPrice)
 		return
 	}
 

@@ -9,10 +9,12 @@ import "../interfaces/IConfigManager.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
+    using SafeERC20Upgradeable for ERC20Upgradeable;
 
     /**
     *套利调度核心合约
@@ -186,7 +188,7 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
         //记录套利前余额
         uint256 balanceBefore = ERC20Upgradeable(asset).balanceOf(address(this));
         //授权给套利实现合约
-        ERC20Upgradeable(asset).transfer(address(spotArbitrage), amountIn);
+        ERC20Upgradeable(asset).safeTransfer(address(spotArbitrage), amountIn);
         //执行套利策略
         spotArbitrage.executeSwaps(
             asset,
@@ -204,7 +206,7 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
         //计算利润，分成（注意验证minProfit）
         require(balanceAfter >= balanceBefore, "ArbitrageCore: arbitrage resulted in loss");
         uint256 actProfit = balanceAfter - balanceBefore;
-        require(actProfit > minProfit, "Profit below minimum");
+        require(actProfit >= minProfit, "Profit below minimum");
 
         //计算分润 分成比例由configManager管理
         uint256 platFormFee = actProfit * configManager.profitShareFee() / 10000;
@@ -212,9 +214,9 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
 
         //将净利润返回vault
         require(balanceAfter >= amountIn + netProfitToVault, "Insufficient  balanceAfter");
-        ERC20Upgradeable(asset).transfer(address(vault), amountIn + netProfitToVault);
+        ERC20Upgradeable(asset).safeTransfer(address(vault), amountIn + netProfitToVault);
         //转账平台服务费  平台收益
-        ERC20Upgradeable(asset).transfer(platFormWallet, platFormFee);
+        ERC20Upgradeable(asset).safeTransfer(platFormWallet, platFormFee);
 
         //通知金库记录盈利
         vault.recordProfit(netProfitToVault);
