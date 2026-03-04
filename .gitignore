@@ -126,9 +126,9 @@ pids
 # vuepress build output
 .vuepress/dist
 
-# Claude
-.claude/*
-.*/*
+# Claude Code 本地配置（不提交）
+.claude/
+CLAUDE.md
 
 # ============ 例外：需要保留的文件 ============
 !contract/contracts/deployments/*.json
