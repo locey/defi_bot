@@ -449,11 +449,11 @@ func (d *ArbitrageDetector) calculatePath(path *ArbitragePath) *ArbitrageOpportu
 		prices[i] = price
 	}
 
-	// 模拟交换，计算利润
-	// 业界标准：根据起始代币的实际精度计算测试金额
-	startTokenDecimals := d.getTokenDecimals(path.Tokens[0], prices[0])
-	testAmount := calculateTestAmountForDecimals(startTokenDecimals)
-	amountIn := new(big.Float).SetInt(testAmount)
+	// 计算最优投入金额（先算，用于利润率评估）
+	// 业界标准：用实际执行金额（而非 1 token）计算利润率，AMM 是非线性曲线，
+	// 大额交易的价格冲击可能让 1 token 时的利润率变为负值
+	optimalAmountForEval := calculateOptimalAmount(prices, path.Tokens)
+	amountIn := new(big.Float).SetInt(optimalAmountForEval)
 	currentAmount := new(big.Float).Set(amountIn)
 
 	for i := 0; i < len(path.Pools); i++ {
@@ -546,8 +546,8 @@ func (d *ArbitrageDetector) calculatePath(path *ArbitragePath) *ArbitrageOpportu
 		return nil
 	}
 
-	// 计算最优投入金额（简化版，后续可优化）
-	optimalAmountIn := calculateOptimalAmount(prices, path.Tokens)
+	// 使用前面计算的最优金额（与利润率评估用的相同金额）
+	optimalAmountIn := optimalAmountForEval
 
 	// 构建 DEX Router 地址列表（合约需要 dexes.length == swapPath.length - 1）
 	dexAddresses := make([]common.Address, 0, len(path.DexNames))

@@ -450,3 +450,141 @@ func ConvertToBigInt(amount float64, decimals int) *big.Int {
 	result, _ := multiplier.Int(nil)
 	return result
 }
+
+// DEXSwapOpportunity 可在 DEX 执行的单边套利机会（Phase 2）
+// CEX-DEX 策略中，CEX 价格作为信号，只在 DEX 侧执行单边 swap
+type DEXSwapOpportunity struct {
+	ID           string         // 机会 ID
+	Symbol       string         // CEX 交易对（如 "ETHUSDT"）
+	Direction    string         // "dex_to_cex"（DEX 低价买入）或 "cex_to_dex"（DEX 高价卖出）
+	TokenIn      common.Address // 买入 token
+	TokenOut     common.Address // 卖出 token
+	Pool         common.Address // 目标 DEX 池
+	Router       common.Address // DEX Router 地址
+	AmountIn     *big.Int       // 投入金额（wei）
+	MinAmountOut *big.Int       // 最小输出（含滑点保护，0.5%）
+	ProfitRate   float64        // 预期利润率
+	NetProfit    float64        // 预期净利润（USD）
+	ValidUntil   time.Time      // 有效期（500ms，超时丢弃）
+	CreatedAt    time.Time
+}
+
+// BuildDEXSwapOpportunity 将 CEX-DEX 机会转换为可执行的 DEX 单边 swap（Phase 2）
+// 设计：Binance 价格作为预言机，在 DEX 侧执行单边 swap 套利
+// 安全策略：
+//   - 机会有效期 500ms（超时丢弃，避免用到过期价格）
+//   - 最小利润率 0.5%（扣除 gas 后仍有盈余）
+//   - 最大单笔金额 $500（约 0.25 ETH）
+//   - 最小利润金额 $2
+func (d *Detector) BuildDEXSwapOpportunity(opp *CEXDEXOpportunity) *DEXSwapOpportunity {
+	if opp == nil {
+		return nil
+	}
+
+	// 有效期校验（500ms）
+	if time.Since(opp.CreatedAt) > 500*time.Millisecond {
+		return nil
+	}
+
+	// 最小利润率 0.5%（比 CEX-DEX 检测阈值更严格，确保扣 gas 后仍有余）
+	if opp.ProfitRate < 0.005 {
+		return nil
+	}
+
+	// 最小净利润 $2
+	if opp.NetProfit < 2.0 {
+		return nil
+	}
+
+	// 获取 DEX Provider 映射（需要 DEXPriceAdapter 实现）
+	provider, ok := d.dexProvider.(*DEXPriceAdapter)
+	if !ok || provider == nil {
+		return nil
+	}
+
+	// 获取 token 地址和池子信息
+	tokenIn, tokenOut := provider.GetTokenPairForSymbol(opp.Symbol, opp.Direction)
+	if tokenIn == (common.Address{}) || tokenOut == (common.Address{}) {
+		return nil
+	}
+
+	pool := d.dexProvider.GetPoolAddress(opp.Symbol)
+	router := d.dexProvider.GetRouterAddress(opp.Symbol)
+	if pool == (common.Address{}) || router == (common.Address{}) {
+		return nil
+	}
+
+	// 计算 amountIn（以 USD 计，转为 token wei 单位）
+	// 最大 $500 = 约 0.25 ETH（按 $2000/ETH），使用保守估算
+	tradeUSD := opp.TradeAmount
+	if tradeUSD > 500 {
+		tradeUSD = 500
+	}
+	if tradeUSD < 10 {
+		tradeUSD = 10
+	}
+
+	// 按 tokenIn 的小数精度转换（简化：WETH=18位，USDC/USDT=6位）
+	tokenInDecimals := 18
+	if tokenIn == provider.tokenAddrs["USDC"] || tokenIn == provider.tokenAddrs["USDT"] ||
+		tokenIn == provider.tokenAddrs["USDCe"] {
+		tokenInDecimals = 6
+	} else if tokenIn == provider.tokenAddrs["WBTC"] {
+		tokenInDecimals = 8
+	}
+
+	// amountIn = tradeUSD / tokenInPrice * 10^decimals（简化版，实际应用中需精确价格）
+	// 这里使用 DEX 价格估算
+	tokenInPriceUSD := opp.DEXPrice // 已是 USD 价格
+	if tokenInPriceUSD <= 0 {
+		tokenInPriceUSD = 1.0
+	}
+	tokenAmount := tradeUSD / tokenInPriceUSD
+	amountIn := ConvertToBigInt(tokenAmount, tokenInDecimals)
+
+	// 最小输出 = amountIn * (1 - 0.5%) 的等值输出（含 0.5% 滑点保护）
+	// 简化：minAmountOut = amountIn * (1 + profitRate - 0.005)（期望收益减去滑点）
+	minProfitRate := opp.ProfitRate - 0.005
+	if minProfitRate < 0 {
+		minProfitRate = 0
+	}
+	minAmountOutFloat := tokenAmount * (1.0 + minProfitRate)
+	tokenOutDecimals := 18
+	if tokenOut == provider.tokenAddrs["USDC"] || tokenOut == provider.tokenAddrs["USDT"] ||
+		tokenOut == provider.tokenAddrs["USDCe"] {
+		tokenOutDecimals = 6
+	} else if tokenOut == provider.tokenAddrs["WBTC"] {
+		tokenOutDecimals = 8
+	}
+	minAmountOut := ConvertToBigInt(minAmountOutFloat*tokenInPriceUSD/opp.CEXPrice, tokenOutDecimals)
+	if minAmountOut == nil || minAmountOut.Sign() <= 0 {
+		minAmountOut = big.NewInt(1)
+	}
+
+	return &DEXSwapOpportunity{
+		ID:           fmt.Sprintf("cexdex_%s_%d", opp.Symbol, time.Now().UnixNano()),
+		Symbol:       opp.Symbol,
+		Direction:    opp.Direction,
+		TokenIn:      tokenIn,
+		TokenOut:     tokenOut,
+		Pool:         pool,
+		Router:       router,
+		AmountIn:     amountIn,
+		MinAmountOut: minAmountOut,
+		ProfitRate:   opp.ProfitRate,
+		NetProfit:    opp.NetProfit,
+		ValidUntil:   time.Now().Add(500 * time.Millisecond),
+		CreatedAt:    time.Now(),
+	}
+}
+
+// GetOpportunityForExecution 从通道消费一个 CEX-DEX 机会并转为 DEX 可执行 swap（非阻塞）
+// 供 Executor 调用，配合 Phase 2 执行流程
+func (d *Detector) GetOpportunityForExecution() *DEXSwapOpportunity {
+	select {
+	case opp := <-d.opportunityCh:
+		return d.BuildDEXSwapOpportunity(opp)
+	default:
+		return nil
+	}
+}

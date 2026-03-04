@@ -262,6 +262,31 @@ func (a *DEXPriceAdapter) GetPrice(symbol string) (float64, error) {
 	return finalPrice, nil
 }
 
+// GetTokenPairForSymbol 根据 CEX 符号和方向返回 (tokenIn, tokenOut) 地址
+// direction="dex_to_cex": 在 DEX 低价买入 baseToken，卖出 quoteToken
+// direction="cex_to_dex": 在 DEX 高价卖出 baseToken，买入 quoteToken
+func (a *DEXPriceAdapter) GetTokenPairForSymbol(symbol, direction string) (tokenIn, tokenOut common.Address) {
+	symbol = strings.ToUpper(symbol)
+	a.mappingsMu.RLock()
+	mapping, ok := a.mappings[symbol]
+	a.mappingsMu.RUnlock()
+
+	if !ok {
+		return
+	}
+
+	if direction == "dex_to_cex" {
+		// DEX 低价：用 quoteToken（如 USDT）买入 baseToken（如 WETH）
+		tokenIn = mapping.QuoteToken
+		tokenOut = mapping.BaseToken
+	} else {
+		// CEX 低价：卖出 baseToken（如 WETH），换回 quoteToken（如 USDT）
+		tokenIn = mapping.BaseToken
+		tokenOut = mapping.QuoteToken
+	}
+	return
+}
+
 // GetPoolAddress 获取 DEX 池子地址（实现 DEXPriceProvider 接口）
 func (a *DEXPriceAdapter) GetPoolAddress(symbol string) common.Address {
 	symbol = strings.ToUpper(symbol)

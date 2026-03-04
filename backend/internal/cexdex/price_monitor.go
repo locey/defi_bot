@@ -282,7 +282,7 @@ func (m *PriceMonitor) pingLoop(ctx context.Context) {
 	}
 }
 
-// reconnect 重连
+// reconnect 重连（指数退避，最多重试 10 次，重试间隔 1s ~ 60s）
 func (m *PriceMonitor) reconnect(ctx context.Context) {
 	m.runningMu.RLock()
 	running := m.running
@@ -292,21 +292,65 @@ func (m *PriceMonitor) reconnect(ctx context.Context) {
 		return
 	}
 
-	log.Info("WebSocket 断开，%v 后重连", m.config.ReconnectDelay)
-	time.Sleep(m.config.ReconnectDelay)
-
 	if m.conn != nil {
 		m.conn.Close()
+		m.conn = nil
 	}
 
-	if err := m.connect(); err != nil {
-		log.Warn("重连失败: %v", err)
+	baseDelay := m.config.ReconnectDelay
+	if baseDelay <= 0 {
+		baseDelay = time.Second
+	}
+	maxDelay := 60 * time.Second
+	maxRetries := 10
+
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		// 检查 context 是否已取消
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		m.runningMu.RLock()
+		running = m.running
+		m.runningMu.RUnlock()
+		if !running {
+			return
+		}
+
+		// 指数退避延迟（1s, 2s, 4s, 8s, 16s, 32s, 60s, 60s...）
+		delay := time.Duration(float64(baseDelay) * float64(int(1)<<attempt))
+		if delay > maxDelay {
+			delay = maxDelay
+		}
+		log.Info("WebSocket 重连中 (第 %d/%d 次)，等待 %v", attempt+1, maxRetries, delay)
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(delay):
+		}
+
+		if err := m.connect(); err != nil {
+			log.Warn("重连失败 (第 %d/%d 次): %v", attempt+1, maxRetries, err)
+			continue
+		}
+
+		if err := m.subscribe(); err != nil {
+			log.Warn("重新订阅失败: %v", err)
+			if m.conn != nil {
+				m.conn.Close()
+				m.conn = nil
+			}
+			continue
+		}
+
+		log.Info("WebSocket 重连成功（第 %d 次）", attempt+1)
 		return
 	}
 
-	if err := m.subscribe(); err != nil {
-		log.Warn("重新订阅失败: %v", err)
-	}
+	log.Warn("WebSocket 重连已达最大次数 (%d)，放弃重连", maxRetries)
 }
 
 // GetPrice 获取指定交易对的最新价格
