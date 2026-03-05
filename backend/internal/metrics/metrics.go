@@ -48,6 +48,10 @@ type ArbMetrics struct {
 
 	// 新池子
 	NewPoolsDetected   prometheus.Counter
+
+	// eth_call 模拟：过滤数 / 通过数（用于计算真实机会通过率）
+	OpportunitiesSimFiltered prometheus.Counter
+	OpportunitiesSimPassed   prometheus.Counter
 }
 
 var (
@@ -201,7 +205,31 @@ func newArbMetrics() *ArbMetrics {
 				Help: "Total new pools detected",
 			},
 		),
+
+		// eth_call 模拟：假机会过滤数 / 真实机会通过数
+		OpportunitiesSimFiltered: promauto.NewCounter(
+			prometheus.CounterOpts{
+				Name: "arb_opportunities_sim_filtered_total",
+				Help: "Opportunities filtered by eth_call simulation (reverted or unprofitable)",
+			},
+		),
+		OpportunitiesSimPassed: promauto.NewCounter(
+			prometheus.CounterOpts{
+				Name: "arb_opportunities_sim_passed_total",
+				Help: "Opportunities passed eth_call simulation (real opportunity)",
+			},
+		),
 	}
+}
+
+// RecordSimFiltered 记录一次被 eth_call 模拟过滤掉的机会
+func (m *ArbMetrics) RecordSimFiltered() {
+	m.OpportunitiesSimFiltered.Inc()
+}
+
+// RecordSimPassed 记录一次通过 eth_call 模拟的机会
+func (m *ArbMetrics) RecordSimPassed() {
+	m.OpportunitiesSimPassed.Inc()
 }
 
 // RecordExecution 记录一次执行

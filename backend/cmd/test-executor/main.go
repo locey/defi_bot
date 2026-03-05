@@ -163,6 +163,7 @@ func testCallDataBuild(web3Client *web3.Client) {
 			common.HexToAddress(UniswapV2Router),
 			common.HexToAddress(SushiSwapRouter),
 		},
+		FeeTiers:     []uint32{0, 0}, // V2 路由不需要 fee tier
 		ExpectProfit: big.NewInt(1e14), // 0.0001 ETH
 		MinProfit:    big.NewInt(1e13), // 0.00001 ETH
 		IsCex:        false,            // DEX-DEX 套利

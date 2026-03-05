@@ -651,7 +651,7 @@ func (e *StrategyEngine) convertToDBModel(opp *ArbitrageOpportunity) (*models.Ar
 		DexPath:        string(dexPathJSON),
 		DexRouters:     string(dexRoutersJSON),
 		PoolAddresses:  "[]", // 空 JSON 数组
-		FeeTiers:       "[]", // 空 JSON 数组
+		FeeTiers:       func() string { j, _ := json.Marshal(opp.FeeTiers); if j == nil { return "[]" }; return string(j) }(),
 		GasEstimate:    opp.GasEstimate,
 		MaxGasPrice:    opp.GasPrice.String(),
 		Status:         "pending",

@@ -17,6 +17,7 @@ import (
 	"github.com/defi-bot/backend/internal/config"
 	"github.com/defi-bot/backend/internal/database"
 	"github.com/defi-bot/backend/internal/executor"
+	"github.com/defi-bot/backend/internal/metrics"
 	"github.com/defi-bot/backend/internal/models"
 	"github.com/defi-bot/backend/internal/scheduler"
 	"github.com/defi-bot/backend/internal/strategy"
@@ -52,6 +53,15 @@ func main() {
 	log.Main().Info().Msg("========================================")
 	log.Main().Info().Msg("DeFi 套利机器人后端服务")
 	log.Main().Info().Msg("========================================")
+
+	// 2.1 启动 Prometheus 指标服务（可选）
+	if cfg.Metrics.Enabled {
+		port := cfg.Metrics.Port
+		if port <= 0 {
+			port = 9090
+		}
+		metrics.StartMetricsServer(fmt.Sprintf(":%d", port))
+	}
 
 	// 3. 初始化数据库
 	log.Main().Info().Msg("初始化数据库...")
@@ -208,6 +218,13 @@ func main() {
 		)
 		// 设置数据库连接，用于保存执行记录
 		arbitrageExecutor.SetDB(db)
+
+		// 配置 Flash Loan 合约地址（如果有）
+		if cfg.Contracts.FlashLoanArbitrage != "" {
+			arbitrageExecutor.SetFlashLoanAddress(common.HexToAddress(cfg.Contracts.FlashLoanArbitrage))
+			log.Main().Info().Str("address", cfg.Contracts.FlashLoanArbitrage).Msg("✅ Flash Loan 合约已配置")
+		}
+
 		log.Main().Info().Msg("✅ 套利执行器已初始化（自动执行模式）")
 	} else {
 		log.Main().Warn().Msg("未配置 Keeper 私钥或合约地址，仅分析模式（不会自动执行）")
@@ -259,9 +276,12 @@ func main() {
 			ContractAddress:  cfg.Contracts.ArbitrageCore,
 			KeeperPrivateKey: cfg.Keeper.PrivateKey,
 			EnableSimulation: cfg.Contracts.ArbitrageCore != "",
+			// Flash Loan 配置
+			FlashLoanAddress: cfg.Contracts.FlashLoanArbitrage,
+			EnableFlashLoan:  cfg.Contracts.FlashLoanArbitrage != "",
 			// 动态价差扫描器（自动发现跨 DEX 套利，不依赖预设代币列表）
 			EnableSpreadScanner: true,
-			MinSpreadBps:        30, // 0.3% 最小触发价差
+			MinSpreadBps:        40, // 0.4% 最小触发价差（含 Flash Loan 费率后净正）
 		}
 		if hpConfig.MaxConcurrentExecutions == 0 {
 			hpConfig.MaxConcurrentExecutions = 3
@@ -394,14 +414,26 @@ func main() {
 					Float64("net_profit_usd", opp.NetProfit).
 					Msg("CEX-DEX opportunity detected")
 
-				// CEX-DEX 套利机会发现后，仅记录日志（执行在 Phase 2 实现）
-				log.Main().Info().
-					Str("id", opp.ID).
-					Str("direction", opp.Direction).
-					Float64("dex_price", opp.DEXPrice).
-					Float64("cex_price", opp.CEXPrice).
-					Float64("net_profit_usd", opp.NetProfit).
-					Msg("📊 CEX-DEX 机会记录（Phase 2 将实现执行）")
+				// 尝试通过主执行器执行（需要 enable_execution=true）
+				if arbitrageExecutor != nil && cfg.Scheduler.EnableExecution && !cfg.Scheduler.DryRun {
+					execCtx, execCancel := context.WithTimeout(ctx, 30*time.Second)
+					result, err := arbitrageExecutor.Execute(execCtx, arbOpp)
+					execCancel()
+					if err != nil {
+						log.Main().Warn().Err(err).Str("id", opp.ID).Msg("CEX-DEX execution failed")
+					} else if result != nil && result.Success {
+						log.Main().Info().
+							Str("tx_hash", result.TxHash).
+							Str("profit", result.ActualProfit.String()).
+							Msg("✅ CEX-DEX execution succeeded")
+					}
+				} else {
+					log.Main().Info().
+						Str("id", opp.ID).
+						Str("direction", opp.Direction).
+						Float64("net_profit_usd", opp.NetProfit).
+						Msg("📊 CEX-DEX opportunity (dry-run, not executing)")
+				}
 			}
 		}()
 

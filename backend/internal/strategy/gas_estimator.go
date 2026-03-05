@@ -205,6 +205,34 @@ func (ge *GasEstimator) EstimateArbitrumTotalGasCost(
 	return totalCost, nil
 }
 
+// EstimateTotalCostWei 估算 Arbitrum 总 Gas 成本（L2 + L1），直接返回 wei 值
+// 用于利润判断管道：profit > EstimateTotalCostWei 才值得执行
+// pathLen: swap 跳数（2-hop = 2 个 swap）
+func (ge *GasEstimator) EstimateTotalCostWei(ctx context.Context, pathLen int) *big.Int {
+	// L2 Gas 估算
+	gasPerSwap := uint64(180_000) // V3 swap 平均 180K
+	gasOverhead := uint64(50_000)
+	l2Gas := gasOverhead + uint64(pathLen)*gasPerSwap
+	l2Gas = l2Gas * 130 / 100 // 30% 安全边际
+
+	l2GasPrice, err := ge.getGasPrice(ctx)
+	if err != nil {
+		l2GasPrice = big.NewInt(100_000_000) // 0.1 gwei fallback
+	}
+	l2Cost := new(big.Int).Mul(new(big.Int).SetUint64(l2Gas), l2GasPrice)
+
+	// L1 数据费
+	calldataSize := 800 + pathLen*64 // 基础 800 字节 + 每 hop 约 64 字节地址
+	l1GasPrice, l1Err := ge.getL1GasPrice(ctx)
+	if l1Err != nil {
+		l1GasPrice = new(big.Int).Mul(big.NewInt(20), big.NewInt(1_000_000_000)) // 20 gwei fallback
+	}
+	l1DataGas := int64(calldataSize) * 16
+	l1Cost := new(big.Int).Mul(big.NewInt(l1DataGas), l1GasPrice)
+
+	return new(big.Int).Add(l2Cost, l1Cost)
+}
+
 // getL1GasPrice 获取 Arbitrum L1 BaseFee 估算（用于 L1 数据费计算）
 func (ge *GasEstimator) getL1GasPrice(ctx context.Context) (*big.Int, error) {
 	// ArbGasInfo 预编译合约地址（Arbitrum 所有链通用）

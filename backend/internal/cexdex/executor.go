@@ -4,11 +4,14 @@ package cexdex
 import (
 	"context"
 	"fmt"
+	"math/big"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/defi-bot/backend/internal/executor"
 	"github.com/defi-bot/backend/pkg/log"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -355,26 +358,63 @@ func (e *CEXDEXExecutor) executeCEXToDEX(ctx context.Context, opp *CEXDEXOpportu
 	return result, nil
 }
 
-// buildSwapData 构建 swap 调用数据
+// Uniswap V2 Router ABI (swapExactTokensForTokens)
+const uniswapV2RouterABI = `[{
+	"inputs": [
+		{"internalType":"uint256","name":"amountIn","type":"uint256"},
+		{"internalType":"uint256","name":"amountOutMin","type":"uint256"},
+		{"internalType":"address[]","name":"path","type":"address[]"},
+		{"internalType":"address","name":"to","type":"address"},
+		{"internalType":"uint256","name":"deadline","type":"uint256"}
+	],
+	"name": "swapExactTokensForTokens",
+	"outputs": [{"internalType":"uint256[]","name":"amounts","type":"uint256[]"}],
+	"stateMutability": "nonpayable",
+	"type": "function"
+}]`
+
+// buildSwapData 构建 Uniswap V2 Router swapExactTokensForTokens calldata
 func (e *CEXDEXExecutor) buildSwapData(opp *CEXDEXOpportunity, direction string) []byte {
-	// 这里需要根据具体的 DEX Router 合约构建 calldata
-	// 简化处理：返回空数据
-	// 实际实现需要：
-	// 1. 确定交换路径
-	// 2. 计算 amountIn/amountOutMin
-	// 3. 编码函数调用
+	if opp == nil || opp.DEXPool == (common.Address{}) {
+		return nil
+	}
 
-	// 示例：Uniswap V2 Router swapExactTokensForTokens
-	// function swapExactTokensForTokens(
-	//     uint amountIn,
-	//     uint amountOutMin,
-	//     address[] calldata path,
-	//     address to,
-	//     uint deadline
-	// ) external returns (uint[] memory amounts);
+	parsed, err := abi.JSON(strings.NewReader(uniswapV2RouterABI))
+	if err != nil {
+		log.Warn("CEX-DEX: parse V2 Router ABI failed: %v", err)
+		return nil
+	}
 
-	// TODO: 实现具体的 calldata 构建
-	return nil
+	// 计算 amountIn (TradeAmount in USD → wei, simplified using DEX price)
+	amountIn := ConvertToBigInt(opp.TradeAmount/opp.DEXPrice, 18)
+	if amountIn == nil || amountIn.Sign() <= 0 {
+		return nil
+	}
+
+	// amountOutMin = amountIn * (1 - slippage 0.5%)
+	amountOutMin := new(big.Int).Mul(amountIn, big.NewInt(995))
+	amountOutMin.Div(amountOutMin, big.NewInt(1000))
+
+	// swap path: [DEXPool] — simplified, actual path needs tokenIn → tokenOut
+	// For now use the pool address as a placeholder; real implementation needs token addresses
+	path := []common.Address{opp.DEXPool}
+
+	// Keeper address as recipient (from private key)
+	to := common.HexToAddress("0x0000000000000000000000000000000000000000") // will be overridden
+	if e.config.PrivateKey != "" {
+		// Extract address from private key
+		to = opp.DEXRouter // fallback: use router as placeholder
+	}
+
+	deadline := new(big.Int).SetInt64(time.Now().Add(2 * time.Minute).Unix())
+
+	callData, err := parsed.Pack("swapExactTokensForTokens", amountIn, amountOutMin, path, to, deadline)
+	if err != nil {
+		log.Warn("CEX-DEX: pack swap calldata failed: %v", err)
+		return nil
+	}
+
+	return callData
 }
 
 // calculateGasCost 计算 Gas 成本

@@ -12,6 +12,7 @@ import (
 	"github.com/defi-bot/backend/internal/collector"
 	"github.com/defi-bot/backend/internal/config"
 	"github.com/defi-bot/backend/internal/executor"
+	"github.com/defi-bot/backend/internal/metrics"
 	"github.com/defi-bot/backend/internal/strategy"
 	"github.com/defi-bot/backend/pkg/cache"
 	"github.com/defi-bot/backend/pkg/log"
@@ -82,6 +83,10 @@ type HighPerformanceConfig struct {
 	ContractAddress  string // ArbitrageCore 合约地址
 	KeeperPrivateKey string // Keeper 私钥（用于 eth_call 的 from 地址）
 	EnableSimulation bool   // 是否启用 eth_call 模拟验证
+
+	// Flash Loan 配置
+	FlashLoanAddress string // FlashLoanArbitrage 合约地址（空则禁用 Flash Loan）
+	EnableFlashLoan  bool   // 是否启用 Flash Loan 路径（Vault 不足时自动切换）
 
 	// 动态价差扫描器配置
 	EnableSpreadScanner bool // 是否启用自动发现跨 DEX 价差（不依赖预设代币列表）
@@ -203,6 +208,9 @@ func (s *HighPerformanceScheduler) initComponents() error {
 			minBps = 30 // 默认 0.3%
 		}
 		s.spreadScanner = strategy.NewSpreadScanner(s.priceCache, minBps)
+		if s.config.DexRouters != nil {
+			s.spreadScanner.SetDexRouters(s.config.DexRouters)
+		}
 		log.Scheduler().Info().Int("min_spread_bps", minBps).Msg("  ✓ SpreadScanner initialized (auto-discovery mode)")
 	}
 
@@ -352,9 +360,6 @@ func (s *HighPerformanceScheduler) convertSpreadOpportunity(opp *strategy.Spread
 		return nil
 	}
 
-	// 使用 Vault 余额的 80% 作为测试金额（保守）
-	amountIn := new(big.Int).SetUint64(80_000_000_000_000) // 0.00008 WETH 等值
-
 	log.Scheduler().Info().
 		Str("token0", opp.Token0.Hex()[:14]).
 		Str("token1", opp.Token1.Hex()[:14]).
@@ -364,19 +369,25 @@ func (s *HighPerformanceScheduler) convertSpreadOpportunity(opp *strategy.Spread
 		Int("spread_bps", opp.SpreadBps).
 		Msg("🔍 SpreadScanner: Auto-discovered cross-DEX opportunity")
 
+	// amountIn 设为 nil，由 handleOpportunity 的 Vault 余额逻辑动态设置
+	// ExpectProfit 将在 handleOpportunity 中根据实际 amountIn 重新计算
+	// 从 BuyPool/SellPool 提取 fee tier (V3=500/3000/10000, V2=0)
+	feeTiers := []uint32{uint32(opp.BuyPool.Fee), uint32(opp.SellPool.Fee)}
+
 	return &strategy.ArbitrageOpportunity{
 		ID:         opp.ID,
 		SwapPath:   opp.SwapPath,
 		Dexes:      opp.DexPath,
 		DexNames:   opp.DexNames,
-		AmountIn:   amountIn,
+		AmountIn:   nil,
 		ProfitRate: opp.SpreadFloat,
 		PathLength: len(opp.SwapPath) - 1,
 		Confidence: calculateSpreadConfidence(opp.SpreadFloat),
 		Timestamp:  opp.DiscoveredAt,
 		ValidUntil: opp.DiscoveredAt.Add(15 * time.Second),
 		MinProfit:  big.NewInt(0),
-		ExpectProfit: big.NewInt(1),
+		ExpectProfit: nil,
+		FeeTiers:   feeTiers,
 	}
 }
 
@@ -417,6 +428,21 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 	s.stats.LastOpportunityTime = time.Now()
 	s.statsMu.Unlock()
 
+	// Prometheus：检测次数
+	m := metrics.GetMetrics()
+	m.RecordOpportunity(opp.PathLength, "dex", opp.ProfitRate*100) // estimatedValueUSD 用利润率近似
+
+	// Prometheus：记录发现的机会（用于每分钟检测次数）
+	pathLen := opp.PathLength
+	if pathLen <= 0 {
+		pathLen = len(opp.SwapPath)
+	}
+	estUSD := 0.0
+	if opp.ExpectProfit != nil && opp.ExpectProfit.Sign() > 0 {
+		estUSD, _ = new(big.Float).SetInt(opp.ExpectProfit).Float64()
+	}
+	metrics.GetMetrics().RecordOpportunity(pathLen, "dex", estUSD)
+
 	// 打印机会信息
 	log.Scheduler().Info().Str("path", opp.ID).Float64("profit", opp.ProfitRate*100).Float64("confidence", opp.Confidence).Int("length", opp.PathLength).Msg("🎯 Opportunity found")
 
@@ -425,47 +451,64 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 		return // 低置信度直接丢弃（不再打印日志减少刷屏）
 	}
 
-	// 限制 amountIn：不超过 Vault 可用余额，避免 `amountIn too much` revert
-	hardLimit := new(big.Int).SetUint64(100_000_000_000_000_000) // 绝对上限 0.1 ETH
+	// 限制 amountIn 并决定执行路径（Vault vs Flash Loan）
+	useFlashLoan := false
+	hardLimit := new(big.Int).SetUint64(100_000_000_000_000_000) // 自有资金绝对上限 0.1 ETH
 	if opp.AmountIn == nil || opp.AmountIn.Sign() <= 0 {
 		opp.AmountIn = new(big.Int).SetUint64(10_000_000_000_000_000) // 默认 0.01 ETH
 	}
 
-	// 查询链上 Vault 可用余额并 cap（防止 `amountIn too much` revert）
+	// 查询链上 Vault 可用余额并决定执行路径
 	if len(opp.SwapPath) > 0 && s.executor != nil {
 		vaultCtx, vaultCancel := context.WithTimeout(context.Background(), 3*time.Second)
 		available, vaultErr := s.executor.GetVaultAvailable(vaultCtx, opp.SwapPath[0])
 		vaultCancel()
-		if vaultErr == nil && available != nil && available.Sign() > 0 {
-			// 使用 Vault 余额的 90%（留 10% 缓冲防止并发竞争）
+
+		vaultInsufficient := false
+		if vaultErr != nil || available == nil || available.Sign() == 0 {
+			vaultInsufficient = true
+		} else {
+			// 使用 Vault 余额的 90%（留 10% 缓冲）
 			safeAmount := new(big.Int).Mul(available, big.NewInt(9))
 			safeAmount.Div(safeAmount, big.NewInt(10))
 			if opp.AmountIn.Cmp(safeAmount) > 0 {
 				opp.AmountIn = safeAmount
-				log.Scheduler().Debug().
-					Str("asset", opp.SwapPath[0].Hex()[:14]).
-					Str("vault_available", available.String()).
-					Str("capped_amount", opp.AmountIn.String()).
-					Msg("amountIn capped to Vault available balance")
 			}
-		} else if vaultErr != nil {
-			// Vault 查询失败（可能 Vault 不存在），跳过此机会
+			// 如果 Vault 余额太低（< 0.001 ETH），也切换到 Flash Loan
+			minVaultBalance := new(big.Int).SetUint64(1_000_000_000_000_000) // 0.001 ETH
+			if available.Cmp(minVaultBalance) < 0 {
+				vaultInsufficient = true
+			}
+		}
+
+		// Vault 不足时切换到 Flash Loan 路径
+		if vaultInsufficient && s.config.EnableFlashLoan && s.executor.HasFlashLoan() {
+			useFlashLoan = true
+			// Flash Loan 金额上限 50 ETH（避免价格冲击）
+			flashLoanAmount := new(big.Int).Mul(big.NewInt(50), big.NewInt(1_000_000_000_000_000_000)) // 50 ETH
+			// 使用策略引擎计算的最优金额（如果有），否则用保守值
+			if opp.AmountIn != nil && opp.AmountIn.Sign() > 0 {
+				// 保持策略计算的金额，但限制在 Flash Loan 上限内
+				if opp.AmountIn.Cmp(flashLoanAmount) > 0 {
+					opp.AmountIn = flashLoanAmount
+				}
+			} else {
+				opp.AmountIn = new(big.Int).SetUint64(1_000_000_000_000_000_000) // 默认 1 ETH
+			}
+			log.Scheduler().Info().
+				Str("asset", opp.SwapPath[0].Hex()[:14]).
+				Str("flash_amount", opp.AmountIn.String()).
+				Msg("⚡ Vault insufficient, switching to Flash Loan path")
+		} else if vaultInsufficient {
 			log.Scheduler().Debug().
 				Str("asset", opp.SwapPath[0].Hex()[:14]).
-				Err(vaultErr).
-				Msg("  ⚠️ Vault query failed, skipping opportunity")
-			return
-		} else if available != nil && available.Sign() == 0 {
-			// Vault 余额为 0，直接跳过
-			log.Scheduler().Debug().
-				Str("asset", opp.SwapPath[0].Hex()[:14]).
-				Msg("  ⚠️ Vault balance=0, skipping opportunity")
+				Msg("  ⚠️ Vault insufficient and Flash Loan not enabled, skipping")
 			return
 		}
 	}
 
-	// 再次检查绝对上限
-	if opp.AmountIn.Cmp(hardLimit) > 0 {
+	// 自有资金路径：检查绝对上限
+	if !useFlashLoan && opp.AmountIn.Cmp(hardLimit) > 0 {
 		opp.AmountIn = hardLimit
 	}
 
@@ -473,6 +516,15 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 	// MinProfit=0 会使合约 require(actProfit > 0) 形同虚设，亏损也不拦截
 	if opp.MinProfit == nil {
 		opp.MinProfit = big.NewInt(0)
+	}
+	// 根据实际 amountIn 和 spreadRate 计算 ExpectProfit
+	if (opp.ExpectProfit == nil || opp.ExpectProfit.Sign() <= 0) && opp.AmountIn != nil && opp.ProfitRate > 0 {
+		// ExpectProfit = amountIn * spreadRate（使用整数近似：乘以 bps 再除 10000）
+		spreadBps := int64(opp.ProfitRate * 10000)
+		if spreadBps > 0 {
+			opp.ExpectProfit = new(big.Int).Mul(opp.AmountIn, big.NewInt(spreadBps))
+			opp.ExpectProfit.Div(opp.ExpectProfit, big.NewInt(10000))
+		}
 	}
 	if opp.ExpectProfit == nil || opp.ExpectProfit.Sign() <= 0 {
 		opp.ExpectProfit = big.NewInt(1)
@@ -482,12 +534,18 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 	// 只有模拟通过的机会才值得花 Gas 执行
 	if s.simulator != nil {
 		simCtx, simCancel := context.WithTimeout(context.Background(), 8*time.Second)
+		// 确保 FeeTiers 长度与 Dexes 一致
+		feeTiers := opp.FeeTiers
+		if len(feeTiers) != len(opp.Dexes) {
+			feeTiers = make([]uint32, len(opp.Dexes))
+		}
 		simParams := &executor.ArbitrageParams{
 			Asset:        opp.SwapPath[0],
 			TokenOut:     opp.SwapPath[len(opp.SwapPath)-1],
 			AmountIn:     opp.AmountIn,
 			SwapPath:     opp.SwapPath,
 			Dexes:        opp.Dexes,
+			FeeTiers:     feeTiers,
 			ExpectProfit: opp.ExpectProfit,
 			MinProfit:    opp.MinProfit,
 		}
@@ -496,6 +554,7 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 		simCancel()
 
 		if simErr != nil || !simResult.Profitable {
+			metrics.GetMetrics().RecordSimFiltered()
 			errMsg := ""
 			if simErr != nil { errMsg = simErr.Error() } else { errMsg = simResult.Error }
 			startToken := ""
@@ -509,6 +568,7 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 			return
 		}
 
+		metrics.GetMetrics().RecordSimPassed()
 		// 模拟通过了！这是一个链上此刻确实有利润的机会
 		log.Scheduler().Info().
 			Str("path", opp.ID).
@@ -520,7 +580,11 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 
 	// 检查是否启用执行
 	if !s.config.EnableExecution || s.config.DryRun {
-		log.Scheduler().Info().Str("path", opp.ID).Msg("  [dry-run] Would execute this verified opportunity")
+		mode := "Vault"
+		if useFlashLoan {
+			mode = "FlashLoan"
+		}
+		log.Scheduler().Info().Str("path", opp.ID).Str("mode", mode).Msg("  [dry-run] Would execute this verified opportunity")
 		return
 	}
 
@@ -528,8 +592,19 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 		return
 	}
 
+	// 日累计 Gas 损失检查
+	if s.executor.DailyGasLossExceeded() {
+		log.Scheduler().Warn().Msg("⛔ Daily gas loss limit exceeded, pausing execution")
+		return
+	}
+
+	execMode := "Vault"
+	if useFlashLoan {
+		execMode = "FlashLoan"
+	}
 	log.Scheduler().Info().
 		Str("path", opp.ID).
+		Str("mode", execMode).
 		Float64("profit_pct", opp.ProfitRate*100).
 		Str("amount_in", opp.AmountIn.String()).
 		Msg("🚀 Executing verified opportunity")
@@ -540,9 +615,13 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 		return
 	}
 
-	s.executeOpportunity(opp)
+	if useFlashLoan {
+		s.executeFlashLoanOpportunity(opp)
+	} else {
+		s.executeOpportunity(opp)
+	}
 	<-semaphore
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 }
 
 // executeOpportunity 执行套利机会
@@ -570,6 +649,57 @@ func (s *HighPerformanceScheduler) executeOpportunity(opp *strategy.ArbitrageOpp
 		log.Executor().Info().Str("tx_hash", result.TxHash).Str("profit", result.ActualProfit.String()).Dur("duration", time.Since(startTime)).Msg("  ✅ Execution succeeded")
 	}
 	s.statsMu.Unlock()
+
+	// Prometheus：记录执行结果
+	if result != nil {
+		gasUsed := uint64(0)
+		if result.GasUsed > 0 {
+			gasUsed = result.GasUsed
+		}
+		metrics.GetMetrics().RecordExecution(result.Success, "dex", time.Since(startTime), gasUsed)
+		if result.Success && result.ActualProfit != nil {
+			profitWei, _ := new(big.Float).SetInt(result.ActualProfit).Float64()
+			metrics.GetMetrics().RecordProfit(opp.SwapPath[0].Hex()[:10], profitWei, 0)
+		}
+	}
+}
+
+// executeFlashLoanOpportunity 通过 Flash Loan 执行套利机会
+func (s *HighPerformanceScheduler) executeFlashLoanOpportunity(opp *strategy.ArbitrageOpportunity) {
+	startTime := time.Now()
+
+	s.statsMu.Lock()
+	s.stats.ExecutionsAttempted++
+	s.statsMu.Unlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	result, err := s.executor.ExecuteWithFlashLoan(ctx, opp)
+
+	s.statsMu.Lock()
+	s.stats.LastExecutionTime = time.Now()
+	if err != nil || !result.Success {
+		s.stats.ExecutionsFailed++
+		log.Executor().Error().Err(err).Dur("duration", time.Since(startTime)).Msg("  ❌ Flash Loan execution failed")
+	} else {
+		s.stats.ExecutionsSucceeded++
+		log.Executor().Info().Str("tx_hash", result.TxHash).Str("profit", result.ActualProfit.String()).Dur("duration", time.Since(startTime)).Msg("  ✅ Flash Loan execution succeeded")
+	}
+	s.statsMu.Unlock()
+
+	// Prometheus 记录
+	if result != nil {
+		gasUsed := uint64(0)
+		if result.GasUsed > 0 {
+			gasUsed = result.GasUsed
+		}
+		metrics.GetMetrics().RecordExecution(result.Success, "flash_loan", time.Since(startTime), gasUsed)
+		if result.Success && result.ActualProfit != nil {
+			profitWei, _ := new(big.Float).SetInt(result.ActualProfit).Float64()
+			metrics.GetMetrics().RecordProfit(opp.SwapPath[0].Hex()[:10], profitWei, 0)
+		}
+	}
 }
 
 // statsLoop 统计打印循环

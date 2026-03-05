@@ -8,13 +8,13 @@ import "../interfaces/IConfigManager.sol";
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
-    using SafeERC20Upgradeable for ERC20Upgradeable;
+    using SafeERC20 for IERC20;
 
     /**
     *套利调度核心合约
@@ -164,6 +164,7 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
         uint256 amountIn = params.amountIn;
         address[] calldata swapPath = params.swapPath;
         address[] calldata dexes = params.dexes;
+        uint24[] calldata feeTiers = params.feeTiers;
         uint256 expectProfit = params.expectProfit;
         uint256 minProfit = params.minProfit;
         bool isCex = params.isCex;
@@ -172,6 +173,7 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
         require(amountIn > 0, "amountIn > 0");
         require(swapPath.length >= 3, "swapPath need 3 at least");
         require(dexes.length == swapPath.length - 1, "dexes = swapPath -1");
+        require(feeTiers.length == dexes.length, "feeTiers = dexes");
         require(swapPath[0] == asset, "swapPath[0] is tokenIn");
         require(asset == swapPath[swapPath.length - 1], "tokenIn = tokenOut");
 
@@ -186,9 +188,9 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
         vault.transferForArbitrage(amountIn);
 
         //记录套利前余额
-        uint256 balanceBefore = ERC20Upgradeable(asset).balanceOf(address(this));
+        uint256 balanceBefore = IERC20(asset).balanceOf(address(this));
         //授权给套利实现合约
-        ERC20Upgradeable(asset).safeTransfer(address(spotArbitrage), amountIn);
+        IERC20(asset).safeTransfer(address(spotArbitrage), amountIn);
         //执行套利策略
         spotArbitrage.executeSwaps(
             asset,
@@ -196,12 +198,13 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
             amountIn,
             swapPath,
             dexes,
+            feeTiers,
             expectProfit,
             minProfit,
             isCex
         );
         //记录套利后余额
-        uint256 balanceAfter = ERC20Upgradeable(asset).balanceOf(address(this));
+        uint256 balanceAfter = IERC20(asset).balanceOf(address(this));
         
         //计算利润，分成（注意验证minProfit）
         require(balanceAfter >= balanceBefore, "ArbitrageCore: arbitrage resulted in loss");
@@ -214,9 +217,9 @@ contract ArbitrageCore is Initializable, UUPSUpgradeable, OwnableUpgradeable, Re
 
         //将净利润返回vault
         require(balanceAfter >= amountIn + netProfitToVault, "Insufficient  balanceAfter");
-        ERC20Upgradeable(asset).safeTransfer(address(vault), amountIn + netProfitToVault);
+        IERC20(asset).safeTransfer(address(vault), amountIn + netProfitToVault);
         //转账平台服务费  平台收益
-        ERC20Upgradeable(asset).safeTransfer(platFormWallet, platFormFee);
+        IERC20(asset).safeTransfer(platFormWallet, platFormFee);
 
         //通知金库记录盈利
         vault.recordProfit(netProfitToVault);

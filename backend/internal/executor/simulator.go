@@ -152,12 +152,19 @@ func (s *Simulator) SimulateArbitrage(
 // buildCallData 构建 executeStrategy(ArbitrageParams) 调用数据
 // 链上合约 executeStrategy 只接收 1 个参数（ArbitrageParams 含 isCex 字段）
 func (s *Simulator) buildCallData(params *ArbitrageParams) ([]byte, error) {
+	// 将 []uint32 转换为 []*big.Int（go-ethereum ABI 编码 uint24[] 需要 []*big.Int）
+	feeTiersBig := make([]*big.Int, len(params.FeeTiers))
+	for i, ft := range params.FeeTiers {
+		feeTiersBig[i] = new(big.Int).SetUint64(uint64(ft))
+	}
+
 	paramsStruct := struct {
 		Asset        common.Address
 		TokenOut     common.Address
 		AmountIn     *big.Int
 		SwapPath     []common.Address
 		Dexes        []common.Address
+		FeeTiers     []*big.Int
 		ExpectProfit *big.Int
 		MinProfit    *big.Int
 		IsCex        bool
@@ -167,6 +174,7 @@ func (s *Simulator) buildCallData(params *ArbitrageParams) ([]byte, error) {
 		AmountIn:     params.AmountIn,
 		SwapPath:     params.SwapPath,
 		Dexes:        params.Dexes,
+		FeeTiers:     feeTiersBig,
 		ExpectProfit: params.ExpectProfit,
 		MinProfit:    params.MinProfit,
 		IsCex:        params.IsCex,

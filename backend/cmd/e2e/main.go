@@ -197,12 +197,18 @@ func main() {
 	if len(best.SwapPath) > 1 {
 		tokenOut = best.SwapPath[len(best.SwapPath)-1]
 	}
+	// 确保 FeeTiers 长度与 Dexes 一致
+	feeTiers := best.FeeTiers
+	if len(feeTiers) != len(best.Dexes) {
+		feeTiers = make([]uint32, len(best.Dexes))
+	}
 	params := &executor.ArbitrageParams{
 		Asset:        best.SwapPath[0],
 		TokenOut:     tokenOut,
 		AmountIn:     best.AmountIn,
 		SwapPath:     best.SwapPath,
 		Dexes:        best.Dexes,
+		FeeTiers:     feeTiers,
 		ExpectProfit: best.ExpectProfit,
 		MinProfit:    best.MinProfit,
 		IsCex:        best.IsCex,

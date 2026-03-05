@@ -96,9 +96,10 @@ type ContractsConfig struct {
 	ConfigManager string `mapstructure:"config_manager"`
 
 	// 套利执行合约
-	Vault           string `mapstructure:"vault"`
-	SpotArbitrage   string `mapstructure:"spot_arbitrage"`
-	FlashLoanRouter string `mapstructure:"flash_loan_router"`
+	Vault                string `mapstructure:"vault"`
+	SpotArbitrage        string `mapstructure:"spot_arbitrage"`
+	FlashLoanRouter      string `mapstructure:"flash_loan_router"`
+	FlashLoanArbitrage   string `mapstructure:"flash_loan_arbitrage"` // FlashLoanArbitrage 合约地址
 
 	// 集成合约
 	DoubleRouterIntegration string `mapstructure:"double_router_integration"`

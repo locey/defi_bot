@@ -18,6 +18,27 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
+// FlashLoanArbitrage ABI（最小化：executeFlashLoan）
+// platform 参数是 FlashLoanRouter.LendingPlatForm 枚举: 0=Aave_V2, 1=Aave_V3, 2=DYDX, 3=UNISWAP_V3
+const FlashLoanArbitrageABI = `[
+    {
+        "inputs": [
+            {"internalType":"uint8","name":"platform","type":"uint8"},
+            {"internalType":"address","name":"tokenIn","type":"address"},
+            {"internalType":"uint256","name":"amountIn","type":"uint256"},
+            {"internalType":"address[]","name":"swapPath","type":"address[]"},
+            {"internalType":"address[]","name":"dexes","type":"address[]"},
+            {"internalType":"uint24[]","name":"feeTiers","type":"uint24[]"},
+            {"internalType":"uint256","name":"expectProfit","type":"uint256"},
+            {"internalType":"uint256","name":"minProfit","type":"uint256"}
+        ],
+        "name": "executeFlashLoan",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    }
+]`
+
 // ArbitrageCore ABI（最小化：executeStrategy + getVaultInfo + 相关事件）
 const ArbitrageCoreABI = `[
     {
@@ -29,6 +50,7 @@ const ArbitrageCoreABI = `[
                     {"internalType":"uint256","name":"amountIn","type":"uint256"},
                     {"internalType":"address[]","name":"swapPath","type":"address[]"},
                     {"internalType":"address[]","name":"dexes","type":"address[]"},
+                    {"internalType":"uint24[]","name":"feeTiers","type":"uint24[]"},
                     {"internalType":"uint256","name":"expectProfit","type":"uint256"},
                     {"internalType":"uint256","name":"minProfit","type":"uint256"},
                     {"internalType":"bool","name":"isCex","type":"bool"}
@@ -78,6 +100,11 @@ type ContractCaller struct {
 	execRPCClient   *ethclient.Client // 独立的执行 RPC（公共节点，避免与数据采集竞争）
 	keeperAddress   common.Address    // Keeper 地址（用于 eth_call 的 From 字段）
 	privateTxSender *PrivateTxSender  // 私有交易发送器（防 MEV 抢跑，Arbitrum FCFS 下可选）
+	nonceTracker    *NonceTracker     // 本地 Nonce 追踪器（替代 PendingNonceAt，消除并发竞态）
+
+	// Flash Loan 相关
+	flashLoanAddress common.Address // FlashLoanArbitrage 合约地址
+	flashLoanABI     abi.ABI        // FlashLoanArbitrage ABI
 }
 
 // NewContractCaller 创建合约调用器
@@ -95,6 +122,13 @@ func NewContractCaller(
 		web3Client:      web3Client,
 		contractAddress: contractAddress,
 		contractABI:     parsedABI,
+		nonceTracker:    NewNonceTracker(),
+	}
+
+	// 解析 FlashLoanArbitrage ABI
+	flABI, flErr := abi.JSON(strings.NewReader(FlashLoanArbitrageABI))
+	if flErr == nil {
+		cc.flashLoanABI = flABI
 	}
 
 	// 独立的公共 RPC 用于交易提交（nonce 查询 + 发送）
@@ -169,10 +203,11 @@ func (cc *ContractCaller) ExecuteArbitrage(
 		execClient = cc.execRPCClient
 	}
 
-	nonce, err := execClient.PendingNonceAt(ctx, from)
-	if err != nil {
-		return nil, fmt.Errorf("get nonce failed: %w", err)
+	// 使用本地 NonceTracker 替代 PendingNonceAt，消除并发 nonce 冲突
+	if err := cc.nonceTracker.InitIfNeeded(ctx, execClient, from); err != nil {
+		return nil, fmt.Errorf("init nonce failed: %w", err)
 	}
+	nonce := cc.nonceTracker.GetAndIncrement(from)
 
 	// Gas 使用固定值（Arbitrum 上 Gas 估算开销大且容易超时）
 	gasLimit := uint64(1_000_000) // 1M Gas（保守值）
@@ -205,9 +240,11 @@ func (cc *ContractCaller) ExecuteArbitrage(
 		// 优先走私有 RPC（防 MEV），Arbitrum FCFS 下 fallback 到公共 RPC
 		if cc.privateTxSender != nil {
 			if err := cc.privateTxSender.SendTransaction(ctx, signed, execClient); err != nil {
+				cc.nonceTracker.Decrement(from)
 				return nil, fmt.Errorf("send tx failed: %w", err)
 			}
 		} else if err := execClient.SendTransaction(ctx, signed); err != nil {
+			cc.nonceTracker.Decrement(from)
 			return nil, fmt.Errorf("send tx failed: %w", err)
 		}
 		return signed, nil
@@ -236,9 +273,11 @@ func (cc *ContractCaller) ExecuteArbitrage(
 
 	if cc.privateTxSender != nil {
 		if err := cc.privateTxSender.SendTransaction(ctx, signed, execClient); err != nil {
+			cc.nonceTracker.Decrement(from)
 			return nil, fmt.Errorf("send tx failed: %w", err)
 		}
 	} else if err := execClient.SendTransaction(ctx, signed); err != nil {
+		cc.nonceTracker.Decrement(from)
 		return nil, fmt.Errorf("send tx failed: %w", err)
 	}
 
@@ -248,6 +287,12 @@ func (cc *ContractCaller) ExecuteArbitrage(
 // buildCallData 构建 executeStrategy(ArbitrageParams) 调用数据
 func (cc *ContractCaller) buildCallData(params *ArbitrageParams) ([]byte, error) {
 
+	// 将 []uint32 转换为 []*big.Int（go-ethereum ABI 编码 uint24[] 需要 []*big.Int）
+	feeTiersBig := make([]*big.Int, len(params.FeeTiers))
+	for i, ft := range params.FeeTiers {
+		feeTiersBig[i] = new(big.Int).SetUint64(uint64(ft))
+	}
+
 	// 构建参数结构体（与合约 IArbitrage.ArbitrageParams 一一对应）
 	paramsStruct := struct {
 		Asset        common.Address
@@ -255,6 +300,7 @@ func (cc *ContractCaller) buildCallData(params *ArbitrageParams) ([]byte, error)
 		AmountIn     *big.Int
 		SwapPath     []common.Address
 		Dexes        []common.Address
+		FeeTiers     []*big.Int
 		ExpectProfit *big.Int
 		MinProfit    *big.Int
 		IsCex        bool
@@ -264,6 +310,7 @@ func (cc *ContractCaller) buildCallData(params *ArbitrageParams) ([]byte, error)
 		AmountIn:     params.AmountIn,
 		SwapPath:     params.SwapPath,
 		Dexes:        params.Dexes,
+		FeeTiers:     feeTiersBig,
 		ExpectProfit: params.ExpectProfit,
 		MinProfit:    params.MinProfit,
 		IsCex:        params.IsCex,
@@ -342,4 +389,164 @@ func (cc *ContractCaller) DebugCallData(params *ArbitrageParams) (string, error)
 		return "", err
 	}
 	return hexutil.Encode(data), nil
+}
+
+// SetFlashLoanAddress 设置 FlashLoanArbitrage 合约地址
+func (cc *ContractCaller) SetFlashLoanAddress(addr common.Address) {
+	cc.flashLoanAddress = addr
+	log.Executor().Info().Str("address", addr.Hex()).Msg("FlashLoanArbitrage address configured")
+}
+
+// FlashLoanParams Flash Loan 执行参数
+type FlashLoanParams struct {
+	Platform     uint8 // LendingPlatForm 枚举: 0=Aave_V2, 1=Aave_V3
+	TokenIn      common.Address
+	AmountIn     *big.Int
+	SwapPath     []common.Address
+	Dexes        []common.Address
+	FeeTiers     []uint32 // 每步 V3 fee tier
+	ExpectProfit *big.Int
+	MinProfit    *big.Int
+}
+
+// ExecuteFlashLoanArbitrage 通过 FlashLoanArbitrage 合约执行闪电贷套利
+func (cc *ContractCaller) ExecuteFlashLoanArbitrage(
+	ctx context.Context,
+	keeperPrivateKey string,
+	params *FlashLoanParams,
+) (*types.Transaction, error) {
+	if keeperPrivateKey == "" {
+		return nil, fmt.Errorf("keeper private key is empty")
+	}
+	if cc.flashLoanAddress == (common.Address{}) {
+		return nil, fmt.Errorf("flash loan contract address not configured")
+	}
+
+	// 构建 executeFlashLoan calldata
+	callData, err := cc.buildFlashLoanCallData(params)
+	if err != nil {
+		return nil, fmt.Errorf("build flash loan calldata: %w", err)
+	}
+
+	pk, err := crypto.HexToECDSA(strings.TrimPrefix(keeperPrivateKey, "0x"))
+	if err != nil {
+		return nil, fmt.Errorf("invalid keeper private key: %w", err)
+	}
+	from := crypto.PubkeyToAddress(pk.PublicKey)
+
+	execClient := cc.web3Client.GetClient()
+	if cc.execRPCClient != nil {
+		execClient = cc.execRPCClient
+	}
+
+	// 使用本地 NonceTracker
+	if err := cc.nonceTracker.InitIfNeeded(ctx, execClient, from); err != nil {
+		return nil, fmt.Errorf("init nonce failed: %w", err)
+	}
+	nonce := cc.nonceTracker.GetAndIncrement(from)
+
+	gasLimit := uint64(1_500_000) // Flash Loan 交易 Gas 更高（含回调）
+
+	// EIP-1559 交易
+	header, hErr := execClient.HeaderByNumber(ctx, nil)
+	if hErr == nil && header != nil && header.BaseFee != nil {
+		tipCap, tipErr := execClient.SuggestGasTipCap(ctx)
+		if tipErr != nil {
+			tipCap = big.NewInt(100_000_000) // 0.1 gwei
+		}
+		feeCap := new(big.Int).Add(new(big.Int).Mul(header.BaseFee, big.NewInt(2)), tipCap)
+
+		tx := types.NewTx(&types.DynamicFeeTx{
+			ChainID:   cc.web3Client.GetChainID(),
+			Nonce:     nonce,
+			To:        &cc.flashLoanAddress,
+			Gas:       gasLimit,
+			GasTipCap: tipCap,
+			GasFeeCap: feeCap,
+			Value:     big.NewInt(0),
+			Data:      callData,
+		})
+
+		signer := types.LatestSignerForChainID(cc.web3Client.GetChainID())
+		signed, err := types.SignTx(tx, signer, pk)
+		if err != nil {
+			cc.nonceTracker.Decrement(from)
+			return nil, fmt.Errorf("sign tx failed: %w", err)
+		}
+
+		if cc.privateTxSender != nil {
+			if err := cc.privateTxSender.SendTransaction(ctx, signed, execClient); err != nil {
+				cc.nonceTracker.Decrement(from)
+				return nil, fmt.Errorf("send flash loan tx failed: %w", err)
+			}
+		} else if err := execClient.SendTransaction(ctx, signed); err != nil {
+			cc.nonceTracker.Decrement(from)
+			return nil, fmt.Errorf("send flash loan tx failed: %w", err)
+		}
+		return signed, nil
+	}
+
+	// Legacy fallback
+	gasPrice, err := execClient.SuggestGasPrice(ctx)
+	if err != nil {
+		gasPrice = big.NewInt(100_000_000)
+	}
+
+	tx := types.NewTx(&types.LegacyTx{
+		Nonce:    nonce,
+		To:       &cc.flashLoanAddress,
+		Gas:      gasLimit,
+		GasPrice: gasPrice,
+		Value:    big.NewInt(0),
+		Data:     callData,
+	})
+
+	signer := types.LatestSignerForChainID(cc.web3Client.GetChainID())
+	signed, err := types.SignTx(tx, signer, pk)
+	if err != nil {
+		cc.nonceTracker.Decrement(from)
+		return nil, fmt.Errorf("sign tx failed: %w", err)
+	}
+
+	if cc.privateTxSender != nil {
+		if err := cc.privateTxSender.SendTransaction(ctx, signed, execClient); err != nil {
+			cc.nonceTracker.Decrement(from)
+			return nil, fmt.Errorf("send flash loan tx failed: %w", err)
+		}
+	} else if err := execClient.SendTransaction(ctx, signed); err != nil {
+		cc.nonceTracker.Decrement(from)
+		return nil, fmt.Errorf("send flash loan tx failed: %w", err)
+	}
+
+	return signed, nil
+}
+
+// buildFlashLoanCallData 构建 executeFlashLoan 调用数据
+func (cc *ContractCaller) buildFlashLoanCallData(params *FlashLoanParams) ([]byte, error) {
+	// 将 []uint32 转换为 []*big.Int
+	feeTiersBig := make([]*big.Int, len(params.FeeTiers))
+	for i, ft := range params.FeeTiers {
+		feeTiersBig[i] = new(big.Int).SetUint64(uint64(ft))
+	}
+
+	return cc.flashLoanABI.Pack(
+		"executeFlashLoan",
+		params.Platform,
+		params.TokenIn,
+		params.AmountIn,
+		params.SwapPath,
+		params.Dexes,
+		feeTiersBig,
+		params.ExpectProfit,
+		params.MinProfit,
+	)
+}
+
+// RefreshNonce 刷新指定地址的 Nonce（交易失败后调用）
+func (cc *ContractCaller) RefreshNonce(ctx context.Context, address common.Address) error {
+	execClient := cc.web3Client.GetClient()
+	if cc.execRPCClient != nil {
+		execClient = cc.execRPCClient
+	}
+	return cc.nonceTracker.Refresh(ctx, execClient, address)
 }

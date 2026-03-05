@@ -89,14 +89,40 @@ func (m *PriceMonitor) Start(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	m.cancelFunc = cancel
 
-	// 连接 WebSocket
-	if err := m.connect(); err != nil {
-		return err
+	// 连接 WebSocket（最多重试 5 次，指数退避）
+	var connectErr error
+	for attempt := 0; attempt < 5; attempt++ {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		if attempt > 0 {
+			delay := time.Duration(1<<uint(attempt-1)) * time.Second
+			log.Info("CEX WebSocket 第 %d 次重试，等待 %v", attempt+1, delay)
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(delay):
+			}
+		}
+		if connectErr = m.connect(); connectErr != nil {
+			log.Warn("CEX WebSocket 连接失败 (第 %d 次): %v", attempt+1, connectErr)
+			continue
+		}
+		if connectErr = m.subscribe(); connectErr != nil {
+			log.Warn("CEX WebSocket 订阅失败: %v", connectErr)
+			if m.conn != nil {
+				m.conn.Close()
+				m.conn = nil
+			}
+			continue
+		}
+		connectErr = nil
+		break
 	}
-
-	// 订阅交易对
-	if err := m.subscribe(); err != nil {
-		return err
+	if connectErr != nil {
+		return connectErr
 	}
 
 	// 启动接收循环
@@ -302,9 +328,8 @@ func (m *PriceMonitor) reconnect(ctx context.Context) {
 		baseDelay = time.Second
 	}
 	maxDelay := 60 * time.Second
-	maxRetries := 10
 
-	for attempt := 0; attempt < maxRetries; attempt++ {
+	for attempt := 0; ; attempt++ {
 		// 检查 context 是否已取消
 		select {
 		case <-ctx.Done():
@@ -320,11 +345,11 @@ func (m *PriceMonitor) reconnect(ctx context.Context) {
 		}
 
 		// 指数退避延迟（1s, 2s, 4s, 8s, 16s, 32s, 60s, 60s...）
-		delay := time.Duration(float64(baseDelay) * float64(int(1)<<attempt))
+		delay := time.Duration(float64(baseDelay) * float64(int(1)<<uint(min(attempt, 6))))
 		if delay > maxDelay {
 			delay = maxDelay
 		}
-		log.Info("WebSocket 重连中 (第 %d/%d 次)，等待 %v", attempt+1, maxRetries, delay)
+		log.Info("WebSocket 重连中 (第 %d 次)，等待 %v", attempt+1, delay)
 
 		select {
 		case <-ctx.Done():
@@ -333,7 +358,7 @@ func (m *PriceMonitor) reconnect(ctx context.Context) {
 		}
 
 		if err := m.connect(); err != nil {
-			log.Warn("重连失败 (第 %d/%d 次): %v", attempt+1, maxRetries, err)
+			log.Warn("重连失败 (第 %d 次): %v", attempt+1, err)
 			continue
 		}
 
@@ -349,8 +374,6 @@ func (m *PriceMonitor) reconnect(ctx context.Context) {
 		log.Info("WebSocket 重连成功（第 %d 次）", attempt+1)
 		return
 	}
-
-	log.Warn("WebSocket 重连已达最大次数 (%d)，放弃重连", maxRetries)
 }
 
 // GetPrice 获取指定交易对的最新价格

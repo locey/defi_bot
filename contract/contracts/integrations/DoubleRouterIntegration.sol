@@ -19,9 +19,9 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration, Initializable, UUP
     uint256 public slippageTolerance;
     address[] public mrouters;
 
-    // V3 Router 白名单 + 费率配置
+    // V3 Router 白名单（保留用于 arbCheck，swap 时以 feeTiers 为准）
     mapping(address => bool) public isV3Router;
-    mapping(address => uint24) public v3RouterFee; // router → 默认 fee tier
+    mapping(address => uint24) public v3RouterFee; // 仅用于 arbCheck 的默认 fee
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -36,18 +36,18 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration, Initializable, UUP
     }
 
     event DoubleRouterSwap(
-        address indexed sender, 
-        address indexed routerA, 
-        address indexed routerB, 
-        uint256 amountIn, 
+        address indexed sender,
+        address indexed routerA,
+        address indexed routerB,
+        uint256 amountIn,
         uint256 profit
     );
 
     event DoubleRouterSwap2(
-        address indexed routerAddr, 
-        address indexed fromToken, 
-        address indexed toToken, 
-        uint256 currentAmount, 
+        address indexed routerAddr,
+        address indexed fromToken,
+        address indexed toToken,
+        uint256 currentAmount,
         uint256 outAmount
     );
 
@@ -60,7 +60,7 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration, Initializable, UUP
         return mrouters;
     }
 
-    // 设置 V3 Router 白名单和费率
+    // 设置 V3 Router 白名单和默认费率（用于 arbCheck）
     function setV3Router(address router, bool enabled, uint24 fee) external onlyOwner {
         isV3Router[router] = enabled;
         v3RouterFee[router] = fee;
@@ -110,6 +110,10 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration, Initializable, UUP
         return (isProfit, finalOut, profitAmount);
     }
 
+    /**
+     * @dev 执行多跳交换
+     * @param feeTiers 每一跳的 V3 fee tier (500/3000/10000)；V2 跳传 0
+     */
     function doubleRouterSwap(
         address spot,
         address tokenIn,
@@ -117,11 +121,13 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration, Initializable, UUP
         uint256 amountIn,
         address[] calldata swapPath,
         address[] calldata dexes,
+        uint24[] calldata feeTiers,
         uint256 expectProfit,
         uint256 minProfit
     ) external returns(uint256 amountOut) {
         require(swapPath.length >= 2, "invalid swapPath");
         require(dexes.length == swapPath.length - 1, "dexes length mismatch");
+        require(feeTiers.length == dexes.length, "feeTiers length mismatch");
         require(swapPath[swapPath.length - 1] == tokenOut, "tokenOut mismatch with swapPath");
         require(IERC20(tokenIn).balanceOf(spot) >= amountIn, "insufficient tokenIn balance");
 
@@ -132,13 +138,12 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration, Initializable, UUP
         uint256 deadline = block.timestamp + 120;
         for (uint i = 0; i < dexes.length; i++) {
             currentAmount = _executeSingleSwap(
-                spot,
                 dexes[i],
                 swapPath[i],
                 swapPath[i + 1],
                 currentAmount,
                 deadline,
-                0 // 不做单跳利润检查，在最后检查总利润
+                feeTiers[i]
             );
         }
         require(currentAmount >= amountIn + minProfit, "DoubleRouter: insufficient profit");
@@ -149,20 +154,24 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration, Initializable, UUP
         amountOut = currentAmount;
     }
 
+    /**
+     * @dev 执行单跳交换
+     * @param feeTier V3 fee tier (500/3000/10000)；0 表示 V2 路由
+     */
     function _executeSingleSwap(
-        address spot,
         address routerAddr,
         address fromToken,
         address toToken,
         uint256 currentAmount,
         uint256 deadline,
-        uint256 aveProfit
+        uint24 feeTier
     ) internal returns (uint256 outAmount) {
         IERC20(fromToken).approve(routerAddr, currentAmount);
 
-        if (isV3Router[routerAddr]) {
+        if (feeTier > 0 || isV3Router[routerAddr]) {
             // V3 Router: 使用 exactInputSingle
-            uint24 fee = v3RouterFee[routerAddr];
+            // feeTier 优先；为 0 时回退到 v3RouterFee 映射或默认 3000
+            uint24 fee = feeTier > 0 ? feeTier : v3RouterFee[routerAddr];
             if (fee == 0) fee = 3000;
 
             outAmount = IUniswapV3Router(routerAddr).exactInputSingle(
@@ -170,7 +179,7 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration, Initializable, UUP
                     tokenIn: fromToken,
                     tokenOut: toToken,
                     fee: fee,
-                    recipient: address(this), // 留在本合约（下一跳需要）
+                    recipient: address(this),
                     deadline: deadline,
                     amountIn: currentAmount,
                     amountOutMinimum: 1,
@@ -192,7 +201,7 @@ contract DoubleRouterIntegration is IDoubleRouterIntegration, Initializable, UUP
                 currentAmount,
                 minOut,
                 path,
-                address(this), // 留在本合约（下一跳需要）
+                address(this),
                 deadline
             )[1];
         }

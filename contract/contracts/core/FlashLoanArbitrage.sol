@@ -122,11 +122,12 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
             uint256 amountIn,
             address[] memory swapPath,
             address[] memory dexes,
+            uint24[] memory feeTiers,
             uint256 expectProfit,
             uint256 minProfit
-        ) = abi.decode(params, (address, address, uint256, address[], address[], uint256, uint256));
+        ) = abi.decode(params, (address, address, uint256, address[], address[], uint24[], uint256, uint256));
 
-        // 基础校验（移除 _initiator == initiator 对比：params 中是 ArbitrageCore，Aave 的 initiator 是 FlashLoanRouter）
+        // 基础校验
         require(swapPath.length >= 2, "FlashLoanArbitrage: swapPath length must >=2");
         require(dexes.length > 0, "FlashLoanArbitrage: dexes cannot be empty");
         require(amountIn > 0, "FlashLoanArbitrage: amountIn must >0");
@@ -137,6 +138,7 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
             amountIn,
             swapPath,
             dexes,
+            feeTiers,
             expectProfit,
             minProfit,
             false // isCex = false（闪电贷走 DEX-DEX 路径）
@@ -195,8 +197,9 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
         uint256 amountIn,
         address[] calldata swapPath,
         address[] calldata dexes,
+        uint24[] calldata feeTiers,
         uint256 expectProfit,
-        uint256 minProfit 
+        uint256 minProfit
     ) external onlyArbitrageCore nonReentrant whenNotPaused {
         // 前置校验（防止无效请求）
         require(swapPath.length >= 3, "FlashLoanArbitrage: swapPath length must >=3");
@@ -211,6 +214,7 @@ contract FlashLoanArbitrage is IFlashLoanSimpleReceiver, ReentrancyGuard, Ownabl
             amountIn,
             swapPath,
             dexes,
+            feeTiers,
             expectProfit,
             minProfit
         );

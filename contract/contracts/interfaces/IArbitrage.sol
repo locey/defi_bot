@@ -19,6 +19,7 @@ interface IArbitrage {
         uint256 amountIn;
         address[] swapPath;
         address[] dexes;
+        uint24[] feeTiers;      // V3 fee tier per swap step (500/3000/10000); 0 = V2 (ignored)
         uint256 expectProfit;
         uint256 minProfit;
         bool   isCex;

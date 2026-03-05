@@ -1,4 +1,3 @@
-// d:\E\SoTest\Dapp_frontend\defi_bot\contracts\contract\test\SpotArbitrage.test.js
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const { upgrades } = require("hardhat");
@@ -10,45 +9,42 @@ describe("SpotArbitrage Comprehensive Tests", function () {
   let mockArbitrageCore;
   let mockTokenA, mockTokenB, mockTokenC;
   let owner, backend, user, hacker;
-  
-  // 测试参数
+
   const amountIn = ethers.parseEther("1000");
   const expectProfit = ethers.parseEther("50");
   const minProfit = ethers.parseEther("30");
 
+  // V2 = 0, V3 500bps = 500, V3 3000bps = 3000
+  const FEE_V2 = 0;
+  const FEE_V3_500 = 500;
+  const FEE_V3_3000 = 3000;
+
   beforeEach(async function () {
     [owner, backend, user, hacker] = await ethers.getSigners();
-    
-    // 部署Mock合约
+
     const MockERC20 = await ethers.getContractFactory("MockERC20");
     mockTokenA = await MockERC20.deploy("Token A", "TKA", 18);
     mockTokenB = await MockERC20.deploy("Token B", "TKB", 18);
     mockTokenC = await MockERC20.deploy("Token C", "TKC", 18);
-    
-    // 铸造代币给 owner
+
     const mintAmount = ethers.parseEther("1000000");
     await mockTokenA.mint(owner.address, mintAmount);
     await mockTokenB.mint(owner.address, mintAmount);
     await mockTokenC.mint(owner.address, mintAmount);
-    
-    // 部署Mock DoubleRouterIntegration
+
     const MockDoubleRouterIntegration = await ethers.getContractFactory("MockDoubleRouterIntegration");
     mockDoubleRouterIntegration = await MockDoubleRouterIntegration.deploy();
-    
-    // 部署Mock UniswapV2Integration
+
     const MockUniswapV2Integration = await ethers.getContractFactory("MockUniswapV2Integration");
     mockUniswapV2Integration = await MockUniswapV2Integration.deploy();
-    
-    // 部署Mock ArbitrageCore
+
     const MockArbitrageCore = await ethers.getContractFactory("MockArbitrageCore");
     mockArbitrageCore = await MockArbitrageCore.deploy();
-    
-    // 给 MockArbitrageCore 预存所有类型的代币
-    await mockTokenA.mint(mockArbitrageCore.target, ethers.parseEther("1000000"));
-    await mockTokenB.mint(mockArbitrageCore.target, ethers.parseEther("1000000"));
-    await mockTokenC.mint(mockArbitrageCore.target, ethers.parseEther("1000000"));
-    
-    // 部署SpotArbitrage，使用正确的四个参数
+
+    await mockTokenA.mint(mockArbitrageCore.target, mintAmount);
+    await mockTokenB.mint(mockArbitrageCore.target, mintAmount);
+    await mockTokenC.mint(mockArbitrageCore.target, mintAmount);
+
     const SpotArbitrage = await ethers.getContractFactory("SpotArbitrage");
     spotArbitrage = await upgrades.deployProxy(SpotArbitrage, [
       mockDoubleRouterIntegration.target,
@@ -56,12 +52,12 @@ describe("SpotArbitrage Comprehensive Tests", function () {
       mockArbitrageCore.target,
       backend.address
     ]);
-    
+
     const spotAddr = spotArbitrage.target;
-    
-    // 给 spotArbitrage 合约转账代币
+
     await mockTokenA.transfer(spotAddr, ethers.parseEther("10000"));
     await mockTokenB.transfer(spotAddr, ethers.parseEther("10000"));
+    await mockTokenC.transfer(spotAddr, ethers.parseEther("10000"));
   });
 
   // ==================== 初始化测试 ====================
@@ -76,10 +72,8 @@ describe("SpotArbitrage Comprehensive Tests", function () {
       const SpotArbitrage = await ethers.getContractFactory("SpotArbitrage");
       await expect(
         upgrades.deployProxy(SpotArbitrage, [
-          ethers.ZeroAddress,
-          mockUniswapV2Integration.target,
-          mockArbitrageCore.target,
-          backend.address
+          ethers.ZeroAddress, mockUniswapV2Integration.target,
+          mockArbitrageCore.target, backend.address
         ])
       ).to.be.revertedWith("Spot: invalid doubleRouterIntegration");
     });
@@ -88,10 +82,8 @@ describe("SpotArbitrage Comprehensive Tests", function () {
       const SpotArbitrage = await ethers.getContractFactory("SpotArbitrage");
       await expect(
         upgrades.deployProxy(SpotArbitrage, [
-          mockDoubleRouterIntegration.target,
-          ethers.ZeroAddress,
-          mockArbitrageCore.target,
-          backend.address
+          mockDoubleRouterIntegration.target, ethers.ZeroAddress,
+          mockArbitrageCore.target, backend.address
         ])
       ).to.be.revertedWith("Spot: invalid uniswapV2Integration");
     });
@@ -100,10 +92,8 @@ describe("SpotArbitrage Comprehensive Tests", function () {
       const SpotArbitrage = await ethers.getContractFactory("SpotArbitrage");
       await expect(
         upgrades.deployProxy(SpotArbitrage, [
-          mockDoubleRouterIntegration.target,
-          mockUniswapV2Integration.target,
-          mockArbitrageCore.target,
-          ethers.ZeroAddress
+          mockDoubleRouterIntegration.target, mockUniswapV2Integration.target,
+          mockArbitrageCore.target, ethers.ZeroAddress
         ])
       ).to.be.revertedWith("Spot: invalid backendCaller");
     });
@@ -111,12 +101,10 @@ describe("SpotArbitrage Comprehensive Tests", function () {
     it("不能重复初始化", async function () {
       await expect(
         spotArbitrage.initialize(
-          mockDoubleRouterIntegration.target,
-          mockUniswapV2Integration.target,
-          mockArbitrageCore.target,
-          backend.address
+          mockDoubleRouterIntegration.target, mockUniswapV2Integration.target,
+          mockArbitrageCore.target, backend.address
         )
-      ).to.be.revertedWith("Initializable: contract is already initialized");
+      ).to.be.revertedWithCustomError(spotArbitrage, "InvalidInitialization");
     });
   });
 
@@ -125,7 +113,7 @@ describe("SpotArbitrage Comprehensive Tests", function () {
     it("只有owner可以设置backendCaller", async function () {
       await expect(
         spotArbitrage.connect(user).setBackendCaller(user.address)
-      ).to.be.revertedWithCustomError(spotArbitrage, "OwnableUnauthorized");
+      ).to.be.revertedWithCustomError(spotArbitrage, "OwnableUnauthorizedAccount");
     });
 
     it("owner可以成功设置新的backendCaller", async function () {
@@ -142,7 +130,7 @@ describe("SpotArbitrage Comprehensive Tests", function () {
     it("只有owner可以设置arbitrageCore", async function () {
       await expect(
         spotArbitrage.connect(user).setArbitrageCore(user.address)
-      ).to.be.revertedWithCustomError(spotArbitrage, "OwnableUnauthorized");
+      ).to.be.revertedWithCustomError(spotArbitrage, "OwnableUnauthorizedAccount");
     });
 
     it("owner可以成功设置新的arbitrageCore", async function () {
@@ -156,7 +144,7 @@ describe("SpotArbitrage Comprehensive Tests", function () {
       ).to.be.revertedWith("Spot: same arbitrageCore");
     });
 
-    it("owner可以设置零地址作为arbitrageCore但会回滚", async function () {
+    it("设置零地址作为arbitrageCore应该回滚", async function () {
       await expect(
         spotArbitrage.connect(owner).setArbitrageCore(ethers.ZeroAddress)
       ).to.be.revertedWith("Spot: invalid arbitrageCore");
@@ -165,287 +153,215 @@ describe("SpotArbitrage Comprehensive Tests", function () {
 
   // ==================== 纯DEX套利测试 ====================
   describe("纯DEX套利测试", function () {
-    it("应该成功执行纯DEX套利", async function () {
-      const swapPath = [
-        mockTokenA.target,
-        mockTokenB.target,
-        mockTokenA.target
-      ];
-      const dexes = [
-        mockDoubleRouterIntegration.target,
-        mockDoubleRouterIntegration.target
-      ];
-      
-      // 调用 executeSwaps
-      await spotArbitrage.connect(backend).executeSwaps(
-        mockTokenA.target,
-        mockTokenA.target,
-        amountIn,
-        swapPath,
-        dexes,
-        expectProfit,
-        minProfit,
-        false
+    it("应该成功执行纯DEX套利 (V2 fee tier)", async function () {
+      const swapPath = [mockTokenA.target, mockTokenB.target, mockTokenA.target];
+      const dexes = [mockDoubleRouterIntegration.target, mockDoubleRouterIntegration.target];
+      const feeTiers = [FEE_V2, FEE_V2];
+
+      await spotArbitrage.connect(owner).executeSwaps(
+        mockTokenA.target, mockTokenA.target, amountIn,
+        swapPath, dexes, feeTiers, expectProfit, minProfit, false
       );
-      
-      expect(true).to.be.true;
+
+      const coreBal = await mockTokenA.balanceOf(mockArbitrageCore.target);
+      expect(coreBal).to.be.gt(0);
     });
 
-    it("纯DEX套利 - owner可以作为backend调用", async function () {
-      const swapPath = [
-        mockTokenA.target,
-        mockTokenB.target,
-        mockTokenA.target
-      ];
-      const dexes = [
-        mockDoubleRouterIntegration.target,
-        mockDoubleRouterIntegration.target
-      ];
-      
+    it("应该成功执行纯DEX套利 (混合 V3 fee tier)", async function () {
+      const swapPath = [mockTokenA.target, mockTokenB.target, mockTokenA.target];
+      const dexes = [mockDoubleRouterIntegration.target, mockDoubleRouterIntegration.target];
+      const feeTiers = [FEE_V3_500, FEE_V3_3000]; // 第一跳 0.05%, 第二跳 0.3%
+
       await spotArbitrage.connect(owner).executeSwaps(
-        mockTokenA.target,
-        mockTokenA.target,
-        amountIn,
-        swapPath,
-        dexes,
-        expectProfit,
-        minProfit,
-        false
+        mockTokenA.target, mockTokenA.target, amountIn,
+        swapPath, dexes, feeTiers, expectProfit, minProfit, false
       );
-      
-      expect(true).to.be.true;
+
+      const coreBal = await mockTokenA.balanceOf(mockArbitrageCore.target);
+      expect(coreBal).to.be.gt(0);
+    });
+
+    it("非授权调用者不能执行套利", async function () {
+      await expect(
+        spotArbitrage.connect(backend).executeSwaps(
+          mockTokenA.target, mockTokenA.target, amountIn,
+          [mockTokenA.target, mockTokenB.target, mockTokenA.target],
+          [mockDoubleRouterIntegration.target, mockDoubleRouterIntegration.target],
+          [FEE_V2, FEE_V2],
+          expectProfit, minProfit, false
+        )
+      ).to.be.revertedWith("Spot: not authorized");
+    });
+
+    it("user 也不能执行套利", async function () {
+      await expect(
+        spotArbitrage.connect(user).executeSwaps(
+          mockTokenA.target, mockTokenA.target, amountIn,
+          [mockTokenA.target, mockTokenB.target, mockTokenA.target],
+          [mockDoubleRouterIntegration.target, mockDoubleRouterIntegration.target],
+          [FEE_V2, FEE_V2],
+          expectProfit, minProfit, false
+        )
+      ).to.be.revertedWith("Spot: not authorized");
     });
   });
 
   // ==================== CEX-DEX套利测试 ====================
   describe("CEX-DEX套利测试", function () {
-    it("CEX在最后一步应该成功", async function () {
-      // CEX在最后一步：swapPath[最后一个] != tokenOut
-      const swapPath = [
-        mockTokenA.target,
-        mockTokenB.target,
-        mockTokenC.target  // 最后一个不是 tokenOut (TokenA)
-      ];
-      const dexes = [
-        mockDoubleRouterIntegration.target,
-        mockDoubleRouterIntegration.target
-      ];
-      
-      await spotArbitrage.connect(backend).executeSwaps(
-        mockTokenA.target,
-        mockTokenA.target,  // tokenOut = asset，但 swapPath[最后一个] = TokenC != TokenA
-        amountIn,
-        swapPath,
-        dexes,
-        expectProfit,
-        minProfit,
-        true
+    it("CEX路径太短应该回滚 (swapPath < 3)", async function () {
+      await expect(
+        spotArbitrage.connect(owner).executeSwaps(
+          mockTokenA.target, mockTokenB.target, amountIn,
+          [mockTokenA.target, mockTokenB.target],
+          [mockDoubleRouterIntegration.target],
+          [FEE_V2],
+          expectProfit, minProfit, true
+        )
+      ).to.be.revertedWith("Spot: invalid swapPath for cex");
+    });
+
+    it("无效CEX位置应该回滚", async function () {
+      await expect(
+        spotArbitrage.connect(owner).executeSwaps(
+          mockTokenA.target, mockTokenA.target, amountIn,
+          [mockTokenA.target, mockTokenB.target, mockTokenA.target],
+          [mockDoubleRouterIntegration.target, mockDoubleRouterIntegration.target],
+          [FEE_V2, FEE_V2],
+          expectProfit, minProfit, true
+        )
+      ).to.be.revertedWith("Spot: CEX-DEX, invalid cex position");
+    });
+
+    it("CEX在第一步应该成功 (swapPath[0] != asset)", async function () {
+      const swapPath = [mockTokenB.target, mockTokenC.target, mockTokenA.target];
+      const dexes = [mockDoubleRouterIntegration.target, mockDoubleRouterIntegration.target];
+      const feeTiers = [FEE_V2, FEE_V3_3000];
+
+      await spotArbitrage.connect(owner).executeSwaps(
+        mockTokenA.target, mockTokenA.target, amountIn,
+        swapPath, dexes, feeTiers, expectProfit, minProfit, true
       );
-      
-      expect(true).to.be.true;
+
+      const coreBal = await mockTokenA.balanceOf(mockArbitrageCore.target);
+      expect(coreBal).to.be.gt(0);
+    });
+
+    it("CEX在最后一步 - tokenOut 余额减少应该回滚", async function () {
+      const swapPath = [mockTokenA.target, mockTokenB.target, mockTokenC.target];
+      const dexes = [mockDoubleRouterIntegration.target, mockDoubleRouterIntegration.target];
+      const feeTiers = [FEE_V3_500, FEE_V2];
+
+      await expect(
+        spotArbitrage.connect(owner).executeSwaps(
+          mockTokenA.target, mockTokenA.target, amountIn,
+          swapPath, dexes, feeTiers, expectProfit, minProfit, true
+        )
+      ).to.be.revertedWith("CEX last: tokenOut balance decreased");
     });
   });
 
   // ==================== 边界条件测试 ====================
   describe("边界条件测试", function () {
-    it("无效CEX位置应该回滚", async function () {
-      // CEX 在中间位置（既不是第一步也不是最后一步）
-      const swapPath = [
-        mockTokenA.target,
-        mockTokenB.target,  // CEX在这里（无效）
-        mockTokenA.target
-      ];
-      const dexes = [
-        mockDoubleRouterIntegration.target,
-        mockDoubleRouterIntegration.target
-      ];
-      
-      await expect(
-        spotArbitrage.connect(backend).executeSwaps(
-          mockTokenA.target,
-          mockTokenA.target,
-          amountIn,
-          swapPath,
-          dexes,
-          expectProfit,
-          minProfit,
-          true
-        )
-      ).to.be.revertedWith("Spot: CEX-DEX, invalid cex position");
-    });
-
-    it("路径太短应该回滚", async function () {
-      const swapPath = [mockTokenA.target, mockTokenB.target]; // 只有2步
-      
-      await expect(
-        spotArbitrage.connect(backend).executeSwaps(
-          mockTokenA.target,
-          mockTokenB.target,
-          amountIn,
-          swapPath,
-          [mockDoubleRouterIntegration.target],
-          expectProfit,
-          minProfit,
-          true
-        )
-      ).to.be.revertedWith("Spot: invalid swapPath for cex");
-    });
-
     it("非CEX模式下swapPath长度为2应该成功", async function () {
-      const swapPath = [mockTokenA.target, mockTokenB.target];
-      const dexes = [mockDoubleRouterIntegration.target];
-      
-      await spotArbitrage.connect(backend).executeSwaps(
-        mockTokenA.target,
-        mockTokenB.target,
-        amountIn,
-        swapPath,
-        dexes,
-        expectProfit,
-        minProfit,
-        false
+      await spotArbitrage.connect(owner).executeSwaps(
+        mockTokenA.target, mockTokenB.target, amountIn,
+        [mockTokenA.target, mockTokenB.target],
+        [mockDoubleRouterIntegration.target],
+        [FEE_V2],
+        expectProfit, minProfit, false
       );
-      
-      expect(true).to.be.true;
+
+      const coreBal = await mockTokenB.balanceOf(mockArbitrageCore.target);
+      expect(coreBal).to.be.gt(0);
+    });
+
+    it("合约未收到代币应该回滚", async function () {
+      const MockERC20 = await ethers.getContractFactory("MockERC20");
+      const emptyToken = await MockERC20.deploy("Empty", "EMP", 18);
+
+      await expect(
+        spotArbitrage.connect(owner).executeSwaps(
+          emptyToken.target, emptyToken.target, amountIn,
+          [emptyToken.target, mockTokenB.target, emptyToken.target],
+          [mockDoubleRouterIntegration.target, mockDoubleRouterIntegration.target],
+          [FEE_V2, FEE_V2],
+          expectProfit, minProfit, false
+        )
+      ).to.be.revertedWith("Spot: no received");
+    });
+
+    it("传入不存在的代币地址应该 revert", async function () {
+      await expect(
+        spotArbitrage.connect(owner).executeSwaps(
+          ethers.ZeroAddress, mockTokenA.target, amountIn,
+          [ethers.ZeroAddress, mockTokenB.target, mockTokenA.target],
+          [mockDoubleRouterIntegration.target, mockDoubleRouterIntegration.target],
+          [FEE_V2, FEE_V2],
+          expectProfit, minProfit, false
+        )
+      ).to.be.reverted;
     });
   });
 
   // ==================== 权限控制测试 ====================
   describe("权限控制测试", function () {
-    it("非backend调用应该回滚", async function () {
-      await expect(
-        spotArbitrage.connect(user).executeSwaps(
-          mockTokenA.target,
-          mockTokenA.target,
-          amountIn,
-          [mockTokenA.target, mockTokenB.target, mockTokenA.target],
-          [mockDoubleRouterIntegration.target, mockDoubleRouterIntegration.target],
-          expectProfit,
-          minProfit,
-          false
-        )
-      ).to.be.revertedWith("Spot: only backend");
-    });
-
-    it("非owner不能调用onlyOwner函数", async function () {
+    it("非owner不能调用setDoubleRouterIntegration", async function () {
       await expect(
         spotArbitrage.connect(user).setDoubleRouterIntegration(user.address)
-      ).to.be.revertedWithCustomError(spotArbitrage, "OwnableUnauthorized");
+      ).to.be.revertedWithCustomError(spotArbitrage, "OwnableUnauthorizedAccount");
     });
 
     it("非owner不能调用setUniswapV2Integration", async function () {
       await expect(
         spotArbitrage.connect(user).setUniswapV2Integration(user.address)
-      ).to.be.revertedWithCustomError(spotArbitrage, "OwnableUnauthorized");
+      ).to.be.revertedWithCustomError(spotArbitrage, "OwnableUnauthorizedAccount");
+    });
+
+    it("设置 doubleRouterIntegration 为零地址应该回滚", async function () {
+      await expect(
+        spotArbitrage.connect(owner).setDoubleRouterIntegration(ethers.ZeroAddress)
+      ).to.be.revertedWith("Spot: invalid doubleRouterIntegration");
+    });
+
+    it("设置 uniswapV2Integration 为零地址应该回滚", async function () {
+      await expect(
+        spotArbitrage.connect(owner).setUniswapV2Integration(ethers.ZeroAddress)
+      ).to.be.revertedWith("Spot: invalid uniswapV2Integration");
     });
   });
 
   // ==================== 重入攻击防护测试 ====================
   describe("重入攻击防护测试", function () {
-    it("不应该在executeSwaps中重新进入同一函数", async function () {
-      // 这个测试验证 nonReentrant 修饰符是否工作
-      // 如果没有重入保护，恶意合约可能尝试多次调用 executeSwaps
-      const swapPath = [
-        mockTokenA.target,
-        mockTokenB.target,
-        mockTokenA.target
-      ];
-      const dexes = [
-        mockDoubleRouterIntegration.target,
-        mockDoubleRouterIntegration.target
-      ];
-      
-      // 第一次调用应该成功
-      await spotArbitrage.connect(backend).executeSwaps(
-        mockTokenA.target,
-        mockTokenA.target,
-        amountIn,
-        swapPath,
-        dexes,
-        expectProfit,
-        minProfit,
-        false
-      );
-      
-      // 第二次调用也应该是独立的交易
-      await spotArbitrage.connect(backend).executeSwaps(
-        mockTokenA.target,
-        mockTokenA.target,
-        amountIn,
-        swapPath,
-        dexes,
-        expectProfit,
-        minProfit,
-        false
-      );
-      
-      expect(true).to.be.true;
-    });
-  });
+    it("连续调用 executeSwaps 应该都成功 (非并发)", async function () {
+      const swapPath = [mockTokenA.target, mockTokenB.target, mockTokenA.target];
+      const dexes = [mockDoubleRouterIntegration.target, mockDoubleRouterIntegration.target];
+      const feeTiers = [FEE_V2, FEE_V2];
 
-  // ==================== ERC20异常测试 ====================
-  describe("ERC20异常测试", function () {
-    it("合约未收到代币应该回滚", async function () {
-      // 不给合约转账代币，直接调用
-      const swapPath = [
-        mockTokenA.target,
-        mockTokenB.target,
-        mockTokenA.target
-      ];
-      const dexes = [
-        mockDoubleRouterIntegration.target,
-        mockDoubleRouterIntegration.target
-      ];
-      
-      // 使用0金额尝试调用
-      await expect(
-        spotArbitrage.connect(backend).executeSwaps(
-          mockTokenA.target,
-          mockTokenA.target,
-          0,
-          swapPath,
-          dexes,
-          expectProfit,
-          minProfit,
-          false
-        )
-      ).to.be.revertedWith("Spot: no received");
-    });
+      await spotArbitrage.connect(owner).executeSwaps(
+        mockTokenA.target, mockTokenA.target, amountIn,
+        swapPath, dexes, feeTiers, expectProfit, minProfit, false
+      );
 
-    it("传入不存在的代币地址应该回滚", async function () {
-      const swapPath = [
-        ethers.ZeroAddress,  // 使用零地址作为代币
-        mockTokenB.target,
-        mockTokenA.target
-      ];
-      const dexes = [
-        mockDoubleRouterIntegration.target,
-        mockDoubleRouterIntegration.target
-      ];
-      
-      await expect(
-        spotArbitrage.connect(backend).executeSwaps(
-          ethers.ZeroAddress,
-          mockTokenA.target,
-          amountIn,
-          swapPath,
-          dexes,
-          expectProfit,
-          minProfit,
-          false
-        )
-      ).to.be.reverted; // ERC20操作会失败
+      await spotArbitrage.connect(owner).executeSwaps(
+        mockTokenA.target, mockTokenA.target, amountIn,
+        swapPath, dexes, feeTiers, expectProfit, minProfit, false
+      );
     });
   });
 
   // ==================== UUPS升级测试 ====================
   describe("UUPS升级测试", function () {
+    it("owner可以升级合约", async function () {
+      const SpotArbitrageV2 = await ethers.getContractFactory("SpotArbitrage", owner);
+      const upgraded = await upgrades.upgradeProxy(spotArbitrage.target, SpotArbitrageV2);
+      expect(upgraded.target).to.equal(spotArbitrage.target);
+    });
+
     it("非owner不能升级合约", async function () {
-      const SpotArbitrageV2 = await ethers.getContractFactory("SpotArbitrage");
-      
+      const SpotArbitrageV2 = await ethers.getContractFactory("SpotArbitrage", user);
       await expect(
         upgrades.upgradeProxy(spotArbitrage.target, SpotArbitrageV2)
-      ).to.be.revertedWithCustomError(spotArbitrage, "OwnableUnauthorized");
+      ).to.be.revertedWithCustomError(spotArbitrage, "OwnableUnauthorizedAccount");
     });
   });
 });

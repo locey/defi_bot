@@ -27,6 +27,7 @@ type ArbitrageOpportunity struct {
 	Confidence   float64          `json:"confidence"`    // 置信度(0-1)
 	PathLength   int              `json:"path_length"`   // 路径长度
 	IsCex        bool             `json:"is_cex"`        // 是否为 CEX-DEX 混合套利路径
+	FeeTiers     []uint32         `json:"fee_tiers"`     // 每步 V3 fee tier (500/3000/10000); 0 = V2
 }
 
 // PoolInfo 池子信息

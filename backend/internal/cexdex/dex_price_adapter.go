@@ -113,22 +113,24 @@ func (a *DEXPriceAdapter) initDefaultMappings() {
 	defaultRouter := a.tokenAddrs["UNISWAP_V3_ROUTER"]
 
 	// Binance 交易对映射
+	// 注意：Arbitrum 上大多数流动性池使用 USDC（非 USDT）作为计价代币
+	// 因此同时注册 USDT 和 USDC 作为备选 quote token
 	mappings := []struct {
 		symbol     string
 		baseToken  string
 		quoteToken string
 	}{
-		{"ETHUSDT", "WETH", "USDT"},
-		{"BTCUSDT", "WBTC", "USDT"},
-		{"ARBUSDT", "ARB", "USDT"},
-		{"USDCUSDT", "USDC", "USDT"},
-		{"DAIUSDT", "DAI", "USDT"},
-		{"GMXUSDT", "GMX", "USDT"},
-		{"LINKUSDT", "LINK", "USDT"},
-		{"UNIUSDT", "UNI", "USDT"},
-		{"AAVEUSDT", "AAVE", "USDT"},
-		{"CRVUSDT", "CRV", "USDT"},
-		{"PENDLEUSDT", "PENDLE", "USDT"},
+		{"ETHUSDT", "WETH", "USDC"},   // Arbitrum: WETH/USDC 流动性最高
+		{"BTCUSDT", "WBTC", "USDC"},
+		{"ARBUSDT", "ARB", "USDC"},
+		{"USDCUSDT", "USDC", "USDT"},  // 稳定币对仍用 USDT
+		{"DAIUSDT", "DAI", "USDC"},
+		{"GMXUSDT", "GMX", "WETH"},    // GMX 主要与 WETH 配对
+		{"LINKUSDT", "LINK", "WETH"},
+		{"UNIUSDT", "UNI", "WETH"},
+		{"AAVEUSDT", "AAVE", "WETH"},
+		{"CRVUSDT", "CRV", "WETH"},
+		{"PENDLEUSDT", "PENDLE", "WETH"},
 	}
 
 	for _, m := range mappings {
@@ -259,7 +261,67 @@ func (a *DEXPriceAdapter) GetPrice(symbol string) (float64, error) {
 		}
 	}
 
+	// 如果 quote token 不是 USDT/USDC，需要二次转换到 USD 价格
+	// 例如 LINK/WETH → LINK 的 WETH 价格 × WETH 的 USD 价格 = LINK 的 USD 价格
+	quoteIsStable := strings.EqualFold(mapping.QuoteToken.Hex(), a.tokenAddrs["USDT"].Hex()) ||
+		strings.EqualFold(mapping.QuoteToken.Hex(), a.tokenAddrs["USDC"].Hex())
+
+	if !quoteIsStable && finalPrice > 0 {
+		// quote token 是 WETH 等非稳定币，需要获取其 USD 价格
+		wethUSDPrice := a.getWETHUSDPrice()
+		if wethUSDPrice > 0 {
+			finalPrice = finalPrice * wethUSDPrice
+		}
+	}
+
 	return finalPrice, nil
+}
+
+// getWETHUSDPrice 获取 WETH 的 USD 价格（从 PriceCache 中的 WETH/USDC 池获取）
+func (a *DEXPriceAdapter) getWETHUSDPrice() float64 {
+	wethHex := strings.ToLower(a.tokenAddrs["WETH"].Hex())
+	usdcHex := strings.ToLower(a.tokenAddrs["USDC"].Hex())
+
+	pools := a.priceCache.GetByTokenPair(wethHex, usdcHex)
+	if len(pools) == 0 {
+		pools = a.priceCache.GetByTokenPair(usdcHex, wethHex)
+	}
+
+	if len(pools) == 0 {
+		return 0
+	}
+
+	// 选择流动性最高的池子
+	var bestPool *cache.PoolPrice
+	var bestScore float64
+	for _, p := range pools {
+		if p.Price <= 0 {
+			continue
+		}
+		score := float64(1)
+		if p.IsV3 && p.Liquidity != nil {
+			liq, _ := p.Liquidity.Float64()
+			score = liq
+		}
+		if score > bestScore {
+			bestPool = p
+			bestScore = score
+		}
+	}
+	if bestPool == nil {
+		return 0
+	}
+
+	// 确定 WETH/USDC 方向
+	if strings.EqualFold(bestPool.Token0.Hex(), wethHex) {
+		// token0=WETH, price = USDC/WETH → 正是我们要的
+		return bestPool.Price
+	}
+	// token0=USDC, price = WETH/USDC → 取倒数
+	if bestPool.Price > 0 {
+		return 1.0 / bestPool.Price
+	}
+	return 0
 }
 
 // GetTokenPairForSymbol 根据 CEX 符号和方向返回 (tokenIn, tokenOut) 地址

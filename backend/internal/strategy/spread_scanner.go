@@ -27,6 +27,9 @@ type SpreadScanner struct {
 	scanInterval    time.Duration // 全量扫描间隔（WebSocket 触发之外的保底扫描）
 	maxOppsPerScan  int           // 每次扫描最多输出的机会数
 
+	// DEX 名称 → Router 地址映射（来自配置，替代硬编码）
+	dexRouters map[string]common.Address
+
 	// 输出
 	opportunityCh chan *SpreadOpportunity
 
@@ -73,13 +76,19 @@ func NewSpreadScanner(priceCache *cache.PriceCache, minSpreadBps int) *SpreadSca
 		minSpreadBps = 30 // 默认 0.3%
 	}
 	return &SpreadScanner{
-		priceCache:    priceCache,
-		minSpreadBps:  minSpreadBps,
-		scanInterval:  30 * time.Second, // 每 30 秒全量扫描一次
+		priceCache:     priceCache,
+		minSpreadBps:   minSpreadBps,
+		scanInterval:   30 * time.Second, // 每 30 秒全量扫描一次
 		maxOppsPerScan: 20,
-		opportunityCh: make(chan *SpreadOpportunity, 200),
-		stopCh:        make(chan struct{}),
+		dexRouters:     make(map[string]common.Address),
+		opportunityCh:  make(chan *SpreadOpportunity, 200),
+		stopCh:         make(chan struct{}),
 	}
+}
+
+// SetDexRouters 设置 DEX 名称 → Router 地址映射
+func (s *SpreadScanner) SetDexRouters(routers map[string]common.Address) {
+	s.dexRouters = routers
 }
 
 // Start 启动扫描器
@@ -357,8 +366,8 @@ func (s *SpreadScanner) buildOpportunity(buyPool, sellPool *cache.PoolPrice, buy
 	// 路径: Token0 → Token1 (买入) → Token0 (卖出)
 	swapPath := []common.Address{token0, token1, token0}
 	dexPath := []common.Address{
-		getDexRouter(buyPool),
-		getDexRouter(sellPool),
+		s.getDexRouter(buyPool),
+		s.getDexRouter(sellPool),
 	}
 	dexNames := []string{buyPool.DexName, sellPool.DexName}
 
@@ -438,9 +447,26 @@ func sameTokenPair(a, b *cache.PoolPrice) bool {
 	return (a0 == b0 && a1 == b1) || (a0 == b1 && a1 == b0)
 }
 
-func getDexRouter(p *cache.PoolPrice) common.Address {
-	// 根据 DEX 名称返回已知 Router 地址（Arbitrum）
+// getDexRouter 根据池子的 DEX 名称查找 Router 地址
+// 优先使用配置的 dexRouters 映射，fallback 到已知的 Arbitrum 地址
+func (s *SpreadScanner) getDexRouter(p *cache.PoolPrice) common.Address {
 	name := strings.ToLower(p.DexName)
+
+	// 优先从配置的 dexRouters map 查找（精确匹配 key）
+	if len(s.dexRouters) > 0 {
+		// 尝试精确匹配原始名称
+		if addr, ok := s.dexRouters[p.DexName]; ok {
+			return addr
+		}
+		// 模糊匹配：遍历 map key
+		for key, addr := range s.dexRouters {
+			if strings.Contains(name, strings.ToLower(key)) {
+				return addr
+			}
+		}
+	}
+
+	// Fallback: 已知 Arbitrum Router 地址
 	switch {
 	case strings.Contains(name, "sushi"):
 		return common.HexToAddress("0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506")

@@ -28,6 +28,7 @@ type ArbitrageExecutor struct {
 
 	// 配置
 	arbitrageCoreAddress common.Address
+	flashLoanAddress     common.Address // FlashLoanArbitrage 合约地址
 	keeperPrivateKey     string
 
 	// 状态
@@ -38,6 +39,11 @@ type ArbitrageExecutor struct {
 	totalExecuted int64
 	totalProfit   *big.Int
 	totalGasSpent *big.Int
+
+	// 安全：日累计 Gas 损失限制
+	dailyGasLoss   *big.Int  // 当日累计 revert Gas 损失（wei）
+	dailyGasLossMu sync.Mutex
+	dailyGasDate   string // 日期字符串，用于日切重置
 }
 
 // NewArbitrageExecutor 创建执行器
@@ -54,6 +60,8 @@ func NewArbitrageExecutor(
 		pendingTx:            make(map[string]*types.Transaction),
 		totalProfit:          big.NewInt(0),
 		totalGasSpent:        big.NewInt(0),
+		dailyGasLoss:         big.NewInt(0),
+		dailyGasDate:         time.Now().Format("2006-01-02"),
 	}
 
 	executor.contractCaller = NewContractCaller(web3Client, arbitrageCoreAddress)
@@ -73,6 +81,51 @@ func NewArbitrageExecutor(
 // SetDB 设置数据库连接
 func (e *ArbitrageExecutor) SetDB(db *gorm.DB) {
 	e.db = db
+}
+
+// SetFlashLoanAddress 设置 FlashLoanArbitrage 合约地址
+func (e *ArbitrageExecutor) SetFlashLoanAddress(addr common.Address) {
+	e.flashLoanAddress = addr
+	if e.contractCaller != nil {
+		e.contractCaller.SetFlashLoanAddress(addr)
+	}
+}
+
+// HasFlashLoan 检查是否配置了 Flash Loan 合约
+func (e *ArbitrageExecutor) HasFlashLoan() bool {
+	return e.flashLoanAddress != (common.Address{})
+}
+
+// DailyGasLossExceeded 检查日累计 Gas 损失是否超限（默认上限 $5 ≈ 0.002 ETH ≈ 2e15 wei）
+func (e *ArbitrageExecutor) DailyGasLossExceeded() bool {
+	e.dailyGasLossMu.Lock()
+	defer e.dailyGasLossMu.Unlock()
+
+	today := time.Now().Format("2006-01-02")
+	if today != e.dailyGasDate {
+		e.dailyGasLoss = big.NewInt(0)
+		e.dailyGasDate = today
+	}
+
+	// 上限 0.005 ETH ≈ $12.5（按 ETH=$2500 估算，给 Flash Loan 更多试错空间）
+	limit := new(big.Int).SetUint64(5_000_000_000_000_000) // 5e15 wei
+	return e.dailyGasLoss.Cmp(limit) >= 0
+}
+
+// recordGasLoss 记录 revert 导致的 Gas 损失
+func (e *ArbitrageExecutor) recordGasLoss(gasCost *big.Int) {
+	if gasCost == nil || gasCost.Sign() <= 0 {
+		return
+	}
+	e.dailyGasLossMu.Lock()
+	defer e.dailyGasLossMu.Unlock()
+
+	today := time.Now().Format("2006-01-02")
+	if today != e.dailyGasDate {
+		e.dailyGasLoss = big.NewInt(0)
+		e.dailyGasDate = today
+	}
+	e.dailyGasLoss.Add(e.dailyGasLoss, gasCost)
 }
 
 // GetVaultAvailable 查询指定 token 对应 Vault 的可用余额
@@ -109,24 +162,43 @@ func (e *ArbitrageExecutor) Execute(
 		tokenOut = opp.SwapPath[len(opp.SwapPath)-1]
 	}
 
+	// 确保 FeeTiers 长度与 Dexes 一致（合约要求 feeTiers.length == dexes.length）
+	feeTiers := opp.FeeTiers
+	if len(feeTiers) != len(opp.Dexes) {
+		feeTiers = make([]uint32, len(opp.Dexes)) // 默认全 0 (V2)
+	}
+
 	params := &ArbitrageParams{
 		Asset:        opp.SwapPath[0],
 		TokenOut:     tokenOut,
 		AmountIn:     opp.AmountIn,
 		SwapPath:     opp.SwapPath,
 		Dexes:        opp.Dexes,
+		FeeTiers:     feeTiers,
 		ExpectProfit: opp.ExpectProfit,
 		MinProfit:    opp.MinProfit,
 		IsCex:        opp.IsCex,
 	}
 
-	// 4. 跳过 eth_call 模拟（速度优先），直接提交交易
-	// 合约内部有 require(profit >= minProfit) 保护，revert 只损失 Gas
-	log.Executor().Info().
-		Str("path", opp.ID).
-		Str("amount_in", params.AmountIn.String()).
-		Int("dexes", len(params.Dexes)).
-		Msg("🚀 Submitting transaction (no simulation)")
+	// 4. 日累计 Gas 损失检查（防止 bug 快速烧完 Gas）
+	if e.DailyGasLossExceeded() {
+		return nil, fmt.Errorf("daily gas loss limit exceeded, execution paused")
+	}
+
+	// 4b. eth_call 二次模拟验证（executor 层安全门，防止绕过 scheduler 直接调用）
+	if e.contractCaller != nil {
+		simGas, simErr := e.contractCaller.SimulateArbitrage(ctx, params)
+		if simErr != nil {
+			log.Executor().Warn().Err(simErr).Str("path", opp.ID).Msg("Executor simulation reverted, skipping")
+			return nil, fmt.Errorf("executor simulation failed: %w", simErr)
+		}
+		log.Executor().Info().
+			Str("path", opp.ID).
+			Str("amount_in", params.AmountIn.String()).
+			Int("dexes", len(params.Dexes)).
+			Str("sim_gas", simGas.String()).
+			Msg("🚀 Simulation passed, submitting transaction")
+	}
 
 	// 5. 执行交易
 	tx, err := e.contractCaller.ExecuteArbitrage(ctx, e.keeperPrivateKey, params)
@@ -170,6 +242,92 @@ func (e *ArbitrageExecutor) Execute(
 	}
 
 	// 11. 清理待确认交易
+	e.pendingTxMu.Lock()
+	delete(e.pendingTx, tx.Hash().Hex())
+	e.pendingTxMu.Unlock()
+
+	return result, nil
+}
+
+// ExecuteWithFlashLoan 通过 Flash Loan 执行套利（零资本风险）
+// Flash Loan 路径：借 Aave 资金 → 执行套利 → 还款 + 利润
+// 金额由池子流动性决定，不依赖 Vault 余额
+func (e *ArbitrageExecutor) ExecuteWithFlashLoan(
+	ctx context.Context,
+	opp *strategy.ArbitrageOpportunity,
+) (*ExecutionResult, error) {
+	startTime := time.Now()
+
+	if !e.HasFlashLoan() {
+		return nil, fmt.Errorf("flash loan contract not configured")
+	}
+
+	if time.Now().After(opp.ValidUntil) {
+		return nil, fmt.Errorf("opportunity expired")
+	}
+
+	// 日累计 Gas 损失检查
+	if e.DailyGasLossExceeded() {
+		return nil, fmt.Errorf("daily gas loss limit exceeded, execution paused")
+	}
+
+	// 构建 Flash Loan 参数
+	flParams := &FlashLoanParams{
+		Platform:     0, // Aave_V2 (默认)
+		TokenIn:      opp.SwapPath[0],
+		AmountIn:     opp.AmountIn,
+		SwapPath:     opp.SwapPath,
+		Dexes:        opp.Dexes,
+		ExpectProfit: opp.ExpectProfit,
+		MinProfit:    opp.MinProfit,
+	}
+
+	log.Executor().Info().
+		Str("path", opp.ID).
+		Str("amount_in", flParams.AmountIn.String()).
+		Str("token", flParams.TokenIn.Hex()[:14]).
+		Int("dexes", len(flParams.Dexes)).
+		Msg("⚡ Submitting Flash Loan transaction")
+
+	// 执行 Flash Loan 交易
+	tx, err := e.contractCaller.ExecuteFlashLoanArbitrage(ctx, e.keeperPrivateKey, flParams)
+	if err != nil {
+		return &ExecutionResult{
+			Success:   false,
+			Error:     err.Error(),
+			Timestamp: time.Now(),
+		}, err
+	}
+
+	// 记录待确认交易
+	e.pendingTxMu.Lock()
+	e.pendingTx[tx.Hash().Hex()] = tx
+	e.pendingTxMu.Unlock()
+
+	// 等待确认
+	receipt, err := e.waitForReceipt(ctx, tx)
+	if err != nil {
+		return &ExecutionResult{
+			Success:   false,
+			TxHash:    tx.Hash().Hex(),
+			Error:     err.Error(),
+			Timestamp: time.Now(),
+		}, err
+	}
+
+	// 解析结果
+	result := e.parseExecutionResult(opp, tx, receipt, startTime)
+
+	if result.Success {
+		e.totalExecuted++
+		e.totalProfit.Add(e.totalProfit, result.ActualProfit)
+		e.totalGasSpent.Add(e.totalGasSpent, result.GasCost)
+	}
+
+	if err := e.saveExecutionRecord(opp, result); err != nil {
+		log.Warn("Save flash loan execution record failed: %v", err)
+	}
+
 	e.pendingTxMu.Lock()
 	delete(e.pendingTx, tx.Hash().Hex())
 	e.pendingTxMu.Unlock()
@@ -238,6 +396,8 @@ func (e *ArbitrageExecutor) parseExecutionResult(
 	} else {
 		result.Success = false
 		result.Error = "transaction reverted"
+		// 记录 revert Gas 损失到日累计
+		e.recordGasLoss(result.GasCost)
 	}
 
 	return result
@@ -258,10 +418,13 @@ func (e *ArbitrageExecutor) parseActualProfit(receipt *types.Receipt) *big.Int {
 		if lg.Topics[0] == vaultSig {
 			// topics: [sig, vault, asset]
 			// data: amountIn(0:32), profit(32:64), platFormFee(64:96), netProfitToVault(96:128), timestamp(128:160)
-			if len(lg.Data) < 64 {
-				continue
+			// 报表使用机器人净收益（netProfitToVault），不含平台费
+			if len(lg.Data) >= 128 {
+				return new(big.Int).SetBytes(lg.Data[96:128]) // netProfitToVault
 			}
-			return new(big.Int).SetBytes(lg.Data[32:64]) // profit
+			if len(lg.Data) >= 64 {
+				return new(big.Int).SetBytes(lg.Data[32:64]) // fallback: profit
+			}
 		}
 	}
 
@@ -292,6 +455,7 @@ type ArbitrageParams struct {
 	AmountIn     *big.Int
 	SwapPath     []common.Address
 	Dexes        []common.Address
+	FeeTiers     []uint32 // 每步 V3 fee tier (500/3000/10000); 0 = V2
 	ExpectProfit *big.Int
 	MinProfit    *big.Int
 	IsCex        bool // 是否为 CEX-DEX 套利

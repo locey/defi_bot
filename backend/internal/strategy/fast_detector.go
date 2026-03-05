@@ -118,8 +118,8 @@ func defaultDetectorConfig() *DetectorConfig {
 		MinPathLength: 3,
 		MaxPathLength: 4,
 		ProfitThresholds: map[int]float64{
-			3: 0.003, // 0.3%
-			4: 0.005, // 0.5%
+			3: 0.005, // 0.5%（含 Flash Loan 0.05% 费用 + Gas + 安全边际）
+			4: 0.008, // 0.8%（4-hop 更高门槛）
 		},
 		MaxConcurrentCalc:     100,
 		OpportunityBufferSize: 1000,
@@ -559,6 +559,16 @@ func (d *ArbitrageDetector) calculatePath(path *ArbitragePath) *ArbitrageOpportu
 		}
 	}
 
+	// 构建 FeeTiers: 从 PriceCache 获取每个池子的 fee (V3=500/3000/10000, V2=0)
+	feeTiers := make([]uint32, 0, len(path.Pools))
+	for _, poolAddr := range path.Pools {
+		if pp, ok := d.priceCache.Get(poolAddr); ok {
+			feeTiers = append(feeTiers, uint32(pp.Fee))
+		} else {
+			feeTiers = append(feeTiers, 0) // 未知池子默认 V2 (fee=0)
+		}
+	}
+
 	// 构建机会对象
 	opp := &ArbitrageOpportunity{
 		ID:           path.ID + "_" + time.Now().Format("20060102150405"),
@@ -572,6 +582,7 @@ func (d *ArbitrageDetector) calculatePath(path *ArbitragePath) *ArbitrageOpportu
 		ValidUntil:   time.Now().Add(30 * time.Second),
 		Confidence:   calculatePathConfidence(path, profitRateFloat),
 		IsCex:        false,
+		FeeTiers:     feeTiers,
 	}
 
 	// 计算预期利润（wei 单位）
@@ -580,11 +591,18 @@ func (d *ArbitrageDetector) calculatePath(path *ArbitragePath) *ArbitrageOpportu
 		expectedProfit.Mul(expectedProfit, big.NewFloat(profitRateFloat))
 		opp.ExpectProfit, _ = expectedProfit.Int(nil)
 
-		// 计算 MinProfit = Gas 成本的 2 倍（保守估计）
-		// Arbitrum Gas ~800K × 0.1 gwei = 0.00008 ETH
-		gasEstimateWei := new(big.Int).Mul(big.NewInt(800000), big.NewInt(100_000_000)) // 800K gas × 0.1 gwei
-		opp.MinProfit = new(big.Int).Mul(gasEstimateWei, big.NewInt(2))
-		opp.GasEstimate = 800000
+		// MinProfit = Gas 成本 × 2 + Flash Loan 费用（0.05% of amountIn）
+		// Gas: Arbitrum ~800K × 0.1 gwei = 0.00008 ETH
+		// Flash Loan 路径 Gas 更高 ~1.5M × 0.1 gwei = 0.00015 ETH
+		gasEstimateWei := new(big.Int).Mul(big.NewInt(1_500_000), big.NewInt(100_000_000)) // 1.5M gas × 0.1 gwei
+		gasCostX2 := new(big.Int).Mul(gasEstimateWei, big.NewInt(2))
+
+		// Aave Flash Loan 费率 0.05% = 5/10000
+		flashLoanFee := new(big.Int).Mul(optimalAmountIn, big.NewInt(5))
+		flashLoanFee.Div(flashLoanFee, big.NewInt(10000))
+
+		opp.MinProfit = new(big.Int).Add(gasCostX2, flashLoanFee)
+		opp.GasEstimate = 1_500_000
 	}
 
 	calcTime := time.Since(startTime)
@@ -750,30 +768,34 @@ func calculateMaxAmountForDecimals(decimals uint8) *big.Int {
 }
 
 // calculatePathConfidence 计算路径置信度
-// 改进版：更合理的置信度评估
+// 改进版：更保守的评估，低利润率给更低置信度（扣完 Gas+Flash Loan 费后可能亏损）
 func calculatePathConfidence(path *ArbitragePath, profitRate float64) float64 {
 	// 基础置信度
-	confidence := 0.8
+	confidence := 0.7
 
 	// 路径长度影响（3-hop 最佳）
 	switch path.PathLength {
 	case 3:
 		confidence *= 1.0 // 3-hop 最常见最可靠
 	case 4:
-		confidence *= 0.9 // 4-hop 稍低
+		confidence *= 0.85 // 4-hop 显著降低
 	default:
-		confidence *= 0.7 // 5+ hop 较低
+		confidence *= 0.6 // 5+ hop 很低
 	}
 
-	// 利润率合理性检查（过高的利润率通常不真实）
+	// 利润率合理性检查
 	if profitRate > 0.5 { // >50% 极不可能
-		confidence *= 0.1
+		confidence *= 0.05
 	} else if profitRate > 0.1 { // >10% 可疑
-		confidence *= 0.3
+		confidence *= 0.2
 	} else if profitRate > 0.05 { // >5% 需要验证
-		confidence *= 0.6
-	} else if profitRate > 0.003 { // 0.3%-5% 合理范围
-		confidence *= 1.0 // 不惩罚
+		confidence *= 0.5
+	} else if profitRate > 0.01 { // 1%-5% 合理
+		confidence *= 0.9
+	} else if profitRate > 0.005 { // 0.5%-1% 边缘，扣 Gas 后可能亏
+		confidence *= 0.7
+	} else { // <0.5% 扣完 Gas + Flash Loan 0.05% 后大概率亏
+		confidence *= 0.4
 	}
 
 	// 历史成功率（有历史数据时加权）

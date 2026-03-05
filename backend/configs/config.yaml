@@ -23,8 +23,8 @@ blockchain:
   rpc_urls:
     - https://arb1.arbitrum.io/rpc
     - https://arbitrum-one.publicnode.com
-    - https://rpc.ankr.com/arbitrum
-    - https://arbitrum.llamarpc.com
+    - https://1rpc.io/arb
+    - https://arbitrum.drpc.org
   
   # WebSocket URL（用于实时订阅）
   ws_url: wss://arb1.arbitrum.io/ws
@@ -54,6 +54,12 @@ contracts:
   
   # Aave V3 LendingPool（Arbitrum）- 用于闪电贷
   aave_lending_pool: "0x794a61358D6845594F94dc1DB02A252b5b4814aD"
+
+  # FlashLoanArbitrage 合约地址（需部署后填入，空则禁用 Flash Loan 路径）
+  flash_loan_arbitrage: ""
+
+  # FlashLoanRouter 合约地址
+  flash_loan_router: "0x4A89d8B8B0376Fc8c7e2119445c828719BeC019E"
 
 # Keeper 配置
 # ⚠️ 私钥通过环境变量 KEEPER_PRIVATE_KEY 注入，绝不在此文件中明文存储
@@ -225,16 +231,16 @@ scheduler:
   collect_interval: 10   # Arbitrum 出块快，降低采集间隔
   analyze_interval: 5    # 更频繁分析
   cleanup_interval: 24
-  min_profit_rate: 0.1   # 降低到 0.1%（L2 Gas 便宜）
+  min_profit_rate: 0.4   # 0.4%（确保扣完 Gas + Aave 0.05% 费率后净正）
   mode: high_performance
-  enable_execution: true   # 开启执行（eth_call 模拟作为保护层，只有通过验证的机会才提交）
-  dry_run: false           # 关闭 dry-run，允许真实交易
-  min_confidence: 0.5
-  max_concurrent_exec: 1
+  enable_execution: true   # Phase 3: 主网执行
+  dry_run: false            # Phase 3: 真实交易
+  min_confidence: 0.8       # Day 1 保守：仅高置信度
+  max_concurrent_exec: 1    # 单笔串行
 
 # 套利配置
 arbitrage:
-  min_profit_rate: 0.1   # 0.1%（Arbitrum Gas 成本低）
+  min_profit_rate: 0.4   # 0.4%（含 Gas + Flash Loan 0.05% 费用后净正）
   max_slippage: 0.5      # 0.5%
   max_gas_price: 1       # Arbitrum Gas 很便宜，1 Gwei
 
@@ -271,8 +277,8 @@ cex:
   # 币安配置
   binance:
     enabled: true
-    api_endpoint: "https://api.binance.com"
-    ws_endpoint: "wss://stream.binance.com:9443/ws"
+    api_endpoint: "https://api.binance.us"
+    ws_endpoint: "wss://stream.binance.us:9443/ws"
     api_key: ""
     api_secret: ""
     rate_limit: 1200
@@ -285,13 +291,11 @@ cex:
       # 稳定币对
       - "USDCUSDT"
       - "DAIUSDT"
-      # DeFi 代币
-      - "GMXUSDT"
+      # DeFi 代币（GMX/PENDLE not on Binance US）
       - "LINKUSDT"
       - "UNIUSDT"
       - "AAVEUSDT"
       - "CRVUSDT"
-      - "PENDLEUSDT"
 
 # ============ CEX-DEX 套利配置 ============
 cexdex:
@@ -325,9 +329,12 @@ cexdex:
     USDC: "USDCUSDT"
     USDCe: "USDCUSDT"
     DAI: "DAIUSDT"
-    GMX: "GMXUSDT"
     LINK: "LINKUSDT"
     UNI: "UNIUSDT"
     AAVE: "AAVEUSDT"
     CRV: "CRVUSDT"
-    PENDLE: "PENDLEUSDT"
+
+# Prometheus 指标（可选）
+metrics:
+  enabled: false
+  port: 9090

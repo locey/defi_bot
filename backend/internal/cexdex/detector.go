@@ -192,11 +192,14 @@ func (d *Detector) checkOpportunity(cexPrice *CEXPrice) {
 	// CEX 买价 vs DEX 卖价：如果 CEX 买价 > DEX 卖价，可以在 DEX 买然后在 CEX 卖
 	// CEX 卖价 vs DEX 买价：如果 CEX 卖价 < DEX 买价，可以在 CEX 买然后在 DEX 卖
 
+	// 交易费用扣除：DEX swap fee ~0.3% + CEX taker fee ~0.1% = 0.4%
+	const totalFeeRate = 0.004
+
 	// 方向1: DEX -> CEX (在 DEX 买，在 CEX 卖)
-	spread1 := (cexPrice.BidPrice - dexPrice) / dexPrice
-	
+	spread1 := (cexPrice.BidPrice-dexPrice)/dexPrice - totalFeeRate
+
 	// 方向2: CEX -> DEX (在 CEX 买，在 DEX 卖)
-	spread2 := (dexPrice - cexPrice.AskPrice) / cexPrice.AskPrice
+	spread2 := (dexPrice-cexPrice.AskPrice)/cexPrice.AskPrice - totalFeeRate
 
 	// 输出价格比较（周期性）
 	log.Info("CEX-DEX 价格比较: symbol=%s cex_bid=%.4f cex_ask=%.4f dex=%.4f spread1=%.4f%% spread2=%.4f%% (min=%.4f%%)",

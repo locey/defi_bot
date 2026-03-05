@@ -60,19 +60,12 @@ temp/
 *.swo
 *~
 
-# ============ 文档（仅保留 README）============
-docs/
+# ============ 文档 ============
+# backend/docs/ 是自动生成的临时文档，不提交
 backend/docs/
-contract/docs/
-*.md
-!README.md
-!**/README.md
 
 # ============ 测试脚本和工具 ============
-scripts/
 backend/scripts/
-contract/scripts/
-*.sh
 *.ps1
 !setup.sh
 
@@ -87,6 +80,7 @@ pgadmin_data/
 # ============ IDE 和编辑器 ============
 .idea/
 .vscode/
+.cursor/
 *.iml
 .project
 .classpath
