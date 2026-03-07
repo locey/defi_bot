@@ -9,7 +9,7 @@ cd "$(dirname "$0")/../../backend"
 
 # 从 config.yaml 中读取地址
 CONFIG_FILE="configs/config.yaml"
-KEEPER_ADDR=$(grep 'address:' "$CONFIG_FILE" | grep -v '#' | head -1 | awk '{print $2}' | tr -d '"')
+KEEPER_ADDR=$(grep -A1 'keeper:' "$CONFIG_FILE" | grep 'address:' | awk '{print $2}' | tr -d '"')
 VAULT_ADDR=$(grep 'vault:' "$CONFIG_FILE" | head -1 | awk '{print $2}' | tr -d '"')
 
 if [ -z "$KEEPER_ADDR" ] || [ -z "$VAULT_ADDR" ]; then

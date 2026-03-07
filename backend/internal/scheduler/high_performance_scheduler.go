@@ -371,8 +371,13 @@ func (s *HighPerformanceScheduler) convertSpreadOpportunity(opp *strategy.Spread
 
 	// amountIn 设为 nil，由 handleOpportunity 的 Vault 余额逻辑动态设置
 	// ExpectProfit 将在 handleOpportunity 中根据实际 amountIn 重新计算
-	// 从 BuyPool/SellPool 提取 fee tier (V3=500/3000/10000, V2=0)
-	feeTiers := []uint32{uint32(opp.BuyPool.Fee), uint32(opp.SellPool.Fee)}
+	// 从 BuyPool/SellPool 提取 fee tier
+	// PriceCache.Fee 是 bps (5=0.05%), 合约需要 Uniswap V3 fee (500)
+	buyFee := uint32(opp.BuyPool.Fee)
+	if buyFee > 0 { buyFee = buyFee * 100 }
+	sellFee := uint32(opp.SellPool.Fee)
+	if sellFee > 0 { sellFee = sellFee * 100 }
+	feeTiers := []uint32{buyFee, sellFee}
 
 	return &strategy.ArbitrageOpportunity{
 		ID:         opp.ID,

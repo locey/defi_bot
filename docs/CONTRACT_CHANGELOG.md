@@ -252,3 +252,37 @@ for i, ft := range params.FeeTiers {
 
 6. 后端需要同步更新，否则 ABI 编码不匹配会导致所有交易 revert
 7. 确保后端和合约**同时上线**
+
+---
+
+## 2026-03-08 补丁
+
+### 链上合约升级 (已完成)
+
+使用 `scripts/deploy/upgrade_arbitrum.js` 升级 3 个合约:
+
+| 合约 | Proxy | 新 Implementation |
+|------|-------|-------------------|
+| DoubleRouterIntegration | `0xE075...95dc` | `0xC606...fa14` |
+| SpotArbitrage | `0xceCCf5...ad17` | `0xBFC1...Eb8e` |
+| ArbitrageCore | `0x0D14...22B9` | `0xcB18...F2Be` |
+
+- backendCaller 已重新设置为 ArbitrageCore 地址
+- Gas 消耗: 0.000097 ETH
+
+### feeTiers bps→raw 修复
+
+**问题**: `PriceCache.Fee` 存储的是 bps 单位 (5=0.05%, 30=0.3%, 100=1%)，但 Uniswap V3 合约需要原始 fee 值 (500, 3000, 10000)。FastDetector 和 Scheduler 直接传 bps 值导致 V3 Router swap 失败。
+
+**修复**: 在取出 fee 后乘以 100 转换 (`fee = bps * 100`)
+
+- `internal/strategy/fast_detector.go`: `uint32(pp.Fee) * 100`
+- `internal/scheduler/high_performance_scheduler.go`: `uint32(opp.BuyPool.Fee) * 100`
+
+### Dry-Run 验证结果
+
+修复后 eth_call 能正确到达合约执行层:
+- **之前**: `execution reverted` (无具体错误 → ABI 不匹配或 fee 错误)
+- **之后**: `DoubleRouter: insufficient profit` (swap 成功执行，只是当前市场无盈利机会)
+
+Pipeline 端到端打通: PriceCache → Detector → Simulator → DoubleRouter swap → profit check

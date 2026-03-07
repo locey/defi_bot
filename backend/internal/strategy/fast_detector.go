@@ -559,11 +559,18 @@ func (d *ArbitrageDetector) calculatePath(path *ArbitragePath) *ArbitrageOpportu
 		}
 	}
 
-	// 构建 FeeTiers: 从 PriceCache 获取每个池子的 fee (V3=500/3000/10000, V2=0)
+	// 构建 FeeTiers: 从 PriceCache 获取每个池子的 fee
+	// PriceCache.Fee 存储的是 bps (5=0.05%, 30=0.3%, 100=1%)
+	// Uniswap V3 合约需要原始 fee (500, 3000, 10000)
+	// 转换: fee = bps * 100; V2 池子 fee=0 保持不变
 	feeTiers := make([]uint32, 0, len(path.Pools))
 	for _, poolAddr := range path.Pools {
 		if pp, ok := d.priceCache.Get(poolAddr); ok {
-			feeTiers = append(feeTiers, uint32(pp.Fee))
+			fee := uint32(pp.Fee)
+			if fee > 0 {
+				fee = fee * 100 // bps → Uniswap V3 fee (5→500, 30→3000, 100→10000)
+			}
+			feeTiers = append(feeTiers, fee)
 		} else {
 			feeTiers = append(feeTiers, 0) // 未知池子默认 V2 (fee=0)
 		}
