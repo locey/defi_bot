@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
 )
 
 // Simulator 套利模拟器
@@ -22,6 +23,7 @@ import (
 // 确认链上真实利润 > Gas 成本后才提交真实交易
 type Simulator struct {
 	client          *web3.Client
+	clientPool      *web3.ClientPool // 可选：多 RPC 轮询，减少 429
 	contractAddress common.Address
 	contractABI     abi.ABI
 	keeperAddress   common.Address
@@ -64,6 +66,11 @@ func NewSimulator(
 	}, nil
 }
 
+// SetClientPool 设置 RPC 客户端池（可选，用于 429 时轮换 RPC 节点）
+func (s *Simulator) SetClientPool(pool *web3.ClientPool) {
+	s.clientPool = pool
+}
+
 // SimulateArbitrage 模拟套利交易
 // 返回模拟结果，包括预期利润、Gas 成本和净利润
 func (s *Simulator) SimulateArbitrage(
@@ -83,9 +90,9 @@ func (s *Simulator) SimulateArbitrage(
 		return result, nil
 	}
 
-	ethClient := s.client.GetClient()
+	// 2. 获取 ethclient（支持 RPC 池轮询）
+	ethClient := s.getEthClient()
 
-	// 2. 用 eth_call 模拟执行
 	callMsg := ethereum.CallMsg{
 		From:  s.keeperAddress,
 		To:    &s.contractAddress,
@@ -93,9 +100,11 @@ func (s *Simulator) SimulateArbitrage(
 		Value: big.NewInt(0),
 	}
 
+	// eth_call 模拟执行（429 时轮换 RPC 节点）
 	_, err = ethClient.CallContract(ctx, callMsg, nil)
 	if err != nil && strings.Contains(err.Error(), "429") {
-		time.Sleep(500 * time.Millisecond)
+		ethClient = s.getEthClient() // 轮换到下一个 RPC
+		time.Sleep(200 * time.Millisecond)
 		_, err = ethClient.CallContract(ctx, callMsg, nil)
 	}
 	if err != nil {
@@ -104,14 +113,14 @@ func (s *Simulator) SimulateArbitrage(
 		return result, nil
 	}
 
-	// 3. 估算 Gas（429 限流重试一次）
+	// 3. 估算 Gas（429 时轮换 RPC）
 	gasUsed, err := ethClient.EstimateGas(ctx, callMsg)
 	if err != nil && strings.Contains(err.Error(), "429") {
-		time.Sleep(500 * time.Millisecond)
+		ethClient = s.getEthClient()
+		time.Sleep(200 * time.Millisecond)
 		gasUsed, err = ethClient.EstimateGas(ctx, callMsg)
 	}
 	if err != nil {
-		// eth_call 成功但 gas 估算失败，用默认 gas 值继续计算
 		gasUsed = 1_000_000 // Arbitrum 上套利交易通常 ~800K-1M gas
 	}
 	result.GasUsed = gasUsed
@@ -153,6 +162,16 @@ func (s *Simulator) SimulateArbitrage(
 		Msg("Simulation result")
 
 	return result, nil
+}
+
+// getEthClient 获取 ethclient（支持 RPC 池轮询，减少单节点 429）
+func (s *Simulator) getEthClient() *ethclient.Client {
+	if s.clientPool != nil && s.clientPool.GetClientCount() > 0 {
+		if c := s.clientPool.GetClient(); c != nil {
+			return c.GetClient()
+		}
+	}
+	return s.client.GetClient()
 }
 
 // buildCallData 构建 executeStrategy(ArbitrageParams) 调用数据

@@ -102,6 +102,9 @@ type HighPerformanceConfig struct {
 	FlashLoanAddress string // FlashLoanArbitrage 合约地址（空则禁用 Flash Loan）
 	EnableFlashLoan  bool   // 是否启用 Flash Loan 路径（Vault 不足时自动切换）
 
+	// RPC 池（可选，多 RPC 节点轮询降低 429）
+	RPCPool *web3.ClientPool
+
 	// 动态价差扫描器配置
 	EnableSpreadScanner bool // 是否启用自动发现跨 DEX 价差（不依赖预设代币列表）
 	MinSpreadBps        int  // 触发价差阈值（basis points，默认 30 = 0.3%）
@@ -238,6 +241,11 @@ func (s *HighPerformanceScheduler) initComponents() error {
 		if simErr != nil {
 			log.Scheduler().Warn().Err(simErr).Msg("  ⚠ Simulator creation failed (will skip simulation)")
 		} else {
+			// 如果有 RPC 池，设置到模拟器（429 时自动轮换节点）
+			if s.config.RPCPool != nil {
+				sim.SetClientPool(s.config.RPCPool)
+				log.Scheduler().Info().Int("rpc_nodes", s.config.RPCPool.GetClientCount()).Msg("  ✓ Simulator RPC pool configured")
+			}
 			s.simulator = sim
 			log.Scheduler().Info().Msg("  ✓ Simulator initialized (eth_call verification enabled)")
 		}
@@ -628,10 +636,15 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 	}
 
 	// eth_call 模拟验证（免费，不消耗 Gas）
-	// 自适应 RPC 限流：初始 100ms，遇 429 自动退避到 500ms，无 429 逐步回落
+	// 有 RPC 池时降低限流（429 由 Simulator 内部轮换处理）
+	// 无 RPC 池时保留自适应限流
 	s.ethCallMu.Lock()
 	if s.ethCallMinDelay == 0 {
-		s.ethCallMinDelay = 100 * time.Millisecond
+		if s.config.RPCPool != nil && s.config.RPCPool.GetClientCount() > 1 {
+			s.ethCallMinDelay = 50 * time.Millisecond // 多 RPC 节点，降低间隔
+		} else {
+			s.ethCallMinDelay = 100 * time.Millisecond
+		}
 	}
 	elapsed := time.Since(s.lastEthCall)
 	if elapsed < s.ethCallMinDelay {

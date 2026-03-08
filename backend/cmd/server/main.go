@@ -121,6 +121,27 @@ func main() {
 	}
 	defer web3Client.Close()
 
+	// 5b. 创建 RPC 客户端池（多节点轮询，降低 429 限流）
+	var rpcPool *web3.ClientPool
+	if cfg.Blockchain.UsePool && len(cfg.Blockchain.RPCURLs) > 1 {
+		log.Main().Info().Int("rpc_count", len(cfg.Blockchain.RPCURLs)).Msg("创建 RPC 客户端池...")
+		poolCfg := &web3.ClientPoolConfig{
+			RPCURLs:       cfg.Blockchain.RPCURLs,
+			ChainID:       cfg.Blockchain.ChainID,
+			Timeout:       cfg.Blockchain.Timeout,
+			HealthCheck:   true,
+			CheckInterval: 60 * time.Second,
+		}
+		var poolErr error
+		rpcPool, poolErr = web3.NewClientPool(poolCfg)
+		if poolErr != nil {
+			log.Main().Warn().Err(poolErr).Msg("RPC 客户端池创建失败，将使用单节点")
+		} else {
+			defer rpcPool.Close()
+			log.Main().Info().Int("nodes", rpcPool.GetClientCount()).Msg("✅ RPC 客户端池已创建")
+		}
+	}
+
 	// 6. 初始化 Redis 缓存（可选）
 	var redisCache *cache.RedisCache
 	if cfg.Redis.Enabled {
@@ -283,6 +304,8 @@ func main() {
 			// 动态价差扫描器（自动发现跨 DEX 套利，不依赖预设代币列表）
 			EnableSpreadScanner: true,
 			MinSpreadBps:        15, // 0.15% 最小触发价差（让更多机会进入 eth_call 验证）
+			// RPC 客户端池（多节点轮询，eth_call 429 时自动轮换）
+			RPCPool: rpcPool,
 		}
 		if hpConfig.MaxConcurrentExecutions == 0 {
 			hpConfig.MaxConcurrentExecutions = 3
@@ -430,13 +453,13 @@ func main() {
 				if opp.ExpectProfit > 0 {
 					arbOpp.ExpectProfit = new(big.Int).SetUint64(uint64(opp.ExpectProfit * 1e6))
 				}
-				// MinProfit 动态计算: max(2×gasCost, amountIn×0.5%)
-			gasCostWei := big.NewInt(400_000_000_000_000) // 0.0004 ETH = 2×0.0002
-			minProfitPct := new(big.Int).Div(arbOpp.AmountIn, big.NewInt(200)) // 0.5%
-			arbOpp.MinProfit = gasCostWei
-			if minProfitPct.Cmp(gasCostWei) < 0 {
-				arbOpp.MinProfit = minProfitPct
-			}
+				// MinProfit 动态计算: min(2×gasCost, amountIn×0.5%) — 取较小值避免过滤
+				gasCostWei := big.NewInt(400_000_000_000_000) // 0.0004 ETH = 2×0.0002
+				minProfitPct := new(big.Int).Div(arbOpp.AmountIn, big.NewInt(200)) // 0.5%
+				arbOpp.MinProfit = gasCostWei
+				if minProfitPct.Sign() > 0 && minProfitPct.Cmp(gasCostWei) < 0 {
+					arbOpp.MinProfit = minProfitPct
+				}
 
 				log.Main().Info().
 					Str("id", opp.ID).
