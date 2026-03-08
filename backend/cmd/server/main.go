@@ -248,6 +248,27 @@ func main() {
 		}
 
 		log.Main().Info().Msg("✅ 套利执行器已初始化（自动执行模式）")
+
+		// Pre-flight: 如果启用了执行，验证 Keeper 地址有 ETH 余额
+		if cfg.Scheduler.EnableExecution && !cfg.Scheduler.DryRun {
+			log.Main().Info().Msg("========== 🚀 LIVE MODE PRE-FLIGHT CHECK ==========")
+			keeperAddr := common.HexToAddress(cfg.Keeper.Address)
+			balance, balErr := web3Client.GetClient().BalanceAt(context.Background(), keeperAddr, nil)
+			if balErr != nil {
+				log.Main().Error().Err(balErr).Msg("❌ 无法查询 Keeper ETH 余额")
+			} else {
+				balFloat := new(big.Float).Quo(new(big.Float).SetInt(balance), new(big.Float).SetFloat64(1e18))
+				log.Main().Info().Str("address", keeperAddr.Hex()).Str("balance_eth", balFloat.Text('f', 6)).Msg("Keeper 地址余额")
+				// 最低要求 0.001 ETH（约 $2.5，够执行几十笔 Arbitrum 交易）
+				minBalance := new(big.Int).SetUint64(1_000_000_000_000_000) // 0.001 ETH
+				if balance.Cmp(minBalance) < 0 {
+					log.Main().Error().Msg("❌ Keeper ETH 余额不足（最少 0.001 ETH），将回退到 dry-run 模式")
+					cfg.Scheduler.DryRun = true
+				}
+			}
+			log.Main().Info().Bool("execution", cfg.Scheduler.EnableExecution).Bool("dry_run", cfg.Scheduler.DryRun).Msg("执行模式确认")
+			log.Main().Info().Msg("====================================================")
+		}
 	} else {
 		log.Main().Warn().Msg("未配置 Keeper 私钥或合约地址，仅分析模式（不会自动执行）")
 	}
