@@ -394,6 +394,62 @@ func (a *DEXPriceAdapter) GetRouterAddress(symbol string) common.Address {
 	return a.tokenAddrs["UNISWAP_V3_ROUTER"]
 }
 
+// GetPoolFeeTier 获取 DEX 池子的 fee tier（V3: 500/3000/10000, V2: 0）
+func (a *DEXPriceAdapter) GetPoolFeeTier(symbol string) uint32 {
+	symbol = strings.ToUpper(symbol)
+
+	a.mappingsMu.RLock()
+	mapping, ok := a.mappings[symbol]
+	a.mappingsMu.RUnlock()
+
+	if !ok {
+		return 0
+	}
+
+	baseHex := strings.ToLower(mapping.BaseToken.Hex())
+	quoteHex := strings.ToLower(mapping.QuoteToken.Hex())
+
+	pools := a.priceCache.GetByTokenPair(baseHex, quoteHex)
+	if len(pools) == 0 {
+		pools = a.priceCache.GetByTokenPair(quoteHex, baseHex)
+	}
+	if len(pools) == 0 {
+		return 0
+	}
+
+	// 选最佳池子的 fee
+	var bestPool *cache.PoolPrice
+	var bestScore float64
+	for _, p := range pools {
+		if p.Price <= 0 {
+			continue
+		}
+		score := float64(0.1)
+		if p.IsV3 && p.Liquidity != nil {
+			liq, _ := p.Liquidity.Float64()
+			score = 1000 + liq/1e15
+		}
+		if score > bestScore {
+			bestPool = p
+			bestScore = score
+		}
+	}
+	if bestPool == nil {
+		return 0
+	}
+
+	// V3: PriceCache.Fee 是 bps (5=0.05%), 合约需要 raw fee (500)
+	// V2: 必须返回 0，合约才用 V2 路由
+	if !bestPool.IsV3 {
+		return 0
+	}
+	fee := uint32(bestPool.Fee) * 100
+	if fee == 0 {
+		fee = 3000 // V3 fallback
+	}
+	return fee
+}
+
 // AddMapping 添加自定义符号映射
 func (a *DEXPriceAdapter) AddMapping(symbol string, baseToken, quoteToken, router common.Address) {
 	a.mappingsMu.Lock()

@@ -8,6 +8,7 @@ package strategy
 import (
 	"context"
 	"math"
+	"math/big"
 	"strings"
 	"sync"
 	"time"
@@ -78,7 +79,7 @@ func NewSpreadScanner(priceCache *cache.PriceCache, minSpreadBps int) *SpreadSca
 	return &SpreadScanner{
 		priceCache:     priceCache,
 		minSpreadBps:   minSpreadBps,
-		scanInterval:   30 * time.Second, // 每 30 秒全量扫描一次
+		scanInterval:   3 * time.Second, // 每 3 秒全量扫描一次（Arbitrum 0.25s 出块）
 		maxOppsPerScan: 20,
 		dexRouters:     make(map[string]common.Address),
 		opportunityCh:  make(chan *SpreadOpportunity, 200),
@@ -223,10 +224,10 @@ func (s *SpreadScanner) evaluatePair(pools []*cache.PoolPrice) []*SpreadOpportun
 		return nil
 	}
 
-	// 分为 V2 和 V3 两组
+	// 分为 V2 和 V3 两组（过滤低流动性和过期池子）
 	var v2Pools, v3Pools []*cache.PoolPrice
 	for _, p := range pools {
-		if p.Price <= 0 {
+		if p.Price <= 0 || !hasMinLiquidity(p) || isStale(p) {
 			continue
 		}
 		if isV3Protocol(p.Protocol) {
@@ -262,10 +263,29 @@ func (s *SpreadScanner) evaluatePair(pools []*cache.PoolPrice) []*SpreadOpportun
 	if minPrice <= 0 {
 		return nil
 	}
-	spread := math.Abs(v2Price-v3Price) / minPrice
+	rawSpread := math.Abs(v2Price-v3Price) / minPrice
 	// 防止数值异常（如某个价格为 0 但没被过滤到）
-	if math.IsInf(spread, 0) || math.IsNaN(spread) || spread > 100 {
+	if math.IsInf(rawSpread, 0) || math.IsNaN(rawSpread) || rawSpread > 100 {
 		return nil // 忽略超过 10000% 价差的异常值
+	}
+
+	// 扣除两端 swap fee 后的净价差
+	// V2 fee: 0.3% (30 bps), V3 fee: 从 PriceCache.Fee 获取 (bps)
+	buyFeeBps := float64(bestV2.Fee) // V2 买入端 fee (bps，如 30=0.3%)
+	if buyFeeBps == 0 { buyFeeBps = 30 } // V2 默认 0.3%
+	sellFeeBps := float64(bestV3.Fee) // V3 卖出端 fee (bps，如 5=0.05%)
+	if sellFeeBps == 0 { sellFeeBps = 30 } // fallback
+	if v2Price >= v3Price {
+		// V3 买入 V2 卖出: 反向
+		buyFeeBps = float64(bestV3.Fee)
+		if buyFeeBps == 0 { buyFeeBps = 30 }
+		sellFeeBps = float64(bestV2.Fee)
+		if sellFeeBps == 0 { sellFeeBps = 30 }
+	}
+	totalFeePct := (buyFeeBps + sellFeeBps) / 10000.0 // 转为小数
+	spread := rawSpread - totalFeePct
+	if spread <= 0 {
+		return nil // 扣完 fee 后无利润
 	}
 	spreadBps := int(spread * 10000)
 
@@ -305,10 +325,21 @@ func (s *SpreadScanner) evaluateSameProtocolSpread(pools []*cache.PoolPrice) []*
 		return nil
 	}
 
+	// 过滤低流动性和过期池子
+	var validPools []*cache.PoolPrice
+	for _, p := range pools {
+		if p.Price > 0 && hasMinLiquidity(p) && !isStale(p) {
+			validPools = append(validPools, p)
+		}
+	}
+	if len(validPools) < 2 {
+		return nil
+	}
+
 	var best, second *cache.PoolPrice
-	best = pools[0]
-	for _, p := range pools[1:] {
-		if p.Price > 0 && p.DexName != best.DexName {
+	best = validPools[0]
+	for _, p := range validPools[1:] {
+		if p.DexName != best.DexName {
 			second = p
 			break
 		}
@@ -322,8 +353,23 @@ func (s *SpreadScanner) evaluateSameProtocolSpread(pools []*cache.PoolPrice) []*
 	if minP <= 0 {
 		return nil
 	}
-	spread := math.Abs(best.Price-second.Price) / minP
-	if math.IsInf(spread, 0) || math.IsNaN(spread) || spread > 100 {
+	rawSpread := math.Abs(best.Price-second.Price) / minP
+	if math.IsInf(rawSpread, 0) || math.IsNaN(rawSpread) || rawSpread > 100 {
+		return nil
+	}
+
+	// 扣除两端 swap fee
+	bestFeeBps := float64(best.Fee)
+	if bestFeeBps == 0 {
+		bestFeeBps = 30 // V2 默认 0.3%
+	}
+	secondFeeBps := float64(second.Fee)
+	if secondFeeBps == 0 {
+		secondFeeBps = 30
+	}
+	totalFeePct := (bestFeeBps + secondFeeBps) / 10000.0
+	spread := rawSpread - totalFeePct
+	if spread <= 0 {
 		return nil
 	}
 	spreadBps := int(spread * 10000)
@@ -365,10 +411,16 @@ func (s *SpreadScanner) buildOpportunity(buyPool, sellPool *cache.PoolPrice, buy
 
 	// 路径: Token0 → Token1 (买入) → Token0 (卖出)
 	swapPath := []common.Address{token0, token1, token0}
-	dexPath := []common.Address{
-		s.getDexRouter(buyPool),
-		s.getDexRouter(sellPool),
+	buyRouter := s.getDexRouter(buyPool)
+	sellRouter := s.getDexRouter(sellPool)
+
+	// 同一个 Router 不同 fee tier 不是真正的跨 DEX 套利
+	// 这种机会已被 MEV 压缩到无利可图
+	if buyRouter == sellRouter {
+		return nil
 	}
+
+	dexPath := []common.Address{buyRouter, sellRouter}
 	dexNames := []string{buyPool.DexName, sellPool.DexName}
 
 	return &SpreadOpportunity{
@@ -437,6 +489,36 @@ func poolScore(p *cache.PoolPrice) float64 {
 		return r0 * r1 / 1e30
 	}
 	return 0.1
+}
+
+// hasMinLiquidity 检查池子是否有足够流动性
+// V3: Liquidity >= 1e12 (约 0.001 ETH 级别的活跃流动性)
+// V2: Reserve0 * Reserve1 > 0 (有实际储备)
+func hasMinLiquidity(p *cache.PoolPrice) bool {
+	if p.IsV3 {
+		if p.Liquidity == nil || p.Liquidity.Sign() <= 0 {
+			return false
+		}
+		// V3 Liquidity 是 uint128，活跃池子通常 > 1e15
+		// 设最低阈值为 1e12，过滤几乎无流动性的池子
+		minLiq := new(big.Int).SetUint64(1_000_000_000_000) // 1e12
+		return p.Liquidity.Cmp(minLiq) >= 0
+	}
+	// V2: 检查 reserves 有足够流动性
+	// 至少需要 Reserve0 和 Reserve1 各 > 1e15 (对 18 位精度代币约 0.001 个)
+	if p.Reserve0 == nil || p.Reserve1 == nil {
+		return false
+	}
+	minReserve := new(big.Int).SetUint64(1_000_000_000_000_000) // 1e15
+	return p.Reserve0.Cmp(minReserve) > 0 && p.Reserve1.Cmp(minReserve) > 0
+}
+
+// isStale 检查池子数据是否过期（超过 5 分钟未更新）
+func isStale(p *cache.PoolPrice) bool {
+	if p.UpdatedAt.IsZero() {
+		return false // 没有时间戳，不过滤
+	}
+	return time.Since(p.UpdatedAt) > 5*time.Minute
 }
 
 func sameTokenPair(a, b *cache.PoolPrice) bool {

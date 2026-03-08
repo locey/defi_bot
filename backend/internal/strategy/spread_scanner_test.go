@@ -32,9 +32,12 @@ func TestEvaluatePair_V2vsV3_AboveThreshold(t *testing.T) {
 	pc := cache.NewPriceCache(0.0001, 100)
 	scanner := NewSpreadScanner(pc, 30) // 0.3% min spread
 
+	// V2(SushiSwap) vs V3(Uniswap V3): 不同 router，真正的跨 DEX
+	// rawSpread=1%, fee=30+5=35bps, net=65bps > 30bps threshold
 	v2 := makePool("pool_v2", tokenA, tokenB, 100.0, "SushiSwap", "uniswap_v2")
-	v3 := makePool("pool_v3", tokenA, tokenB, 101.0, "Uniswap", "uniswap_v3")
+	v3 := makePool("pool_v3", tokenA, tokenB, 101.0, "Uniswap V3", "uniswap_v3")
 	v3.IsV3 = true
+	v3.Fee = 5 // 0.05%
 	v3.Liquidity = big.NewInt(1e18)
 
 	opps := scanner.evaluatePair([]*cache.PoolPrice{v2, v3})
@@ -46,28 +49,32 @@ func TestEvaluatePair_BelowThreshold(t *testing.T) {
 	pc := cache.NewPriceCache(0.0001, 100)
 	scanner := NewSpreadScanner(pc, 100) // 1% min spread
 
+	// rawSpread=0.5%, fee=30+5=35bps, net=15bps < 100bps threshold
 	v2 := makePool("pool_v2", tokenA, tokenB, 100.0, "SushiSwap", "uniswap_v2")
-	v3 := makePool("pool_v3", tokenA, tokenB, 100.5, "Uniswap", "uniswap_v3")
+	v3 := makePool("pool_v3", tokenA, tokenB, 100.5, "Uniswap V3", "uniswap_v3")
 	v3.IsV3 = true
+	v3.Fee = 5
 	v3.Liquidity = big.NewInt(1e18)
 
 	opps := scanner.evaluatePair([]*cache.PoolPrice{v2, v3})
-	assert.Len(t, opps, 0, "0.5% spread should not meet 1% threshold")
+	assert.Len(t, opps, 0, "0.5% spread should not meet 1% threshold after fee deduction")
 }
 
 func TestEvaluatePair_Direction_LowPriceIsBuyPool(t *testing.T) {
 	pc := cache.NewPriceCache(0.0001, 100)
 	scanner := NewSpreadScanner(pc, 10) // low threshold
 
+	// rawSpread=5.26%, fee=30+5=35bps, net=4.91% > 10bps
 	v2 := makePool("pool_v2", tokenA, tokenB, 95.0, "SushiSwap", "uniswap_v2")
-	v3 := makePool("pool_v3", tokenA, tokenB, 100.0, "Uniswap", "uniswap_v3")
+	v3 := makePool("pool_v3", tokenA, tokenB, 100.0, "Uniswap V3", "uniswap_v3")
 	v3.IsV3 = true
+	v3.Fee = 5
 	v3.Liquidity = big.NewInt(1e18)
 
 	opps := scanner.evaluatePair([]*cache.PoolPrice{v2, v3})
 	require.NotEmpty(t, opps)
 	assert.Equal(t, "SushiSwap", opps[0].BuyPool.DexName, "lower price pool should be BuyPool")
-	assert.Equal(t, "Uniswap", opps[0].SellPool.DexName, "higher price pool should be SellPool")
+	assert.Equal(t, "Uniswap V3", opps[0].SellPool.DexName, "higher price pool should be SellPool")
 }
 
 func TestEvaluatePair_SameProtocolDifferentDex(t *testing.T) {
@@ -99,8 +106,9 @@ func TestEvaluatePair_ZeroPriceFiltered(t *testing.T) {
 	scanner := NewSpreadScanner(pc, 30)
 
 	v2 := makePool("pool_v2", tokenA, tokenB, 0.0, "SushiSwap", "uniswap_v2")
-	v3 := makePool("pool_v3", tokenA, tokenB, 100.0, "Uniswap", "uniswap_v3")
+	v3 := makePool("pool_v3", tokenA, tokenB, 100.0, "Uniswap V3", "uniswap_v3")
 	v3.IsV3 = true
+	v3.Fee = 5
 	v3.Liquidity = big.NewInt(1e18)
 
 	opps := scanner.evaluatePair([]*cache.PoolPrice{v2, v3})
@@ -114,8 +122,9 @@ func TestEvaluatePair_AbnormalSpreadFiltered(t *testing.T) {
 
 	// >10000% spread → should be filtered as anomaly
 	v2 := makePool("pool_v2", tokenA, tokenB, 0.001, "SushiSwap", "uniswap_v2")
-	v3 := makePool("pool_v3", tokenA, tokenB, 100000.0, "Uniswap", "uniswap_v3")
+	v3 := makePool("pool_v3", tokenA, tokenB, 100000.0, "Uniswap V3", "uniswap_v3")
 	v3.IsV3 = true
+	v3.Fee = 5
 	v3.Liquidity = big.NewInt(1e18)
 
 	opps := scanner.evaluatePair([]*cache.PoolPrice{v2, v3})

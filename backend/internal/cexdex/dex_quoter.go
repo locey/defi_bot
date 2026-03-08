@@ -253,6 +253,11 @@ func (q *DEXQuoter) GetRouterAddress(symbol string) common.Address {
 	return q.config.QuoterV2Address
 }
 
+// GetPoolFeeTier 获取池子的 fee tier（DEXQuoter 默认返回 V3 0.05%）
+func (q *DEXQuoter) GetPoolFeeTier(symbol string) uint32 {
+	return 500 // 默认 V3 0.05%
+}
+
 // IsRunning 是否正在运行
 func (q *DEXQuoter) IsRunning() bool {
 	q.runningMu.RLock()

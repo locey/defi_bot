@@ -35,7 +35,7 @@ type DetectorConfig struct {
 // DefaultDetectorConfig 默认配置
 func DefaultDetectorConfig() *DetectorConfig {
 	return &DetectorConfig{
-		MinProfitRate:   0.003,     // 0.3%
+		MinProfitRate:   0.002,     // 0.2%
 		MinProfitAmount: 10,        // $10
 		MaxTradeAmount:  10000,     // $10,000
 		MinTradeAmount:  100,       // $100
@@ -60,6 +60,9 @@ type CEXDEXOpportunity struct {
 	NetProfit    float64        `json:"net_profit"`    // 净利润 (USD)
 	DEXPool      common.Address `json:"dex_pool"`      // DEX 池子地址
 	DEXRouter    common.Address `json:"dex_router"`    // DEX 路由地址
+	TokenIn      common.Address `json:"token_in"`      // 买入 token 地址
+	TokenOut     common.Address `json:"token_out"`     // 卖出 token 地址
+	FeeTier      uint32         `json:"fee_tier"`      // DEX 池子 fee tier (V3: 500/3000/10000, V2: 0)
 	ValidUntil   time.Time      `json:"valid_until"`   // 有效期
 	Confidence   float64        `json:"confidence"`    // 置信度 (0-1)
 	CreatedAt    time.Time      `json:"created_at"`
@@ -70,6 +73,7 @@ type DEXPriceProvider interface {
 	GetPrice(symbol string) (float64, error)
 	GetPoolAddress(symbol string) common.Address
 	GetRouterAddress(symbol string) common.Address
+	GetPoolFeeTier(symbol string) uint32
 }
 
 // Detector CEX-DEX 套利机会检测器
@@ -192,8 +196,19 @@ func (d *Detector) checkOpportunity(cexPrice *CEXPrice) {
 	// CEX 买价 vs DEX 卖价：如果 CEX 买价 > DEX 卖价，可以在 DEX 买然后在 CEX 卖
 	// CEX 卖价 vs DEX 买价：如果 CEX 卖价 < DEX 买价，可以在 CEX 买然后在 DEX 卖
 
-	// 交易费用扣除：DEX swap fee ~0.3% + CEX taker fee ~0.1% = 0.4%
-	const totalFeeRate = 0.004
+	// 交易费用扣除：DEX swap fee（根据实际池子）+ CEX taker fee 0.1%
+	// 默认 DEX fee 0.05%（V3 最低），实际值从 PriceCache 获取
+	const cexFeeRate = 0.001 // CEX taker fee 0.1%
+	dexFeeRate := 0.0005     // DEX 默认 0.05% (V3 最佳池)
+	if d.dexProvider != nil {
+		feeTier := d.dexProvider.GetPoolFeeTier(cexPrice.Symbol)
+		if feeTier > 0 {
+			dexFeeRate = float64(feeTier) / 1_000_000 // raw fee → 比例: 500→0.0005
+		}
+	}
+	// CEX-DEX 单边执行需要 2 次 DEX swap（买入+卖出），但 CEX 端只需 1 次
+	// 实际只做一侧 DEX swap
+	totalFeeRate := dexFeeRate + cexFeeRate
 
 	// 方向1: DEX -> CEX (在 DEX 买，在 CEX 卖)
 	spread1 := (cexPrice.BidPrice-dexPrice)/dexPrice - totalFeeRate
@@ -249,6 +264,14 @@ func (d *Detector) createOpportunity(symbol, direction string, buyPrice, sellPri
 		dexPriceVal = sellPrice
 	}
 
+	// 获取 token 地址（如果 provider 支持）
+	var tokenIn, tokenOut common.Address
+	var feeTier uint32
+	if adapter, ok := d.dexProvider.(*DEXPriceAdapter); ok {
+		tokenIn, tokenOut = adapter.GetTokenPairForSymbol(symbol, direction)
+		feeTier = adapter.GetPoolFeeTier(symbol)
+	}
+
 	opp := &CEXDEXOpportunity{
 		ID:           oppID,
 		Symbol:       symbol,
@@ -263,6 +286,9 @@ func (d *Detector) createOpportunity(symbol, direction string, buyPrice, sellPri
 		NetProfit:    netProfit,
 		DEXPool:      d.dexProvider.GetPoolAddress(symbol),
 		DEXRouter:    d.dexProvider.GetRouterAddress(symbol),
+		TokenIn:      tokenIn,
+		TokenOut:     tokenOut,
+		FeeTier:      feeTier,
 		ValidUntil:   time.Now().Add(d.config.OpportunityTTL),
 		Confidence:   confidence,
 		CreatedAt:    time.Now(),
@@ -441,6 +467,11 @@ func (p *SimpleDEXPriceProvider) GetRouterAddress(symbol string) common.Address 
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.routers[symbol]
+}
+
+// GetPoolFeeTier 返回默认 fee tier
+func (p *SimpleDEXPriceProvider) GetPoolFeeTier(symbol string) uint32 {
+	return 500 // 默认 V3 0.05%
 }
 
 // ConvertToBigInt 将浮点数金额转换为 BigInt（考虑 decimals）

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"time"
 
 	"github.com/defi-bot/backend/pkg/log"
 	"github.com/defi-bot/backend/pkg/web3"
@@ -93,20 +94,25 @@ func (s *Simulator) SimulateArbitrage(
 	}
 
 	_, err = ethClient.CallContract(ctx, callMsg, nil)
+	if err != nil && strings.Contains(err.Error(), "429") {
+		time.Sleep(500 * time.Millisecond)
+		_, err = ethClient.CallContract(ctx, callMsg, nil)
+	}
 	if err != nil {
 		result.Error = fmt.Sprintf("eth_call reverted: %v", err)
 		result.Profitable = false
 		return result, nil
 	}
 
-	// 3. 估算 Gas
+	// 3. 估算 Gas（429 限流重试一次）
 	gasUsed, err := ethClient.EstimateGas(ctx, callMsg)
+	if err != nil && strings.Contains(err.Error(), "429") {
+		time.Sleep(500 * time.Millisecond)
+		gasUsed, err = ethClient.EstimateGas(ctx, callMsg)
+	}
 	if err != nil {
-		result.Error = fmt.Sprintf("gas estimation failed: %v", err)
-		// eth_call 成功但 gas 估算失败，仍然认为有利可图但无法精确估算成本
-		result.Profitable = true
-		result.ExpectedProfit = params.MinProfit
-		return result, nil
+		// eth_call 成功但 gas 估算失败，用默认 gas 值继续计算
+		gasUsed = 1_000_000 // Arbitrum 上套利交易通常 ~800K-1M gas
 	}
 	result.GasUsed = gasUsed
 

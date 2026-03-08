@@ -281,7 +281,7 @@ func main() {
 			EnableFlashLoan:  cfg.Contracts.FlashLoanArbitrage != "",
 			// 动态价差扫描器（自动发现跨 DEX 套利，不依赖预设代币列表）
 			EnableSpreadScanner: true,
-			MinSpreadBps:        40, // 0.4% 最小触发价差（含 Flash Loan 费率后净正）
+			MinSpreadBps:        15, // 0.15% 最小触发价差（让更多机会进入 eth_call 验证）
 		}
 		if hpConfig.MaxConcurrentExecutions == 0 {
 			hpConfig.MaxConcurrentExecutions = 3
@@ -387,17 +387,38 @@ func main() {
 		// 桥接 CEX-DEX 机会到主执行管道
 		go func() {
 			for opp := range cexdexDetector.GetOpportunityChan() {
-				// 将 CEXDEXOpportunity 转换为 ArbitrageOpportunity
+				// 验证 TokenIn/TokenOut 已填充（Step 4 修复）
+				emptyAddr := common.Address{}
+				if opp.TokenIn == emptyAddr || opp.TokenOut == emptyAddr {
+					log.Main().Warn().Str("id", opp.ID).Msg("CEX-DEX: TokenIn/TokenOut empty, skipping")
+					continue
+				}
+
+				// 构建正确的 SwapPath: [asset, tokenOut, asset]
+				// asset = TokenIn（套利起点/终点），中间代币 = TokenOut
+				// 合约要求: swapPath[0] == swapPath[last] == asset
+				asset := opp.TokenIn
+				midToken := opp.TokenOut
+				swapPath := []common.Address{asset, midToken, asset}
+
+				// Dexes: 买入和卖出用同一个 DEX Router（2步 = 2个 router）
+				dexes := []common.Address{opp.DEXRouter, opp.DEXRouter}
+
+				// FeeTiers: 从 DEXPriceAdapter 获取的池 fee tier
+				feeTiers := []uint32{opp.FeeTier, opp.FeeTier}
+
 				arbOpp := &strategy.ArbitrageOpportunity{
-					ID:           opp.ID,
-					SwapPath:     []common.Address{opp.DEXPool}, // 简化路径
-					Dexes:        []common.Address{opp.DEXRouter},
-					DexNames:     []string{"CEX-DEX:" + opp.Direction},
-					ProfitRate:   opp.ProfitRate,
-					Confidence:   opp.Confidence,
-					Timestamp:    opp.CreatedAt,
-					ValidUntil:   opp.ValidUntil,
-					IsCex:        true,
+					ID:         opp.ID,
+					SwapPath:   swapPath,
+					Dexes:      dexes,
+					DexNames:   []string{"CEX-DEX:" + opp.Direction, "CEX-DEX:" + opp.Direction},
+					FeeTiers:   feeTiers,
+					ProfitRate: opp.ProfitRate,
+					Confidence: opp.Confidence,
+					Timestamp:  opp.CreatedAt,
+					ValidUntil: opp.ValidUntil,
+					IsCex:      true,
+					PathLength: 2,
 				}
 				// 转换金额 (USD -> wei 需要价格转换, 简化为直接设置)
 				if opp.TradeAmount > 0 {
@@ -406,13 +427,17 @@ func main() {
 				if opp.ExpectProfit > 0 {
 					arbOpp.ExpectProfit = new(big.Int).SetUint64(uint64(opp.ExpectProfit * 1e6))
 				}
+				arbOpp.MinProfit = big.NewInt(0)
 
 				log.Main().Info().
 					Str("id", opp.ID).
 					Str("direction", opp.Direction).
+					Str("asset", asset.Hex()[:14]).
+					Str("mid_token", midToken.Hex()[:14]).
+					Int("path_len", len(swapPath)).
 					Float64("profit_rate", opp.ProfitRate*100).
 					Float64("net_profit_usd", opp.NetProfit).
-					Msg("CEX-DEX opportunity detected")
+					Msg("CEX-DEX opportunity detected (valid SwapPath)")
 
 				// 尝试通过主执行器执行（需要 enable_execution=true）
 				if arbitrageExecutor != nil && cfg.Scheduler.EnableExecution && !cfg.Scheduler.DryRun {

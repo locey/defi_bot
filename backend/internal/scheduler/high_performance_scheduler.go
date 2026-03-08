@@ -50,6 +50,13 @@ type HighPerformanceScheduler struct {
 	// 统计
 	stats   SchedulerStats
 	statsMu sync.RWMutex
+
+	// 去重：防止同一路径短时间内重复 eth_call
+	recentPaths sync.Map // key: dedup key string, value: time.Time
+
+	// RPC 限流：控制 eth_call 调用频率
+	lastEthCall   time.Time
+	ethCallMu     sync.Mutex
 }
 
 // HighPerformanceConfig 高性能配置
@@ -354,12 +361,44 @@ func (s *HighPerformanceScheduler) spreadScannerLoop() {
 	}
 }
 
+// buildDedupKey 生成路径去重键（token 组合 + dex 组合）
+func (s *HighPerformanceScheduler) buildDedupKey(opp *strategy.ArbitrageOpportunity) string {
+	var key string
+	for _, addr := range opp.SwapPath {
+		key += addr.Hex()[:10]
+	}
+	for _, addr := range opp.Dexes {
+		key += addr.Hex()[:10]
+	}
+	return key
+}
+
 // convertSpreadOpportunity 将跨 DEX 价差机会转换为标准套利机会格式
 func (s *HighPerformanceScheduler) convertSpreadOpportunity(opp *strategy.SpreadOpportunity) *strategy.ArbitrageOpportunity {
 	if opp == nil || len(opp.SwapPath) < 3 || len(opp.DexPath) < 2 {
 		return nil
 	}
 
+	// 过滤虚假高价差（>10% 的价差几乎都是低流动性池子的噪音）
+	if opp.SpreadFloat > 0.10 {
+		return nil
+	}
+
+	// 过滤同 Router 不同 fee tier 的"伪套利"
+	// 同一个 V3 SwapRouter 上不同 fee tier 的价差已被 MEV 压缩到无利可图
+	if len(opp.DexPath) >= 2 && opp.DexPath[0] == opp.DexPath[1] {
+		return nil
+	}
+
+	// 日志包含流动性信息，帮助诊断假机会
+	buyLiq := "N/A"
+	sellLiq := "N/A"
+	if opp.BuyPool.IsV3 && opp.BuyPool.Liquidity != nil {
+		buyLiq = opp.BuyPool.Liquidity.String()
+	}
+	if opp.SellPool.IsV3 && opp.SellPool.Liquidity != nil {
+		sellLiq = opp.SellPool.Liquidity.String()
+	}
 	log.Scheduler().Info().
 		Str("token0", opp.Token0.Hex()[:14]).
 		Str("token1", opp.Token1.Hex()[:14]).
@@ -367,16 +406,23 @@ func (s *HighPerformanceScheduler) convertSpreadOpportunity(opp *strategy.Spread
 		Str("sell_dex", opp.SellPool.DexName).
 		Float64("spread_pct", opp.SpreadFloat*100).
 		Int("spread_bps", opp.SpreadBps).
+		Str("buy_liq", buyLiq).
+		Str("sell_liq", sellLiq).
 		Msg("🔍 SpreadScanner: Auto-discovered cross-DEX opportunity")
 
 	// amountIn 设为 nil，由 handleOpportunity 的 Vault 余额逻辑动态设置
 	// ExpectProfit 将在 handleOpportunity 中根据实际 amountIn 重新计算
 	// 从 BuyPool/SellPool 提取 fee tier
-	// PriceCache.Fee 是 bps (5=0.05%), 合约需要 Uniswap V3 fee (500)
-	buyFee := uint32(opp.BuyPool.Fee)
-	if buyFee > 0 { buyFee = buyFee * 100 }
-	sellFee := uint32(opp.SellPool.Fee)
-	if sellFee > 0 { sellFee = sellFee * 100 }
+	// V3 池子: PriceCache.Fee 是 bps (5=0.05%), 合约需要 raw fee (500=0.05%)
+	// V2 池子: feeTier 必须传 0，告诉合约用 swapExactTokensForTokens
+	// 关键: feeTier>0 会让合约调用 V3 exactInputSingle，V2 router 没有这个函数!
+	var buyFee, sellFee uint32
+	if opp.BuyPool.IsV3 {
+		buyFee = uint32(opp.BuyPool.Fee) * 100 // bps→raw: 5→500, 30→3000
+	}
+	if opp.SellPool.IsV3 {
+		sellFee = uint32(opp.SellPool.Fee) * 100
+	}
 	feeTiers := []uint32{buyFee, sellFee}
 
 	return &strategy.ArbitrageOpportunity{
@@ -456,11 +502,20 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 		return // 低置信度直接丢弃（不再打印日志减少刷屏）
 	}
 
+	// 去重：同一路径（token 组合+DEX 组合）10s 内不重复 eth_call
+	dedupKey := s.buildDedupKey(opp)
+	if lastTime, ok := s.recentPaths.Load(dedupKey); ok {
+		if t, _ := lastTime.(time.Time); time.Since(t) < 10*time.Second {
+			return // 跳过重复
+		}
+	}
+	s.recentPaths.Store(dedupKey, time.Now())
+
 	// 限制 amountIn 并决定执行路径（Vault vs Flash Loan）
 	useFlashLoan := false
-	hardLimit := new(big.Int).SetUint64(100_000_000_000_000_000) // 自有资金绝对上限 0.1 ETH
+	hardLimit := new(big.Int).SetUint64(20_000_000_000_000_000) // 自有资金绝对上限 0.02 ETH
 	if opp.AmountIn == nil || opp.AmountIn.Sign() <= 0 {
-		opp.AmountIn = new(big.Int).SetUint64(10_000_000_000_000_000) // 默认 0.01 ETH
+		opp.AmountIn = new(big.Int).SetUint64(5_000_000_000_000_000) // 默认 0.005 ETH
 	}
 
 	// 查询链上 Vault 可用余额并决定执行路径
@@ -473,8 +528,8 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 		if vaultErr != nil || available == nil || available.Sign() == 0 {
 			vaultInsufficient = true
 		} else {
-			// 使用 Vault 余额的 90%（留 10% 缓冲）
-			safeAmount := new(big.Int).Mul(available, big.NewInt(9))
+			// 使用 Vault 余额的 50%（留 50% 缓冲，减少滑点）
+			safeAmount := new(big.Int).Mul(available, big.NewInt(5))
 			safeAmount.Div(safeAmount, big.NewInt(10))
 			if opp.AmountIn.Cmp(safeAmount) > 0 {
 				opp.AmountIn = safeAmount
@@ -535,8 +590,36 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 		opp.ExpectProfit = big.NewInt(1)
 	}
 
+	// MinProfit 动态计算：覆盖 gas 成本 + 安全边际
+	// Arbitrum L2: gasUsed ~1M, gasPrice ~0.1 gwei → gasCost ≈ 0.0001 ETH
+	// 加上 L1 calldata 成本，保守估计 0.0002 ETH
+	// MinProfit = max(2×gasCost, amountIn×0.5%)，取较小值避免过度过滤
+	if opp.MinProfit == nil || opp.MinProfit.Sign() == 0 {
+		gasCostEstimate := big.NewInt(200_000_000_000_000) // 0.0002 ETH
+		minProfitGas := new(big.Int).Mul(gasCostEstimate, big.NewInt(2)) // 2× gas cost = 0.0004 ETH
+
+		// amountIn 的 0.5%
+		minProfitPct := new(big.Int).Div(opp.AmountIn, big.NewInt(200))
+
+		// 取较小值：避免小额交易被过度过滤
+		if minProfitPct.Sign() > 0 && minProfitPct.Cmp(minProfitGas) < 0 {
+			opp.MinProfit = minProfitPct
+		} else {
+			opp.MinProfit = minProfitGas
+		}
+	}
+
 	// eth_call 模拟验证（免费，不消耗 Gas）
 	// 只有模拟通过的机会才值得花 Gas 执行
+	// RPC 限流：每次 eth_call 至少间隔 500ms，避免公共 RPC 429
+	s.ethCallMu.Lock()
+	elapsed := time.Since(s.lastEthCall)
+	if elapsed < 500*time.Millisecond {
+		time.Sleep(500*time.Millisecond - elapsed)
+	}
+	s.lastEthCall = time.Now()
+	s.ethCallMu.Unlock()
+
 	if s.simulator != nil {
 		simCtx, simCancel := context.WithTimeout(context.Background(), 8*time.Second)
 		// 确保 FeeTiers 长度与 Dexes 一致

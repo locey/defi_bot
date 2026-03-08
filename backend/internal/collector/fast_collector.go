@@ -256,11 +256,11 @@ func (c *FastCollector) LoadAndClassifyPools() error {
 		t0Core := coreTokens[strings.ToLower(p.Token0Address)]
 		t1Core := coreTokens[strings.ToLower(p.Token1Address)]
 
-		if t0Core && t1Core && len(c.tier1Pools) < 30 {
+		if t0Core && t1Core && len(c.tier1Pools) < 80 {
 			// 两个都是核心代币 → Tier1（WebSocket 实时推送）
 			pool.Tier = 1
 			c.tier1Pools = append(c.tier1Pools, pool)
-		} else if (t0Core || t1Core) && len(c.tier2Pools) < 50 {
+		} else if (t0Core || t1Core) && len(c.tier2Pools) < 100 {
 			// 至少一个核心代币 → Tier2
 			pool.Tier = 2
 			c.tier2Pools = append(c.tier2Pools, pool)

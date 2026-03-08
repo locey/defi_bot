@@ -235,7 +235,7 @@ scheduler:
   mode: high_performance
   enable_execution: false   # Dry-run: 不执行交易
   dry_run: true             # Dry-run: 仅观察
-  min_confidence: 0.8       # Day 1 保守：仅高置信度
+  min_confidence: 0.3       # 降低阈值，让更多机会进入 eth_call 验证（eth_call 是最终门槛）
   max_concurrent_exec: 1    # 单笔串行
 
 # 套利配置
@@ -302,8 +302,8 @@ cexdex:
   enabled: true
   
   # 利润阈值
-  min_profit_rate: 0.002    # 0.2%（Arbitrum Gas 便宜，可以更低）
-  min_profit_amount: 5      # 最小 $5 利润
+  min_profit_rate: 0.0015   # 0.15%（Arbitrum Gas 便宜，更低阈值捕捉更多机会）
+  min_profit_amount: 2      # 最小 $2 利润
   
   # 交易配置
   max_trade_amount: 10000   # 单笔最大 $10,000

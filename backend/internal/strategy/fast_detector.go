@@ -560,17 +560,21 @@ func (d *ArbitrageDetector) calculatePath(path *ArbitragePath) *ArbitrageOpportu
 	}
 
 	// 构建 FeeTiers: 从 PriceCache 获取每个池子的 fee
-	// PriceCache.Fee 存储的是 bps (5=0.05%, 30=0.3%, 100=1%)
-	// Uniswap V3 合约需要原始 fee (500, 3000, 10000)
-	// 转换: fee = bps * 100; V2 池子 fee=0 保持不变
+	// V3 池子: PriceCache.Fee 是 bps (5=0.05%), 合约需要 raw fee (500)
+	// V2 池子: feeTier 必须传 0，合约才会用 swapExactTokensForTokens
+	// 关键: feeTier>0 会让合约调用 V3 exactInputSingle，V2 router 没有这个函数!
 	feeTiers := make([]uint32, 0, len(path.Pools))
 	for _, poolAddr := range path.Pools {
 		if pp, ok := d.priceCache.Get(poolAddr); ok {
-			fee := uint32(pp.Fee)
-			if fee > 0 {
-				fee = fee * 100 // bps → Uniswap V3 fee (5→500, 30→3000, 100→10000)
+			if pp.IsV3 {
+				fee := uint32(pp.Fee) * 100 // bps→raw: 5→500, 30→3000
+				if fee == 0 {
+					fee = 3000 // V3 池子 fallback 默认 0.3%
+				}
+				feeTiers = append(feeTiers, fee)
+			} else {
+				feeTiers = append(feeTiers, 0) // V2 池子: 必须传 0
 			}
-			feeTiers = append(feeTiers, fee)
 		} else {
 			feeTiers = append(feeTiers, 0) // 未知池子默认 V2 (fee=0)
 		}
@@ -776,6 +780,7 @@ func calculateMaxAmountForDecimals(decimals uint8) *big.Int {
 
 // calculatePathConfidence 计算路径置信度
 // 改进版：更保守的评估，低利润率给更低置信度（扣完 Gas+Flash Loan 费后可能亏损）
+// 跨 DEX 路径加权：使用不同 DEX 的路径比同 DEX 不同 fee tier 更有利润空间
 func calculatePathConfidence(path *ArbitragePath, profitRate float64) float64 {
 	// 基础置信度
 	confidence := 0.7
@@ -805,6 +810,11 @@ func calculatePathConfidence(path *ArbitragePath, profitRate float64) float64 {
 		confidence *= 0.4
 	}
 
+	// 跨 DEX 路径加权：路径中包含 >1 个不同 DEX 时，利润空间更大
+	if isCrossDEXPath(path.DexNames) {
+		confidence += 0.1
+	}
+
 	// 历史成功率（有历史数据时加权）
 	if path.SuccessCount+path.FailCount > 0 {
 		successRate := float64(path.SuccessCount) / float64(path.SuccessCount+path.FailCount)
@@ -820,4 +830,18 @@ func calculatePathConfidence(path *ArbitragePath, profitRate float64) float64 {
 	}
 
 	return confidence
+}
+
+// isCrossDEXPath 检查路径是否跨越多个不同 DEX
+func isCrossDEXPath(dexNames []string) bool {
+	if len(dexNames) < 2 {
+		return false
+	}
+	first := dexNames[0]
+	for _, name := range dexNames[1:] {
+		if name != first {
+			return true
+		}
+	}
+	return false
 }
