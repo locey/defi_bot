@@ -201,8 +201,9 @@ func main() {
 		redisCache,
 	)
 
-	// 启动策略引擎
-	ctx := context.Background()
+	// 启动策略引擎（使用可取消的 context，支持 graceful shutdown）
+	ctx, ctxCancel := context.WithCancel(context.Background())
+	defer ctxCancel()
 	if err := strategyEngine.Start(ctx); err != nil {
 		log.Main().Warn().Err(err).Msg("策略引擎启动失败")
 	}
@@ -334,11 +335,13 @@ func main() {
 	}
 
 	// 13. CEX-DEX 套利检测器（如果配置了 Binance 且 CEXDEX 启用）
+	var cexMonitor *cexdex.PriceMonitor
+	var cexdexDetector *cexdex.Detector
 	if cfg.CEXDEX.Enabled && cfg.Cex.Enabled && cfg.Cex.Binance.Enabled {
 		log.Main().Info().Msg("初始化 CEX-DEX 套利检测器...")
 
 		// 创建 CEX 价格监控器
-		cexMonitor := cexdex.NewPriceMonitor(&cexdex.PriceMonitorConfig{
+		cexMonitor = cexdex.NewPriceMonitor(&cexdex.PriceMonitorConfig{
 			Symbols:        cfg.Cex.Binance.Symbols,
 			BinanceWSURL:   cfg.Cex.Binance.WSEndpoint,
 			ReconnectDelay: 5 * time.Second,
@@ -358,7 +361,7 @@ func main() {
 
 		// 创建 CEX-DEX 检测器
 		ttlDuration := time.Duration(cfg.CEXDEX.OpportunityTTL) * time.Second
-		cexdexDetector := cexdex.NewDetector(
+		cexdexDetector = cexdex.NewDetector(
 			&cexdex.DetectorConfig{
 				MinProfitRate:   cfg.CEXDEX.MinProfitRate,
 				MinProfitAmount: cfg.CEXDEX.MinProfitAmount,
@@ -427,7 +430,13 @@ func main() {
 				if opp.ExpectProfit > 0 {
 					arbOpp.ExpectProfit = new(big.Int).SetUint64(uint64(opp.ExpectProfit * 1e6))
 				}
-				arbOpp.MinProfit = big.NewInt(0)
+				// MinProfit 动态计算: max(2×gasCost, amountIn×0.5%)
+			gasCostWei := big.NewInt(400_000_000_000_000) // 0.0004 ETH = 2×0.0002
+			minProfitPct := new(big.Int).Div(arbOpp.AmountIn, big.NewInt(200)) // 0.5%
+			arbOpp.MinProfit = gasCostWei
+			if minProfitPct.Cmp(gasCostWei) < 0 {
+				arbOpp.MinProfit = minProfitPct
+			}
 
 				log.Main().Info().
 					Str("id", opp.ID).
@@ -492,6 +501,13 @@ func main() {
 
 	// 15. 优雅关闭
 	log.Main().Info().Msg("正在关闭服务...")
+	ctxCancel() // 取消全局 context，通知所有 goroutine 退出
+	if cexMonitor != nil {
+		cexMonitor.Stop()
+	}
+	if cexdexDetector != nil {
+		cexdexDetector.Stop()
+	}
 	if activeScheduler != nil {
 		activeScheduler.Stop()
 	}

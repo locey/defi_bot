@@ -278,6 +278,7 @@ func (e *ArbitrageExecutor) ExecuteWithFlashLoan(
 		AmountIn:     opp.AmountIn,
 		SwapPath:     opp.SwapPath,
 		Dexes:        opp.Dexes,
+		FeeTiers:     opp.FeeTiers,
 		ExpectProfit: opp.ExpectProfit,
 		MinProfit:    opp.MinProfit,
 	}
