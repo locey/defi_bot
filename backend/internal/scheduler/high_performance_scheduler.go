@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
@@ -54,9 +55,15 @@ type HighPerformanceScheduler struct {
 	// 去重：防止同一路径短时间内重复 eth_call
 	recentPaths sync.Map // key: dedup key string, value: time.Time
 
-	// RPC 限流：控制 eth_call 调用频率
-	lastEthCall   time.Time
-	ethCallMu     sync.Mutex
+	// RPC 限流：控制 eth_call 调用频率（自适应）
+	lastEthCall      time.Time
+	ethCallMu        sync.Mutex
+	ethCallMinDelay  time.Duration // 自适应最小间隔
+	consecutive429   int           // 连续 429 计数
+
+	// Vault 余额缓存：异步更新，避免每次阻塞 eth_call
+	vaultBalanceCache sync.Map // asset address hex -> *big.Int
+	vaultCacheTime    sync.Map // asset address hex -> time.Time
 }
 
 // HighPerformanceConfig 高性能配置
@@ -502,10 +509,10 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 		return // 低置信度直接丢弃（不再打印日志减少刷屏）
 	}
 
-	// 去重：同一路径（token 组合+DEX 组合）10s 内不重复 eth_call
+	// 去重：同一路径（token 组合+DEX 组合）5s 内不重复 eth_call
 	dedupKey := s.buildDedupKey(opp)
 	if lastTime, ok := s.recentPaths.Load(dedupKey); ok {
-		if t, _ := lastTime.(time.Time); time.Since(t) < 10*time.Second {
+		if t, _ := lastTime.(time.Time); time.Since(t) < 5*time.Second {
 			return // 跳过重复
 		}
 	}
@@ -518,14 +525,13 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 		opp.AmountIn = new(big.Int).SetUint64(5_000_000_000_000_000) // 默认 0.005 ETH
 	}
 
-	// 查询链上 Vault 可用余额并决定执行路径
+	// 查询 Vault 可用余额（优先用缓存，30s 内有效，避免阻塞 eth_call）
 	if len(opp.SwapPath) > 0 && s.executor != nil {
-		vaultCtx, vaultCancel := context.WithTimeout(context.Background(), 3*time.Second)
-		available, vaultErr := s.executor.GetVaultAvailable(vaultCtx, opp.SwapPath[0])
-		vaultCancel()
+		assetHex := opp.SwapPath[0].Hex()
+		available := s.getCachedVaultBalance(assetHex)
 
 		vaultInsufficient := false
-		if vaultErr != nil || available == nil || available.Sign() == 0 {
+		if available == nil || available.Sign() == 0 {
 			vaultInsufficient = true
 		} else {
 			// 使用 Vault 余额的 50%（留 50% 缓冲，减少滑点）
@@ -544,11 +550,8 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 		// Vault 不足时切换到 Flash Loan 路径
 		if vaultInsufficient && s.config.EnableFlashLoan && s.executor.HasFlashLoan() {
 			useFlashLoan = true
-			// Flash Loan 金额上限 50 ETH（避免价格冲击）
 			flashLoanAmount := new(big.Int).Mul(big.NewInt(50), big.NewInt(1_000_000_000_000_000_000)) // 50 ETH
-			// 使用策略引擎计算的最优金额（如果有），否则用保守值
 			if opp.AmountIn != nil && opp.AmountIn.Sign() > 0 {
-				// 保持策略计算的金额，但限制在 Flash Loan 上限内
 				if opp.AmountIn.Cmp(flashLoanAmount) > 0 {
 					opp.AmountIn = flashLoanAmount
 				}
@@ -556,12 +559,12 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 				opp.AmountIn = new(big.Int).SetUint64(1_000_000_000_000_000_000) // 默认 1 ETH
 			}
 			log.Scheduler().Info().
-				Str("asset", opp.SwapPath[0].Hex()[:14]).
+				Str("asset", assetHex[:14]).
 				Str("flash_amount", opp.AmountIn.String()).
 				Msg("⚡ Vault insufficient, switching to Flash Loan path")
 		} else if vaultInsufficient {
 			log.Scheduler().Debug().
-				Str("asset", opp.SwapPath[0].Hex()[:14]).
+				Str("asset", assetHex[:14]).
 				Msg("  ⚠️ Vault insufficient and Flash Loan not enabled, skipping")
 			return
 		}
@@ -610,12 +613,14 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 	}
 
 	// eth_call 模拟验证（免费，不消耗 Gas）
-	// 只有模拟通过的机会才值得花 Gas 执行
-	// RPC 限流：每次 eth_call 至少间隔 500ms，避免公共 RPC 429
+	// 自适应 RPC 限流：初始 100ms，遇 429 自动退避到 500ms，无 429 逐步回落
 	s.ethCallMu.Lock()
+	if s.ethCallMinDelay == 0 {
+		s.ethCallMinDelay = 100 * time.Millisecond
+	}
 	elapsed := time.Since(s.lastEthCall)
-	if elapsed < 500*time.Millisecond {
-		time.Sleep(500*time.Millisecond - elapsed)
+	if elapsed < s.ethCallMinDelay {
+		time.Sleep(s.ethCallMinDelay - elapsed)
 	}
 	s.lastEthCall = time.Now()
 	s.ethCallMu.Unlock()
@@ -640,6 +645,22 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 
 		simResult, simErr := s.simulator.SimulateArbitrage(simCtx, simParams)
 		simCancel()
+
+		// 自适应 RPC 限流反馈
+		s.ethCallMu.Lock()
+		if simErr != nil && contains429(simErr.Error()) {
+			s.consecutive429++
+			s.ethCallMinDelay = min(s.ethCallMinDelay*2, 2*time.Second)
+		} else {
+			if s.consecutive429 > 0 {
+				s.consecutive429 = 0
+			}
+			// 无 429 时逐步回落（不低于 100ms）
+			if s.ethCallMinDelay > 100*time.Millisecond {
+				s.ethCallMinDelay = s.ethCallMinDelay * 9 / 10
+			}
+		}
+		s.ethCallMu.Unlock()
 
 		if simErr != nil || !simResult.Profitable {
 			metrics.GetMetrics().RecordSimFiltered()
@@ -709,7 +730,6 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 		s.executeOpportunity(opp)
 	}
 	<-semaphore
-	time.Sleep(50 * time.Millisecond)
 }
 
 // executeOpportunity 执行套利机会
@@ -854,6 +874,40 @@ func (s *HighPerformanceScheduler) IsRunning() bool {
 // GetPriceCache 获取价格缓存（用于 CEX-DEX 套利）
 func (s *HighPerformanceScheduler) GetPriceCache() *cache.PriceCache {
 	return s.priceCache
+}
+
+// getCachedVaultBalance 获取缓存的 Vault 余额（30s TTL，后台异步刷新）
+func (s *HighPerformanceScheduler) getCachedVaultBalance(assetHex string) *big.Int {
+	// 检查缓存是否有效（30s TTL）
+	if cacheTime, ok := s.vaultCacheTime.Load(assetHex); ok {
+		if t, _ := cacheTime.(time.Time); time.Since(t) < 30*time.Second {
+			if bal, ok := s.vaultBalanceCache.Load(assetHex); ok {
+				return bal.(*big.Int)
+			}
+		}
+	}
+
+	// 缓存过期或不存在：同步查询一次（仅首次阻塞）
+	if s.executor != nil {
+		vaultCtx, vaultCancel := context.WithTimeout(context.Background(), 3*time.Second)
+		available, err := s.executor.GetVaultAvailable(vaultCtx, common.HexToAddress(assetHex))
+		vaultCancel()
+		if err == nil && available != nil {
+			s.vaultBalanceCache.Store(assetHex, available)
+			s.vaultCacheTime.Store(assetHex, time.Now())
+			return available
+		}
+	}
+	// 查询失败时返回缓存中的旧值（如果有）
+	if bal, ok := s.vaultBalanceCache.Load(assetHex); ok {
+		return bal.(*big.Int)
+	}
+	return nil
+}
+
+// contains429 检查错误消息是否包含 429 限流
+func contains429(s string) bool {
+	return len(s) > 0 && (strings.Contains(s, "429") || strings.Contains(s, "rate limit"))
 }
 
 // ============================================================
