@@ -132,6 +132,11 @@ func (s *SpreadScanner) Stop() {
 	close(s.stopCh)
 }
 
+// ScanNow 立即触发一次全量扫描（用于鲸鱼交易等外部事件驱动）
+func (s *SpreadScanner) ScanNow() {
+	go s.fullScan()
+}
+
 // Opportunities 获取机会通道
 func (s *SpreadScanner) Opportunities() <-chan *SpreadOpportunity {
 	return s.opportunityCh

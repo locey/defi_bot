@@ -301,6 +301,21 @@ func (s *HighPerformanceScheduler) Start() error {
 		go s.spreadScannerLoop()
 	}
 
+	// Step 5c: 注册鲸鱼交易回调（大额 Swap 时立即触发全路径扫描）
+	if s.collector != nil {
+		s.collector.OnWhaleSwap(func(poolAddr string, amount *big.Int, isV3 bool) {
+			log.Scheduler().Info().
+				Str("pool", poolAddr[:14]).
+				Str("amount", amount.String()).
+				Msg("🐋 Whale detected — triggering immediate path scan")
+			// 通知 SpreadScanner 立即重扫该池子相关的代币对
+			if s.spreadScanner != nil {
+				go s.spreadScanner.ScanNow()
+			}
+		})
+		log.Scheduler().Info().Msg("  ✓ Whale swap detection registered")
+	}
+
 	// Step 6: 启动统计打印
 	go s.statsLoop()
 

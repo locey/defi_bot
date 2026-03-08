@@ -35,8 +35,22 @@ type SyncEvent struct {
 	Timestamp   time.Time
 }
 
+// SwapEvent 大额 Swap 事件数据（用于鲸鱼交易检测）
+type SwapEvent struct {
+	PoolAddress common.Address
+	AmountIn    *big.Int // 输入金额（绝对值）
+	AmountOut   *big.Int // 输出金额（绝对值）
+	IsV3        bool
+	BlockNumber uint64
+	TxHash      common.Hash
+	Timestamp   time.Time
+}
+
 // PriceUpdateCallback 价格更新回调函数
 type PriceUpdateCallback func(event *SyncEvent)
+
+// SwapCallback 大额 Swap 回调函数
+type SwapCallback func(event *SwapEvent)
 
 // NewBlockCallback 新区块回调函数
 type NewBlockCallback func(header *types.Header)
@@ -54,6 +68,7 @@ type WSClient struct {
 
 	// 回调函数
 	priceCallbacks []PriceUpdateCallback
+	swapCallbacks  []SwapCallback
 	blockCallbacks []NewBlockCallback
 	callbackMutex  sync.RWMutex
 
@@ -79,6 +94,7 @@ func NewWSClient(wsURL string, chainID int64) (*WSClient, error) {
 		chainID:        big.NewInt(chainID),
 		subscriptions:  make(map[string]ethereum.Subscription),
 		priceCallbacks: make([]PriceUpdateCallback, 0),
+		swapCallbacks:  make([]SwapCallback, 0),
 		blockCallbacks: make([]NewBlockCallback, 0),
 		watchedPools:   make(map[common.Address]bool),
 		ctx:            ctx,
@@ -212,11 +228,11 @@ func (ws *WSClient) SubscribeSyncEvents() error {
 		return fmt.Errorf("没有要监控的池地址，请先调用 AddWatchedPool")
 	}
 
-	// 构建过滤器
+	// 构建过滤器：同时监听 Sync + Swap 事件
 	query := ethereum.FilterQuery{
 		Addresses: poolAddresses,
 		Topics: [][]common.Hash{
-			{SyncEventSignature},
+			{SyncEventSignature, SwapV2EventSignature, SwapV3EventSignature},
 		},
 	}
 
@@ -237,24 +253,39 @@ func (ws *WSClient) SubscribeSyncEvents() error {
 	return nil
 }
 
-// handleSyncEvents 处理 Sync 事件
+// handleSyncEvents 处理 Sync + Swap 事件
 func (ws *WSClient) handleSyncEvents(logs chan types.Log, sub ethereum.Subscription) {
 	for {
 		select {
 		case <-ws.ctx.Done():
 			return
 		case err := <-sub.Err():
-			log.Web3().Warn().Err(err).Msg("⚠️ Sync 事件订阅错误")
+			log.Web3().Warn().Err(err).Msg("⚠️ 事件订阅错误")
 			go ws.reconnect()
 			return
 		case vLog := <-logs:
-			event := ws.parseSyncEvent(vLog)
-			if event != nil {
-				ws.callbackMutex.RLock()
-				for _, callback := range ws.priceCallbacks {
-					go callback(event)
+			if len(vLog.Topics) == 0 {
+				continue
+			}
+			switch vLog.Topics[0] {
+			case SyncEventSignature:
+				event := ws.parseSyncEvent(vLog)
+				if event != nil {
+					ws.callbackMutex.RLock()
+					for _, callback := range ws.priceCallbacks {
+						go callback(event)
+					}
+					ws.callbackMutex.RUnlock()
 				}
-				ws.callbackMutex.RUnlock()
+			case SwapV2EventSignature, SwapV3EventSignature:
+				swapEvent := ws.parseSwapEvent(vLog)
+				if swapEvent != nil {
+					ws.callbackMutex.RLock()
+					for _, callback := range ws.swapCallbacks {
+						go callback(swapEvent)
+					}
+					ws.callbackMutex.RUnlock()
+				}
 			}
 		}
 	}
@@ -279,6 +310,61 @@ func (ws *WSClient) parseSyncEvent(vLog types.Log) *SyncEvent {
 		TxHash:      vLog.TxHash,
 		Timestamp:   time.Now(),
 	}
+}
+
+// parseSwapEvent 解析 V2/V3 Swap 事件（提取交易金额）
+func (ws *WSClient) parseSwapEvent(vLog types.Log) *SwapEvent {
+	isV3 := vLog.Topics[0] == SwapV3EventSignature
+	event := &SwapEvent{
+		PoolAddress: vLog.Address,
+		IsV3:        isV3,
+		BlockNumber: vLog.BlockNumber,
+		TxHash:      vLog.TxHash,
+		Timestamp:   time.Now(),
+	}
+
+	if isV3 {
+		// V3 Swap(address sender, address recipient, int256 amount0, int256 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick)
+		if len(vLog.Data) < 160 {
+			return nil
+		}
+		amount0 := new(big.Int).SetBytes(vLog.Data[0:32])
+		amount1 := new(big.Int).SetBytes(vLog.Data[32:64])
+		// int256 两补码：如果最高位为 1，则为负数
+		if vLog.Data[0]&0x80 != 0 {
+			amount0.Sub(amount0, new(big.Int).Lsh(big.NewInt(1), 256))
+		}
+		if vLog.Data[32]&0x80 != 0 {
+			amount1.Sub(amount1, new(big.Int).Lsh(big.NewInt(1), 256))
+		}
+		event.AmountIn = new(big.Int).Abs(amount0)
+		event.AmountOut = new(big.Int).Abs(amount1)
+	} else {
+		// V2 Swap(address sender, uint amount0In, uint amount1In, uint amount0Out, uint amount1Out, address to)
+		if len(vLog.Data) < 128 {
+			return nil
+		}
+		amount0In := new(big.Int).SetBytes(vLog.Data[0:32])
+		amount1In := new(big.Int).SetBytes(vLog.Data[32:64])
+		amount0Out := new(big.Int).SetBytes(vLog.Data[64:96])
+		amount1Out := new(big.Int).SetBytes(vLog.Data[96:128])
+		// 取较大的输入/输出
+		if amount0In.Cmp(amount1In) > 0 {
+			event.AmountIn = amount0In
+			event.AmountOut = amount1Out
+		} else {
+			event.AmountIn = amount1In
+			event.AmountOut = amount0Out
+		}
+	}
+	return event
+}
+
+// OnSwap 注册 Swap 事件回调（用于鲸鱼交易检测）
+func (ws *WSClient) OnSwap(callback SwapCallback) {
+	ws.callbackMutex.Lock()
+	defer ws.callbackMutex.Unlock()
+	ws.swapCallbacks = append(ws.swapCallbacks, callback)
 }
 
 // reconnect 重新连接

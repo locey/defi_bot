@@ -66,10 +66,17 @@ type FastCollector struct {
 	running bool
 	stopCh  chan struct{}
 
+	// 鲸鱼交易检测
+	whaleCallbacks []WhaleSwapCallback
+	whaleThreshold *big.Int // 大额 swap 阈值（默认 1 ETH = 1e18 wei）
+
 	// 统计
 	stats   CollectorStats
 	statsMu sync.RWMutex
 }
+
+// WhaleSwapCallback 鲸鱼交易回调（通知外部系统立即检测套利机会）
+type WhaleSwapCallback func(poolAddr string, amountWei *big.Int, isV3 bool)
 
 // CollectorStats 采集器统计
 type CollectorStats struct {
@@ -314,7 +321,15 @@ func (c *FastCollector) startTier1Subscription(ctx context.Context) {
 		c.handleSyncEvent(event)
 	})
 
-	// 订阅Sync事件
+	// 注册鲸鱼 Swap 检测回调
+	if c.whaleThreshold == nil {
+		c.whaleThreshold = new(big.Int).SetUint64(1_000_000_000_000_000_000) // 1 ETH
+	}
+	c.wsClient.OnSwap(func(event *web3.SwapEvent) {
+		c.handleSwapEvent(event)
+	})
+
+	// 订阅 Sync + Swap 事件
 	if err := c.wsClient.SubscribeSyncEvents(); err != nil {
 		log.Collector().Error().Err(err).Msg("FastCollector: Subscribe Sync events failed")
 		c.fallbackTier1ToMulticall(ctx)
@@ -340,6 +355,40 @@ func (c *FastCollector) handleSyncEvent(event *web3.SyncEvent) {
 	c.stats.TotalUpdates++
 	c.stats.LastTier1Time = time.Now()
 	c.statsMu.Unlock()
+}
+
+// handleSwapEvent 处理 Swap 事件（鲸鱼交易检测）
+func (c *FastCollector) handleSwapEvent(event *web3.SwapEvent) {
+	// 只关注大额交易（超过阈值）
+	if event.AmountIn == nil || event.AmountIn.Cmp(c.whaleThreshold) < 0 {
+		return
+	}
+
+	poolAddr := event.PoolAddress.Hex()
+	log.Collector().Info().
+		Str("pool", poolAddr[:14]).
+		Str("amount", event.AmountIn.String()).
+		Bool("v3", event.IsV3).
+		Msg("🐋 Whale swap detected")
+
+	c.statsMu.Lock()
+	c.stats.TotalUpdates++
+	c.statsMu.Unlock()
+
+	// 通知所有注册的回调
+	for _, cb := range c.whaleCallbacks {
+		go cb(poolAddr, event.AmountIn, event.IsV3)
+	}
+}
+
+// OnWhaleSwap 注册鲸鱼交易回调
+func (c *FastCollector) OnWhaleSwap(callback WhaleSwapCallback) {
+	c.whaleCallbacks = append(c.whaleCallbacks, callback)
+}
+
+// SetWhaleThreshold 设置鲸鱼交易阈值（wei）
+func (c *FastCollector) SetWhaleThreshold(threshold *big.Int) {
+	c.whaleThreshold = threshold
 }
 
 // fallbackTier1ToMulticall Tier1降级到Multicall
