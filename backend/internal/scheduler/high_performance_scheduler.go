@@ -349,7 +349,7 @@ func (s *HighPerformanceScheduler) spreadScannerLoop() {
 	if s.spreadScanner == nil {
 		return
 	}
-	semaphore := make(chan struct{}, 1) // 价差机会串行处理，防止并发
+	semaphore := make(chan struct{}, 2) // 价差机会允许 2 并发
 
 	for {
 		select {
@@ -359,10 +359,9 @@ func (s *HighPerformanceScheduler) spreadScannerLoop() {
 			if !ok {
 				return
 			}
-			// 将 SpreadOpportunity 转换为标准 ArbitrageOpportunity 然后处理
 			arbOpp := s.convertSpreadOpportunity(spreadOpp)
 			if arbOpp != nil {
-				s.handleOpportunity(arbOpp, semaphore)
+				go s.handleOpportunity(arbOpp, semaphore)
 			}
 		}
 	}
@@ -460,7 +459,7 @@ func calculateSpreadConfidence(spread float64) float64 {
 
 // executionLoop 执行循环
 func (s *HighPerformanceScheduler) executionLoop() {
-	// 并发控制
+	// 并发控制：允许多个 eth_call 模拟并行运行
 	semaphore := make(chan struct{}, s.config.MaxConcurrentExecutions)
 
 	for {
@@ -473,7 +472,8 @@ func (s *HighPerformanceScheduler) executionLoop() {
 				return
 			}
 
-			s.handleOpportunity(opp, semaphore)
+			// 并发处理机会（eth_call 模拟可以并行，不再阻塞后续机会）
+			go s.handleOpportunity(opp, semaphore)
 		}
 	}
 }
