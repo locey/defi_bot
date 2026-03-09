@@ -850,6 +850,26 @@ func calculatePathConfidence(path *ArbitragePath, profitRate float64) float64 {
 	return confidence
 }
 
+// RecordResult 记录 eth_call 模拟结果，反馈给路径置信度
+// pathID 格式: "path_YYYYMMDD_XX"（去掉时间戳后缀）
+func (d *ArbitrageDetector) RecordResult(pathID string, passed bool) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	// 从 opp.ID (如 "path_20260310_D6_20260310000143") 提取路径前缀
+	// 匹配所有 paths 中 ID 前缀相同的
+	for _, p := range d.paths {
+		if p.ID == pathID || strings.HasPrefix(pathID, p.ID) {
+			if passed {
+				p.SuccessCount++
+			} else {
+				p.FailCount++
+			}
+			return
+		}
+	}
+}
+
 // isCrossDEXPath 检查路径是否跨越多个不同 DEX
 func isCrossDEXPath(dexNames []string) bool {
 	if len(dexNames) < 2 {

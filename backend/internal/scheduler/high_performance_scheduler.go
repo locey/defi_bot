@@ -747,6 +747,10 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 
 		if simErr != nil || !simResult.Profitable {
 			metrics.GetMetrics().RecordSimFiltered()
+			// 反馈失败给路径置信度
+			if s.detector != nil {
+				s.detector.RecordResult(opp.ID, false)
+			}
 			errMsg := ""
 			if simErr != nil { errMsg = simErr.Error() } else { errMsg = simResult.Error }
 			startToken := ""
@@ -761,6 +765,10 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 		}
 
 		metrics.GetMetrics().RecordSimPassed()
+		// 反馈成功给路径置信度
+		if s.detector != nil {
+			s.detector.RecordResult(opp.ID, true)
+		}
 		// 模拟通过了！这是一个链上此刻确实有利润的机会
 		log.Scheduler().Info().
 			Str("path", opp.ID).
