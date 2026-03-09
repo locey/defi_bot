@@ -68,18 +68,19 @@ func (ge *GasEstimator) estimateGasUsage(path []PathNode) uint64 {
 }
 
 // getSwapGas 获取不同DEX的swap Gas消耗
+// 实测数据：3-hop 路径总 gas ~1.5M，单步 V3 约 400-500K（含合约路由开销）
 func (ge *GasEstimator) getSwapGas(dexName string) uint64 {
 	switch dexName {
 	case "uniswap_v2":
-		return 120000
+		return 200000 // V2 含 DoubleRouter 路由开销
 	case "sushiswap":
-		return 120000
+		return 200000
 	case "uniswap_v3":
-		return 180000 // V3稍贵
+		return 450000 // V3 含 tick 遍历 + 路由开销（实测 ~467K）
 	case "curve":
-		return 250000 // Curve更贵
+		return 350000 // Curve 更贵
 	default:
-		return 150000
+		return 350000 // 未知 DEX 保守估计
 	}
 }
 
@@ -209,11 +210,11 @@ func (ge *GasEstimator) EstimateArbitrumTotalGasCost(
 // 用于利润判断管道：profit > EstimateTotalCostWei 才值得执行
 // pathLen: swap 跳数（2-hop = 2 个 swap）
 func (ge *GasEstimator) EstimateTotalCostWei(ctx context.Context, pathLen int) *big.Int {
-	// L2 Gas 估算
-	gasPerSwap := uint64(180_000) // V3 swap 平均 180K
+	// L2 Gas 估算（实测 V3 单步 ~450K，含 DoubleRouter 路由开销）
+	gasPerSwap := uint64(450_000) // V3 swap 实测 ~467K
 	gasOverhead := uint64(50_000)
 	l2Gas := gasOverhead + uint64(pathLen)*gasPerSwap
-	l2Gas = l2Gas * 130 / 100 // 30% 安全边际
+	l2Gas = l2Gas * 120 / 100 // 20% 安全边际（已用实测值，不需要太高）
 
 	l2GasPrice, err := ge.getGasPrice(ctx)
 	if err != nil {

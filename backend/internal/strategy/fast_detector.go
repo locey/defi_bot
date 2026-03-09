@@ -527,22 +527,42 @@ func (d *ArbitrageDetector) calculatePath(path *ArbitragePath) *ArbitrageOpportu
 		currentAmount = amountOut
 	}
 
-	// 计算利润率
-	profitRate := new(big.Float).Sub(currentAmount, amountIn)
-	profitRate.Quo(profitRate, amountIn)
-	profitRateFloat, _ := profitRate.Float64()
+	// 计算毛利润率（不含 gas）
+	grossProfit := new(big.Float).Sub(currentAmount, amountIn)
+	grossProfitRate := new(big.Float).Quo(grossProfit, amountIn)
+	grossProfitRateFloat, _ := grossProfitRate.Float64()
 
-	// 更新路径统计
+	// 估算 Gas 成本并从利润中扣除，得到净利润率
+	// Arbitrum: L2 gas ~450K/hop × 0.1 gwei + L1 calldata ~800 bytes × 16 gas × 20 gwei
+	numSwaps := len(path.Pools)
+	l2Gas := uint64(50_000) + uint64(numSwaps)*450_000
+	l2Gas = l2Gas * 120 / 100 // 20% margin
+	l2CostWei := l2Gas * 100_000_000 // × 0.1 gwei
+	calldataSize := 800 + numSwaps*64
+	l1CostWei := uint64(calldataSize) * 16 * 20_000_000_000 // × 20 gwei L1
+	totalGasCostWei := l2CostWei + l1CostWei
+
+	gasCostFloat := new(big.Float).SetUint64(totalGasCostWei)
+	netProfit := new(big.Float).Sub(grossProfit, gasCostFloat)
+	netProfitRate := new(big.Float).Quo(netProfit, amountIn)
+	profitRateFloat, _ := netProfitRate.Float64()
+
+	// 更新路径统计（用净利润率）
 	path.LastProfit = profitRateFloat
 	path.LastCalculated = time.Now()
 
-	// 检查是否达到阈值
+	// 检查是否达到阈值（净利润率必须为正）
 	threshold := d.config.ProfitThresholds[path.PathLength]
 	if threshold == 0 {
 		threshold = 0.003 // 默认0.3%
 	}
 
 	if profitRateFloat < threshold {
+		return nil
+	}
+
+	// 过滤荒谬利润率（>50% 几乎都是代币精度不匹配或 V3 数学错误的假阳性）
+	if grossProfitRateFloat > 0.50 {
 		return nil
 	}
 
@@ -580,51 +600,49 @@ func (d *ArbitrageDetector) calculatePath(path *ArbitragePath) *ArbitrageOpportu
 		}
 	}
 
-	// 构建机会对象
+	// 构建机会对象（使用净利润率，已扣除 gas）
 	opp := &ArbitrageOpportunity{
 		ID:           path.ID + "_" + time.Now().Format("20060102150405"),
 		SwapPath:     path.Tokens,
 		Dexes:        dexAddresses,
 		DexNames:     path.DexNames,
 		AmountIn:     optimalAmountIn,
-		ProfitRate:   profitRateFloat,
+		ProfitRate:   profitRateFloat, // 净利润率（已扣 gas）
 		PathLength:   path.PathLength,
 		Timestamp:    time.Now(),
-		ValidUntil:   time.Now().Add(30 * time.Second),
+		ValidUntil:   time.Now().Add(15 * time.Second), // 缩短有效期 30s→15s
 		Confidence:   calculatePathConfidence(path, profitRateFloat),
 		IsCex:        false,
 		FeeTiers:     feeTiers,
 	}
 
-	// 计算预期利润（wei 单位）
+	// 计算预期净利润（wei 单位）
 	if optimalAmountIn != nil && optimalAmountIn.Sign() > 0 {
+		// ExpectProfit = amountIn × netProfitRate
 		expectedProfit := new(big.Float).SetInt(optimalAmountIn)
 		expectedProfit.Mul(expectedProfit, big.NewFloat(profitRateFloat))
 		opp.ExpectProfit, _ = expectedProfit.Int(nil)
+		if opp.ExpectProfit != nil && opp.ExpectProfit.Sign() < 0 {
+			return nil // 扣完 gas 后亏损
+		}
 
-		// MinProfit = Gas 成本 × 2 + Flash Loan 费用（0.05% of amountIn）
-		// Gas: Arbitrum ~800K × 0.1 gwei = 0.00008 ETH
-		// Flash Loan 路径 Gas 更高 ~1.5M × 0.1 gwei = 0.00015 ETH
-		gasEstimateWei := new(big.Int).Mul(big.NewInt(1_500_000), big.NewInt(100_000_000)) // 1.5M gas × 0.1 gwei
-		gasCostX2 := new(big.Int).Mul(gasEstimateWei, big.NewInt(2))
-
-		// Aave Flash Loan 费率 0.05% = 5/10000
-		flashLoanFee := new(big.Int).Mul(optimalAmountIn, big.NewInt(5))
-		flashLoanFee.Div(flashLoanFee, big.NewInt(10000))
-
-		opp.MinProfit = new(big.Int).Add(gasCostX2, flashLoanFee)
-		opp.GasEstimate = 1_500_000
+		// MinProfit = 实际 gas 成本（已在净利润中扣除，这里设较低值作为合约安全网）
+		gasCostWei := new(big.Int).SetUint64(totalGasCostWei)
+		opp.MinProfit = gasCostWei // 合约层面至少要覆盖 gas
+		opp.GasEstimate = l2Gas
 	}
 
 	calcTime := time.Since(startTime)
 	log.Strategy().Info().
 		Str("path", path.ID).
-		Float64("profit_pct", profitRateFloat*100).
+		Float64("gross_pct", grossProfitRateFloat*100).
+		Float64("net_pct", profitRateFloat*100).
+		Uint64("gas_cost_wei", totalGasCostWei).
 		Str("expect_profit_wei", func() string { if opp.ExpectProfit != nil { return opp.ExpectProfit.String() } ; return "0" }()).
 		Float64("confidence", opp.Confidence).
 		Int("hops", path.PathLength).
 		Dur("calc_time", calcTime).
-		Msg("ArbitrageDetector: Found opportunity")
+		Msg("ArbitrageDetector: Found opportunity (net of gas)")
 
 	return opp
 }

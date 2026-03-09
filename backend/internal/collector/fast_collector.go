@@ -126,7 +126,7 @@ func defaultFastCollectorConfig() *FastCollectorConfig {
 			MinTVL:       500000, // $500K
 			MinVolume24h: 100000, // $100K
 			Method:       "multicall",
-			Interval:     3 * time.Second, // 3秒（从1秒提高，释放 RPC 带宽给交易）
+			Interval:     2 * time.Second, // 2秒（平衡速度与 RPC 限流，1s 导致 429）
 		},
 		Tier3: TierConfig{
 			MinTVL:       50000, // $50K

@@ -532,10 +532,10 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 		return // 低置信度直接丢弃（不再打印日志减少刷屏）
 	}
 
-	// 去重：同一路径（token 组合+DEX 组合）5s 内不重复 eth_call
+	// 去重：同一路径（token 组合+DEX 组合）2s 内不重复 eth_call
 	dedupKey := s.buildDedupKey(opp)
 	if lastTime, ok := s.recentPaths.Load(dedupKey); ok {
-		if t, _ := lastTime.(time.Time); time.Since(t) < 5*time.Second {
+		if t, _ := lastTime.(time.Time); time.Since(t) < 2*time.Second {
 			return // 跳过重复
 		}
 	}

@@ -12,27 +12,27 @@ import (
 
 func TestGetSwapGas_UniswapV2(t *testing.T) {
 	ge := &GasEstimator{baseGasOverhead: 50000, baseGasPerSwap: 150000}
-	assert.Equal(t, uint64(120000), ge.getSwapGas("uniswap_v2"))
+	assert.Equal(t, uint64(200000), ge.getSwapGas("uniswap_v2"))
 }
 
 func TestGetSwapGas_UniswapV3(t *testing.T) {
 	ge := &GasEstimator{baseGasOverhead: 50000, baseGasPerSwap: 150000}
-	assert.Equal(t, uint64(180000), ge.getSwapGas("uniswap_v3"))
+	assert.Equal(t, uint64(450000), ge.getSwapGas("uniswap_v3"))
 }
 
 func TestGetSwapGas_Curve(t *testing.T) {
 	ge := &GasEstimator{baseGasOverhead: 50000, baseGasPerSwap: 150000}
-	assert.Equal(t, uint64(250000), ge.getSwapGas("curve"))
+	assert.Equal(t, uint64(350000), ge.getSwapGas("curve"))
 }
 
 func TestGetSwapGas_SushiSwap(t *testing.T) {
 	ge := &GasEstimator{baseGasOverhead: 50000, baseGasPerSwap: 150000}
-	assert.Equal(t, uint64(120000), ge.getSwapGas("sushiswap"))
+	assert.Equal(t, uint64(200000), ge.getSwapGas("sushiswap"))
 }
 
 func TestGetSwapGas_Unknown(t *testing.T) {
 	ge := &GasEstimator{baseGasOverhead: 50000, baseGasPerSwap: 150000}
-	assert.Equal(t, uint64(150000), ge.getSwapGas("unknown_dex"))
+	assert.Equal(t, uint64(350000), ge.getSwapGas("unknown_dex"))
 }
 
 func TestEstimateGasUsage_TwoSwaps(t *testing.T) {
@@ -44,8 +44,8 @@ func TestEstimateGasUsage_TwoSwaps(t *testing.T) {
 	}
 
 	gas := ge.estimateGasUsage(path)
-	// 50000 (overhead) + 120000 (v2) + 180000 (v3) = 350000 * 1.2 = 420000
-	expected := uint64((50000 + 120000 + 180000) * 120 / 100)
+	// 50000 (overhead) + 200000 (v2) + 450000 (v3) = 700000 * 1.2 = 840000
+	expected := uint64((50000 + 200000 + 450000) * 120 / 100)
 	assert.Equal(t, expected, gas)
 }
 
