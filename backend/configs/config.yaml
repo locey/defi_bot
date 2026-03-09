@@ -233,9 +233,9 @@ scheduler:
   cleanup_interval: 24
   min_profit_rate: 0.4   # 0.4%（确保扣完 Gas + Aave 0.05% 费率后净正）
   mode: high_performance
-  enable_execution: false   # Dry-run: 不执行交易
-  dry_run: true             # Dry-run: 仅观察
-  min_confidence: 0.3       # 降低阈值，让更多机会进入 eth_call 验证（eth_call 是最终门槛）
+  enable_execution: true    # 开启真实执行
+  dry_run: false            # 关闭 dry-run，提交真实交易
+  min_confidence: 0.15      # 低阈值，让 eth_call 做最终裁定
   max_concurrent_exec: 3    # 允许 3 笔并行 eth_call 模拟
 
 # 套利配置
