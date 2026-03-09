@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"sync"
 
 	"github.com/defi-bot/backend/pkg/log"
 	"github.com/defi-bot/backend/pkg/web3"
@@ -101,6 +102,7 @@ type ContractCaller struct {
 	keeperAddress   common.Address    // Keeper 地址（用于 eth_call 的 From 字段）
 	privateTxSender *PrivateTxSender  // 私有交易发送器（防 MEV 抢跑，Arbitrum FCFS 下可选）
 	nonceTracker    *NonceTracker     // 本地 Nonce 追踪器（替代 PendingNonceAt，消除并发竞态）
+	sendMu          sync.Mutex        // 发送锁：序列化 Reserve→Send→Confirm，防止并发 nonce 冲突
 
 	// Flash Loan 相关
 	flashLoanAddress common.Address // FlashLoanArbitrage 合约地址
@@ -202,6 +204,10 @@ func (cc *ContractCaller) ExecuteArbitrage(
 	if cc.execRPCClient != nil {
 		execClient = cc.execRPCClient
 	}
+
+	// 序列化交易发送：防止并发 goroutine 拿到相同 nonce
+	cc.sendMu.Lock()
+	defer cc.sendMu.Unlock()
 
 	// 使用本地 NonceTracker 替代 PendingNonceAt，消除并发 nonce 冲突
 	if err := cc.nonceTracker.InitIfNeeded(ctx, execClient, from); err != nil {
@@ -438,6 +444,10 @@ func (cc *ContractCaller) ExecuteFlashLoanArbitrage(
 	if cc.execRPCClient != nil {
 		execClient = cc.execRPCClient
 	}
+
+	// 序列化交易发送：防止并发 goroutine 拿到相同 nonce
+	cc.sendMu.Lock()
+	defer cc.sendMu.Unlock()
 
 	// 使用本地 NonceTracker（安全模式：发送成功后再确认递增）
 	if err := cc.nonceTracker.InitIfNeeded(ctx, execClient, from); err != nil {
