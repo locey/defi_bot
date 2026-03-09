@@ -610,7 +610,7 @@ func (d *ArbitrageDetector) calculatePath(path *ArbitragePath) *ArbitrageOpportu
 		ProfitRate:   profitRateFloat, // 净利润率（已扣 gas）
 		PathLength:   path.PathLength,
 		Timestamp:    time.Now(),
-		ValidUntil:   time.Now().Add(15 * time.Second), // 缩短有效期 30s→15s
+		ValidUntil:   time.Now().Add(5 * time.Second), // 缩短有效期 15s→5s（链上机会存活 <3s）
 		Confidence:   calculatePathConfidence(path, profitRateFloat),
 		IsCex:        false,
 		FeeTiers:     feeTiers,

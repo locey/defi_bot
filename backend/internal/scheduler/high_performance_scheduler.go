@@ -164,7 +164,7 @@ func defaultHighPerformanceConfig() *HighPerformanceConfig {
 		DetectorConfig:          nil, // 使用默认
 		MaxConcurrentExecutions: 3,
 		ExecutionTimeout:        30 * time.Second,
-		MinConfidence:           0.3,   // 降低阈值，让更多机会通过（eth_call 模拟会做最终验证）
+		MinConfidence:           0.15,  // 降低阈值，让更多机会到 eth_call（链上模拟做最终裁定）
 		EnableExecution:         false, // 默认不自动执行
 		DryRun:                  true,  // 默认干运行
 	}
@@ -508,6 +508,21 @@ func (s *HighPerformanceScheduler) executionLoop() {
 				continue
 			}
 
+			// 过滤已过期的机会（ValidUntil 已过）
+			now := time.Now()
+			alive := batch[:0]
+			for _, o := range batch {
+				if !o.ValidUntil.IsZero() && now.After(o.ValidUntil) {
+					continue // 过期丢弃
+				}
+				alive = append(alive, o)
+			}
+			batch = alive
+
+			if len(batch) == 0 {
+				continue
+			}
+
 			// 按 ExpectProfit 降序排序（最赚钱的优先处理）
 			sort.Slice(batch, func(i, j int) bool {
 				pi := batch[i].ExpectProfit
@@ -521,6 +536,12 @@ func (s *HighPerformanceScheduler) executionLoop() {
 				return pi.Cmp(pj) > 0
 			})
 
+			// 每批最多处理 top-5，避免大量并发 eth_call 触发 429
+			maxBatch := 5
+			if len(batch) > maxBatch {
+				batch = batch[:maxBatch]
+			}
+
 			// 处理排序后的批次
 			for _, opp := range batch {
 				go s.handleOpportunity(opp, semaphore)
@@ -532,6 +553,11 @@ func (s *HighPerformanceScheduler) executionLoop() {
 
 // handleOpportunity 处理套利机会
 func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOpportunity, semaphore chan struct{}) {
+	// 过期检查（goroutine 调度延迟可能超过 ValidUntil）
+	if !opp.ValidUntil.IsZero() && time.Now().After(opp.ValidUntil) {
+		return
+	}
+
 	// 更新统计
 	s.statsMu.Lock()
 	s.stats.OpportunitiesFound++
@@ -712,8 +738,8 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 			if s.consecutive429 > 0 {
 				s.consecutive429 = 0
 			}
-			// 无 429 时逐步回落（不低于 100ms）
-			if s.ethCallMinDelay > 100*time.Millisecond {
+			// 无 429 时逐步回落（不低于 150ms）
+			if s.ethCallMinDelay > 150*time.Millisecond {
 				s.ethCallMinDelay = s.ethCallMinDelay * 9 / 10
 			}
 		}
@@ -999,7 +1025,7 @@ func CreateHighPerformanceScheduler(
 		BaseTokens:              baseTokens,
 		MaxConcurrentExecutions: 3,
 		ExecutionTimeout:        30 * time.Second,
-		MinConfidence:           0.3,
+		MinConfidence:           0.15,
 		EnableExecution:         false,
 		DryRun:                  true,
 	}
