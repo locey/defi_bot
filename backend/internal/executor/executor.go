@@ -394,9 +394,26 @@ func (e *ArbitrageExecutor) parseExecutionResult(
 		result.Success = true
 		// 从事件日志解析实际利润
 		result.ActualProfit = e.parseActualProfit(receipt)
+
+		// 预期 vs 实际利润对比（调参用）
+		if opp.ExpectProfit != nil && result.ActualProfit != nil && opp.ExpectProfit.Sign() > 0 {
+			variance := new(big.Int).Sub(result.ActualProfit, opp.ExpectProfit)
+			variancePct := new(big.Float).Quo(
+				new(big.Float).SetInt(variance),
+				new(big.Float).SetInt(opp.ExpectProfit),
+			)
+			variancePctFloat, _ := variancePct.Float64()
+			log.Executor().Info().
+				Str("tx", result.TxHash[:14]).
+				Str("expected", opp.ExpectProfit.String()).
+				Str("actual", result.ActualProfit.String()).
+				Float64("variance_pct", variancePctFloat*100).
+				Msg("📊 Profit variance: expected vs actual")
+		}
 	} else {
 		result.Success = false
-		result.Error = "transaction reverted"
+		// 解析 revert 原因
+		result.Error = parseRevertReason(receipt, tx)
 		// 记录 revert Gas 损失到日累计
 		e.recordGasLoss(result.GasCost)
 	}
@@ -595,6 +612,25 @@ func (e *ArbitrageExecutor) saveExecutionRecord(
 		result.TxHash, status, actualProfit)
 
 	return nil
+}
+
+// parseRevertReason 从 receipt 和 tx 解析 revert 原因
+// 已知合约 revert 字符串：
+//   - "DoubleRouter: insufficient profit"
+//   - "ArbitrageCore: no profit"
+//   - "ArbitrageCore: amountIn too much"
+//   - "insufficient balance" (ERC20)
+func parseRevertReason(receipt *types.Receipt, tx *types.Transaction) string {
+	// receipt.Status == 0 表示 revert
+	// Arbitrum 不在 receipt 中附带 revert reason，需要用 eth_call 重放获取
+	// 但我们可以根据 gas 使用量推断原因
+	if receipt.GasUsed < 50000 {
+		return "reverted early (likely permission/validation check)"
+	}
+	if receipt.GasUsed > 900000 {
+		return "reverted late (likely insufficient profit after swaps)"
+	}
+	return fmt.Sprintf("transaction reverted (gas_used=%d)", receipt.GasUsed)
 }
 
 // addressesToStrings 将地址数组转换为字符串数组

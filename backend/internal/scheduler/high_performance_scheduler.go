@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -480,10 +481,16 @@ func calculateSpreadConfidence(spread float64) float64 {
 	return 0.5
 }
 
-// executionLoop 执行循环
+// executionLoop 执行循环（批量收集 + 按利润排序）
 func (s *HighPerformanceScheduler) executionLoop() {
 	// 并发控制：允许多个 eth_call 模拟并行运行
 	semaphore := make(chan struct{}, s.config.MaxConcurrentExecutions)
+
+	// 每 500ms 收集一批机会，按 ExpectProfit 降序排序后处理
+	batchTicker := time.NewTicker(500 * time.Millisecond)
+	defer batchTicker.Stop()
+
+	var batch []*strategy.ArbitrageOpportunity
 
 	for {
 		select {
@@ -494,9 +501,31 @@ func (s *HighPerformanceScheduler) executionLoop() {
 			if !ok {
 				return
 			}
+			batch = append(batch, opp)
 
-			// 并发处理机会（eth_call 模拟可以并行，不再阻塞后续机会）
-			go s.handleOpportunity(opp, semaphore)
+		case <-batchTicker.C:
+			if len(batch) == 0 {
+				continue
+			}
+
+			// 按 ExpectProfit 降序排序（最赚钱的优先处理）
+			sort.Slice(batch, func(i, j int) bool {
+				pi := batch[i].ExpectProfit
+				pj := batch[j].ExpectProfit
+				if pi == nil {
+					return false
+				}
+				if pj == nil {
+					return true
+				}
+				return pi.Cmp(pj) > 0
+			})
+
+			// 处理排序后的批次
+			for _, opp := range batch {
+				go s.handleOpportunity(opp, semaphore)
+			}
+			batch = batch[:0] // 清空
 		}
 	}
 }

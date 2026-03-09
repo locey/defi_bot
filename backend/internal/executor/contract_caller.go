@@ -207,7 +207,8 @@ func (cc *ContractCaller) ExecuteArbitrage(
 	if err := cc.nonceTracker.InitIfNeeded(ctx, execClient, from); err != nil {
 		return nil, fmt.Errorf("init nonce failed: %w", err)
 	}
-	nonce := cc.nonceTracker.GetAndIncrement(from)
+	// 安全模式：先预留 nonce，发送成功后再确认递增
+	nonce := cc.nonceTracker.Reserve(from)
 
 	// Gas 使用固定值（Arbitrum 上 Gas 估算开销大且容易超时）
 	gasLimit := uint64(1_000_000) // 1M Gas（保守值）
@@ -240,13 +241,13 @@ func (cc *ContractCaller) ExecuteArbitrage(
 		// 优先走私有 RPC（防 MEV），Arbitrum FCFS 下 fallback 到公共 RPC
 		if cc.privateTxSender != nil {
 			if err := cc.privateTxSender.SendTransaction(ctx, signed, execClient); err != nil {
-				cc.nonceTracker.Decrement(from)
 				return nil, fmt.Errorf("send tx failed: %w", err)
 			}
 		} else if err := execClient.SendTransaction(ctx, signed); err != nil {
-			cc.nonceTracker.Decrement(from)
 			return nil, fmt.Errorf("send tx failed: %w", err)
 		}
+		// 发送成功后才确认 nonce 递增
+		cc.nonceTracker.Confirm(from, nonce)
 		return signed, nil
 	}
 
@@ -273,13 +274,12 @@ func (cc *ContractCaller) ExecuteArbitrage(
 
 	if cc.privateTxSender != nil {
 		if err := cc.privateTxSender.SendTransaction(ctx, signed, execClient); err != nil {
-			cc.nonceTracker.Decrement(from)
 			return nil, fmt.Errorf("send tx failed: %w", err)
 		}
 	} else if err := execClient.SendTransaction(ctx, signed); err != nil {
-		cc.nonceTracker.Decrement(from)
 		return nil, fmt.Errorf("send tx failed: %w", err)
 	}
+	cc.nonceTracker.Confirm(from, nonce)
 
 	return signed, nil
 }
@@ -439,11 +439,11 @@ func (cc *ContractCaller) ExecuteFlashLoanArbitrage(
 		execClient = cc.execRPCClient
 	}
 
-	// 使用本地 NonceTracker
+	// 使用本地 NonceTracker（安全模式：发送成功后再确认递增）
 	if err := cc.nonceTracker.InitIfNeeded(ctx, execClient, from); err != nil {
 		return nil, fmt.Errorf("init nonce failed: %w", err)
 	}
-	nonce := cc.nonceTracker.GetAndIncrement(from)
+	nonce := cc.nonceTracker.Reserve(from)
 
 	gasLimit := uint64(1_500_000) // Flash Loan 交易 Gas 更高（含回调）
 
@@ -470,19 +470,17 @@ func (cc *ContractCaller) ExecuteFlashLoanArbitrage(
 		signer := types.LatestSignerForChainID(cc.web3Client.GetChainID())
 		signed, err := types.SignTx(tx, signer, pk)
 		if err != nil {
-			cc.nonceTracker.Decrement(from)
 			return nil, fmt.Errorf("sign tx failed: %w", err)
 		}
 
 		if cc.privateTxSender != nil {
 			if err := cc.privateTxSender.SendTransaction(ctx, signed, execClient); err != nil {
-				cc.nonceTracker.Decrement(from)
 				return nil, fmt.Errorf("send flash loan tx failed: %w", err)
 			}
 		} else if err := execClient.SendTransaction(ctx, signed); err != nil {
-			cc.nonceTracker.Decrement(from)
 			return nil, fmt.Errorf("send flash loan tx failed: %w", err)
 		}
+		cc.nonceTracker.Confirm(from, nonce)
 		return signed, nil
 	}
 
@@ -504,19 +502,17 @@ func (cc *ContractCaller) ExecuteFlashLoanArbitrage(
 	signer := types.LatestSignerForChainID(cc.web3Client.GetChainID())
 	signed, err := types.SignTx(tx, signer, pk)
 	if err != nil {
-		cc.nonceTracker.Decrement(from)
 		return nil, fmt.Errorf("sign tx failed: %w", err)
 	}
 
 	if cc.privateTxSender != nil {
 		if err := cc.privateTxSender.SendTransaction(ctx, signed, execClient); err != nil {
-			cc.nonceTracker.Decrement(from)
 			return nil, fmt.Errorf("send flash loan tx failed: %w", err)
 		}
 	} else if err := execClient.SendTransaction(ctx, signed); err != nil {
-		cc.nonceTracker.Decrement(from)
 		return nil, fmt.Errorf("send flash loan tx failed: %w", err)
 	}
+	cc.nonceTracker.Confirm(from, nonce)
 
 	return signed, nil
 }

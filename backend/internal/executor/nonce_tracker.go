@@ -57,6 +57,24 @@ func (n *NonceTracker) GetAndIncrement(address common.Address) uint64 {
 	return nonce
 }
 
+// Reserve 预留 Nonce（不自增），配合 Confirm 使用
+// 用于"发送成功后再递增"的安全模式
+func (n *NonceTracker) Reserve(address common.Address) uint64 {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return n.nonces[address]
+}
+
+// Confirm 确认 Nonce 已使用（发送成功后调用），递增到下一个
+func (n *NonceTracker) Confirm(address common.Address, usedNonce uint64) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	// 只在 usedNonce 匹配当前值时递增（防止并发错乱）
+	if n.nonces[address] == usedNonce {
+		n.nonces[address]++
+	}
+}
+
 // Get 获取当前 Nonce（不自增）
 func (n *NonceTracker) Get(address common.Address) uint64 {
 	n.mu.Lock()
