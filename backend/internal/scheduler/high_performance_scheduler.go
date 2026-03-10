@@ -112,6 +112,9 @@ type HighPerformanceConfig struct {
 	// 动态价差扫描器配置
 	EnableSpreadScanner bool // 是否启用自动发现跨 DEX 价差（不依赖预设代币列表）
 	MinSpreadBps        int  // 触发价差阈值（basis points，默认 30 = 0.3%）
+
+	// QuoterV2 地址（V3 链上精确报价，消除单 tick 计算的 880x 高估）
+	QuoterAddress string // QuoterV2 合约地址（空则跳过 Quoter 验证）
 }
 
 // SchedulerStats 调度器统计
@@ -693,6 +696,53 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 		opp.ExpectProfit = big.NewInt(1)
 	}
 
+	// QuoterV2 精确验证：替代 fast_detector 的单 tick V3 近似计算
+	// V3 hop: 调用链上 QuoterV2.quoteExactInputSingle（~50ms/hop）
+	// V2 hop: 用 PriceCache reserves + 恒定乘积公式（纯整数运算，已验证精确）
+	hasV3Hop := false
+	for _, ft := range opp.FeeTiers {
+		if ft > 0 {
+			hasV3Hop = true
+			break
+		}
+	}
+	if hasV3Hop && s.config.QuoterAddress != "" && s.web3Client != nil {
+		quoterCtx, quoterCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		quoterOut, quoterProfitable, quoterErr := s.validateWithQuoter(quoterCtx, opp)
+		quoterCancel()
+
+		if quoterErr != nil {
+			log.Scheduler().Debug().Err(quoterErr).Str("path", opp.ID).Msg("QuoterV2 validation failed")
+			// Quoter 失败不阻塞，继续走 eth_call
+		} else if !quoterProfitable {
+			log.Scheduler().Info().
+				Str("path", opp.ID).
+				Float64("fast_profit_pct", opp.ProfitRate*100).
+				Str("quoter_out", quoterOut.String()).
+				Str("amount_in", opp.AmountIn.String()).
+				Msg("  ❌ QuoterV2 says NOT profitable (fast math overestimated)")
+			return
+		} else {
+			// Quoter 确认盈利 — 用精确输出更新 ExpectProfit
+			realProfit := new(big.Int).Sub(quoterOut, opp.AmountIn)
+			realProfitRate, _ := new(big.Float).Quo(
+				new(big.Float).SetInt(realProfit),
+				new(big.Float).SetInt(opp.AmountIn),
+			).Float64()
+
+			log.Scheduler().Info().
+				Str("path", opp.ID).
+				Float64("fast_profit_pct", opp.ProfitRate*100).
+				Float64("quoter_profit_pct", realProfitRate*100).
+				Str("quoter_out", quoterOut.String()).
+				Msg("  ✅ QuoterV2 confirms profitable")
+
+			opp.ExpectProfit = realProfit
+			opp.ExpectedOut = quoterOut
+			opp.ProfitRate = realProfitRate
+		}
+	}
+
 	// MinProfit 动态计算：覆盖实际 gas 成本即可
 	// Arbitrum 实测: gasUsed ~700K, gasPrice ~0.04 gwei → gasCost ≈ 0.00003 ETH
 	// 设 2x 安全边际: MinProfit = 0.00006 ETH
@@ -701,20 +751,6 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 	// 预检：ExpectProfit 必须 > gas 成本，否则跳过（不浪费 eth_call）
 	if opp.ExpectProfit != nil && opp.ExpectProfit.Cmp(gasCostEstimate) < 0 {
 		return // 预期利润不覆盖 gas，跳过
-	}
-
-	// 聚合器交叉验证（可选，非阻塞）
-	if s.aggregatorOracle != nil && len(opp.SwapPath) >= 3 {
-		aggCtx, aggCancel := context.WithTimeout(context.Background(), 3*time.Second)
-		confirmed, route := s.aggregatorOracle.CrossValidateOpportunity(aggCtx, opp)
-		aggCancel()
-		if confirmed {
-			log.Scheduler().Info().
-				Str("path", opp.ID).
-				Str("aggregator_route", route).
-				Msg("📊 Aggregator confirms opportunity")
-		}
-		// 不阻塞：即使聚合器不确认，仍然走 eth_call 验证
 	}
 
 	// MinProfit = 2× 预估 gas 成本，让合约实际验证利润覆盖 gas
@@ -864,6 +900,121 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 		s.executeOpportunity(opp)
 	}
 	<-semaphore
+}
+
+// validateWithQuoter 使用 QuoterV2 精确验证混合 V2/V3 路径
+// V3 hop: 调用 QuoterV2.quoteExactInputSingle（每跳 ~50ms）
+// V2 hop: 用 PriceCache reserves + 恒定乘积公式（纯整数运算）
+// 返回: 精确输出金额, 是否盈利, error
+func (s *HighPerformanceScheduler) validateWithQuoter(ctx context.Context, opp *strategy.ArbitrageOpportunity) (*big.Int, bool, error) {
+	if s.config.QuoterAddress == "" || s.web3Client == nil {
+		return nil, false, fmt.Errorf("quoter not configured")
+	}
+
+	currentAmount := new(big.Int).Set(opp.AmountIn)
+	feeTiers := opp.FeeTiers
+	if len(feeTiers) != len(opp.SwapPath)-1 {
+		return nil, false, fmt.Errorf("feeTiers length mismatch: %d vs %d hops", len(feeTiers), len(opp.SwapPath)-1)
+	}
+
+	for i := 0; i < len(opp.SwapPath)-1; i++ {
+		tokenIn := opp.SwapPath[i]
+		tokenOut := opp.SwapPath[i+1]
+		fee := feeTiers[i]
+
+		if fee > 0 {
+			// V3 hop: 链上 QuoterV2 精确报价
+			result, err := s.web3Client.QuoteExactInputSingle(
+				s.config.QuoterAddress,
+				tokenIn.Hex(),
+				tokenOut.Hex(),
+				currentAmount,
+				fee,
+			)
+			if err != nil {
+				return nil, false, fmt.Errorf("quoter V3 hop %d failed: %w", i, err)
+			}
+			if result.AmountOut == nil || result.AmountOut.Sign() <= 0 {
+				return nil, false, fmt.Errorf("quoter V3 hop %d returned 0", i)
+			}
+
+			log.Scheduler().Debug().
+				Int("hop", i).Str("type", "V3").
+				Str("in", tokenIn.Hex()[:10]).Str("out", tokenOut.Hex()[:10]).
+				Str("amountIn", currentAmount.String()).Str("amountOut", result.AmountOut.String()).
+				Uint32("fee", fee).Uint32("ticksCrossed", result.InitializedTicksCrossed).
+				Msg("QuoterV2 hop")
+
+			currentAmount = result.AmountOut
+		} else {
+			// V2 hop: 用 PriceCache reserves + 恒定乘积公式
+			pools := s.priceCache.GetByTokenPair(tokenIn.Hex(), tokenOut.Hex())
+			if len(pools) == 0 {
+				return nil, false, fmt.Errorf("V2 hop %d: no pool found for %s→%s", i, tokenIn.Hex()[:10], tokenOut.Hex()[:10])
+			}
+
+			// 找到最佳 V2 池（非 V3、流动性最高）
+			var bestPool *cache.PoolPrice
+			var bestLiquidity *big.Int
+			for _, p := range pools {
+				if !p.IsV3 && p.Reserve0 != nil && p.Reserve0.Sign() > 0 &&
+					p.Reserve1 != nil && p.Reserve1.Sign() > 0 {
+					// 用 reserve0 * reserve1 作为流动性指标
+					liq := new(big.Int).Mul(p.Reserve0, p.Reserve1)
+					if bestPool == nil || liq.Cmp(bestLiquidity) > 0 {
+						bestPool = p
+						bestLiquidity = liq
+					}
+				}
+			}
+			if bestPool == nil {
+				return nil, false, fmt.Errorf("V2 hop %d: no V2 pool with reserves for %s→%s", i, tokenIn.Hex()[:10], tokenOut.Hex()[:10])
+			}
+
+			// 恒定乘积公式（整数运算）
+			var reserveIn, reserveOut *big.Int
+			if tokenIn == bestPool.Token0 {
+				reserveIn = bestPool.Reserve0
+				reserveOut = bestPool.Reserve1
+			} else {
+				reserveIn = bestPool.Reserve1
+				reserveOut = bestPool.Reserve0
+			}
+
+			feeBps := bestPool.Fee
+			if feeBps == 0 {
+				feeBps = 30 // 默认 0.3%
+			}
+			feeNum := big.NewInt(int64(10000 - feeBps))
+			base := big.NewInt(10000)
+
+			amtInWithFee := new(big.Int).Mul(currentAmount, feeNum)
+			numerator := new(big.Int).Mul(reserveOut, amtInWithFee)
+			denominator := new(big.Int).Add(
+				new(big.Int).Mul(reserveIn, base),
+				amtInWithFee,
+			)
+			if denominator.Sign() <= 0 {
+				return nil, false, fmt.Errorf("V2 hop %d: zero denominator", i)
+			}
+			amountOut := new(big.Int).Div(numerator, denominator)
+
+			log.Scheduler().Debug().
+				Int("hop", i).Str("type", "V2").
+				Str("in", tokenIn.Hex()[:10]).Str("out", tokenOut.Hex()[:10]).
+				Str("amountIn", currentAmount.String()).Str("amountOut", amountOut.String()).
+				Str("pool", bestPool.PoolAddress[:10]).
+				Msg("QuoterV2 hop (V2 formula)")
+
+			currentAmount = amountOut
+		}
+	}
+
+	// 计算净利润: amountOut - amountIn
+	profit := new(big.Int).Sub(currentAmount, opp.AmountIn)
+	profitable := profit.Sign() > 0
+
+	return currentAmount, profitable, nil
 }
 
 // executeOpportunity 执行套利机会

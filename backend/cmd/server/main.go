@@ -298,11 +298,16 @@ func main() {
 			}
 		}
 
-		// 构建 DEX 名称 → Router 地址映射
+		// 构建 DEX 名称 → Router 地址映射，提取 QuoterV2 地址
 		dexRouters := make(map[string]common.Address)
+		quoterAddr := ""
 		for _, d := range cfg.Dexes {
 			if d.Router != "" && d.Name != "" {
 				dexRouters[d.Name] = common.HexToAddress(d.Router)
+			}
+			// 取第一个非空 Quoter 地址（同链所有 V3 DEX 共用同一个 QuoterV2）
+			if d.Quoter != "" && quoterAddr == "" {
+				quoterAddr = d.Quoter
 			}
 		}
 
@@ -327,6 +332,8 @@ func main() {
 			MinSpreadBps:        15, // 0.15% 最小触发价差（让更多机会进入 eth_call 验证）
 			// RPC 客户端池（多节点轮询，eth_call 429 时自动轮换）
 			RPCPool: rpcPool,
+			// QuoterV2 精确报价（消除 V3 单 tick 880x 高估）
+			QuoterAddress: quoterAddr,
 		}
 		if hpConfig.MaxConcurrentExecutions == 0 {
 			hpConfig.MaxConcurrentExecutions = 3

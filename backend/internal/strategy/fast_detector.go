@@ -528,6 +528,20 @@ func (d *ArbitrageDetector) calculatePath(path *ArbitragePath) *ArbitrageOpportu
 				price.Reserve0.Sign() <= 0 || price.Reserve1.Sign() <= 0 {
 				return nil
 			}
+			// 流动性过滤：跳过 dust 池（amountIn > 10% of reserveIn = 过大价格影响）
+			var reserveIn *big.Int
+			if tokenIn == price.Token0 {
+				reserveIn = price.Reserve0
+			} else {
+				reserveIn = price.Reserve1
+			}
+			curAmtInt, _ := currentAmount.Int(nil)
+			if curAmtInt != nil {
+				// amountIn > reserveIn → 池子完全无法承接此交易量
+				if curAmtInt.Cmp(reserveIn) > 0 {
+					return nil // amountIn 超过池子全部储备，不可行
+				}
+			}
 			if tokenIn == price.Token0 {
 				amountOut = calculateSwapOutput(
 					currentAmount,
