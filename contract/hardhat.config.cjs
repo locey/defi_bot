@@ -73,5 +73,15 @@ module.exports = {
       accounts: [DEPLOYER_PRIVATE_KEY],
       chainId: 42161,
     },
+    base: {
+      url: process.env.BASE_RPC_URL || "https://mainnet.base.org",
+      accounts: [DEPLOYER_PRIVATE_KEY],
+      chainId: 8453,
+    },
+    baseSepolia: {
+      url: "https://sepolia.base.org",
+      accounts: [DEPLOYER_PRIVATE_KEY],
+      chainId: 84532,
+    },
   },
 };

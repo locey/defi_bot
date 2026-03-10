@@ -12,11 +12,13 @@
     "uniswapV2Integration": "0xf9680677Da105F3B10538A55F6e214F9c72AA120",
     "flashLoanRouter": "0x4A89d8B8B0376Fc8c7e2119445c828719BeC019E",
     "spotArbitrage": "0x7e9eC412aF1f8657b99Df8f419c5D98F11F41bd5",
-    "arbitrageCore": "0x27ea15F931328474d75BE5B0a493278ba7041C74"
+    "arbitrageCore": "0x27ea15F931328474d75BE5B0a493278ba7041C74",
+    "flashLoanArbitrage": "0x8dbcdA14888b48CF3b6484e6aeb870B19563C01D"
   },
   "routers": {
     "uniswapV2": "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24",
     "uniswapV3": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
     "sushiswap": "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506"
-  }
+  },
+  "flashLoanDeployTimestamp": "2026-03-09T19:13:59.048Z"
 }

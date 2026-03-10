@@ -66,56 +66,50 @@ export function ArbitrageInvestmentCard({
           </div>
         </div>
 
-        {/* 当前余额和收益 */}
+        {/* 净利润和Gas消耗 */}
         <div className="grid grid-cols-2 gap-3">
-          {/* 当前余额 */}
+          {/* 净利润 */}
           <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
             <p className="text-xs text-slate-400 uppercase tracking-wide mb-2">
-              当前余额
-            </p>
-            <p className="text-xl font-bold text-white font-mono">
-              {formatEth(stats.currentBalance)}
-            </p>
-            <p className="text-xs text-slate-500 mt-1">
-              ≈ ${formatUsd(stats.currentBalance)}
-            </p>
-          </div>
-
-          {/* 收益总额 */}
-          <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
-            <p className="text-xs text-slate-400 uppercase tracking-wide mb-2">
-              收益总额
+              净利润
             </p>
             <p
               className={`text-xl font-bold font-mono ${
-                stats.totalProfit >= 0 ? "text-green-400" : "text-red-400"
+                stats.netProfit >= 0 ? "text-green-400" : "text-red-400"
               }`}
             >
-              {stats.totalProfit >= 0 ? "+" : ""}
-              {formatEth(stats.totalProfit)}
+              {stats.netProfit >= 0 ? "+" : ""}
+              {formatEth(stats.netProfit)}
             </p>
             <p className="text-xs text-slate-500 mt-1">
-              ≈ ${formatUsd(stats.totalProfit)}
+              ≈ ${formatUsd(stats.netProfit)}
+            </p>
+          </div>
+
+          {/* Gas 消耗 */}
+          <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
+            <p className="text-xs text-slate-400 uppercase tracking-wide mb-2">
+              Gas 消耗
+            </p>
+            <p className="text-xl font-bold text-orange-400 font-mono">
+              -{formatEth(stats.totalGasSpent)}
+            </p>
+            <p className="text-xs text-slate-500 mt-1">
+              ≈ ${formatUsd(stats.totalGasSpent)}
             </p>
           </div>
         </div>
 
-        {/* 收益率和24h收益 */}
-        <div className="grid grid-cols-2 gap-3">
-          {/* 收益率 */}
+        {/* 套利收益和24h数据 */}
+        <div className="grid grid-cols-3 gap-3">
+          {/* 套利收益（毛利） */}
           <div className="bg-gradient-to-br from-green-500/5 to-transparent p-3 rounded-lg border border-green-500/20">
             <p className="text-xs text-slate-400 uppercase tracking-wide mb-2">
-              收益率
+              套利毛利
             </p>
-            <div className="flex items-end gap-1">
-              <p className="text-xl font-bold text-green-400 font-mono">
-                {(stats.principal > 0 && stats.totalProfit > 0) 
-                  ? ((stats.totalProfit / stats.principal) * 100).toFixed(2) 
-                  : "0.00"}
-              </p>
-              <p className="text-xs text-slate-400 mb-0.5">%</p>
-            </div>
-            <p className="text-xs text-slate-500 mt-1">相对投入资金</p>
+            <p className="text-lg font-bold text-green-400 font-mono">
+              +{formatEth(stats.totalProfit)}
+            </p>
           </div>
 
           {/* 24小时收益 */}
@@ -123,10 +117,19 @@ export function ArbitrageInvestmentCard({
             <p className="text-xs text-slate-400 uppercase tracking-wide mb-2">
               24h 收益
             </p>
-            <p className="text-xl font-bold text-blue-400 font-mono">
+            <p className="text-lg font-bold text-blue-400 font-mono">
               {formatEth(stats.profit24h)}
             </p>
-            <p className="text-xs text-slate-500 mt-1">最近24小时</p>
+          </div>
+
+          {/* 24小时 Gas */}
+          <div className="bg-gradient-to-br from-orange-500/5 to-transparent p-3 rounded-lg border border-orange-500/20">
+            <p className="text-xs text-slate-400 uppercase tracking-wide mb-2">
+              24h Gas
+            </p>
+            <p className="text-lg font-bold text-orange-400 font-mono">
+              -{formatEth(stats.gas24h)}
+            </p>
           </div>
         </div>
 

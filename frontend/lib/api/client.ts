@@ -19,8 +19,11 @@ export interface StatsData {
   failed_count: number;
   success_rate: number;
   total_profit: string;
+  total_gas_spent: string;
+  net_profit: string;
   avg_profit_rate: number;
   last_24h_profit: string;
+  last_24h_gas_spent: string;
   last_24h_executions: number;
   last_24h_success_rate: number;
 }

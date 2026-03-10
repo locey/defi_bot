@@ -10,10 +10,16 @@ export interface ArbitrageStats {
   currentBalance: number;
   // 总收益（余额 - 投入）
   totalProfit: number;
+  // 总 Gas 消耗
+  totalGasSpent: number;
+  // 净利润（收益 - Gas）
+  netProfit: number;
   // 收益率百分比
   profitRate: number;
   // 24小时收益
   profit24h: number;
+  // 24小时 Gas 消耗
+  gas24h: number;
   // 年化收益率（APY）
   apy: number;
 }
@@ -124,8 +130,11 @@ export const useArbitrageStats = () => {
     principal: 0,
     currentBalance: 0,
     totalProfit: 0,
+    totalGasSpent: 0,
+    netProfit: 0,
     profitRate: 0,
     profit24h: 0,
+    gas24h: 0,
     apy: 0,
   });
 
@@ -149,15 +158,21 @@ export const useArbitrageStats = () => {
       // Process stats
       if (statsData) {
         const totalProfit = parseFloat(statsData.total_profit || "0") / 1e18;
+        const totalGasSpent = parseFloat(statsData.total_gas_spent || "0") / 1e18;
+        const netProfit = parseFloat(statsData.net_profit || "0") / 1e18;
         const profit24h = parseFloat(statsData.last_24h_profit || "0") / 1e18;
+        const gas24h = parseFloat(statsData.last_24h_gas_spent || "0") / 1e18;
         const apy = calculateAPY(statsData);
 
         setStats({
           principal: 1, // Default, will be overridden by vault data if available
-          currentBalance: 1 + totalProfit,
+          currentBalance: 1 + netProfit,
           totalProfit,
+          totalGasSpent,
+          netProfit,
           profitRate: statsData.avg_profit_rate || 0,
           profit24h,
+          gas24h,
           apy,
         });
       }
@@ -194,16 +209,22 @@ export const useArbitrageStats = () => {
       apiClient.getStats()
         .then((statsData) => {
           const totalProfit = parseFloat(statsData.total_profit || "0") / 1e18;
+          const totalGasSpent = parseFloat(statsData.total_gas_spent || "0") / 1e18;
+          const netProfit = parseFloat(statsData.net_profit || "0") / 1e18;
           const profit24h = parseFloat(statsData.last_24h_profit || "0") / 1e18;
+          const gas24h = parseFloat(statsData.last_24h_gas_spent || "0") / 1e18;
           const apy = calculateAPY(statsData);
 
           setStats((prev) => ({
             ...prev,
             totalProfit,
+            totalGasSpent,
+            netProfit,
             profitRate: statsData.avg_profit_rate || 0,
             profit24h,
+            gas24h,
             apy,
-            currentBalance: prev.principal + totalProfit,
+            currentBalance: prev.principal + netProfit,
           }));
         })
         .catch((err) => {
