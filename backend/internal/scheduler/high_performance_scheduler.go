@@ -65,6 +65,9 @@ type HighPerformanceScheduler struct {
 	// Vault 余额缓存：异步更新，避免每次阻塞 eth_call
 	vaultBalanceCache sync.Map // asset address hex -> *big.Int
 	vaultCacheTime    sync.Map // asset address hex -> time.Time
+
+	// 聚合器预言机：交叉验证套利机会（Paraswap API）
+	aggregatorOracle *strategy.AggregatorOracle
 }
 
 // HighPerformanceConfig 高性能配置
@@ -153,6 +156,10 @@ func NewHighPerformanceScheduler(
 		cancel()
 		return nil, fmt.Errorf("init components failed: %w", err)
 	}
+
+	// 初始化聚合器预言机（Paraswap API 交叉验证）
+	scheduler.aggregatorOracle = strategy.NewAggregatorOracle(int(cfg.ChainID))
+	log.Scheduler().Info().Int64("chain_id", cfg.ChainID).Msg("✅ Aggregator oracle initialized (Paraswap)")
 
 	return scheduler, nil
 }
@@ -552,9 +559,24 @@ func (s *HighPerformanceScheduler) executionLoop() {
 }
 
 // handleOpportunity 处理套利机会
+// profitableAssets 只允许高价值 token 做套利起点
+// 低价值 token（如 RDNT ~$0.01）利润无法覆盖 gas 成本
+var profitableAssets = map[common.Address]bool{
+	common.HexToAddress("0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"): true, // WETH
+	common.HexToAddress("0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f"): true, // WBTC
+	common.HexToAddress("0xaf88d065e77c8cC2239327C5EDb3A432268e5831"): true, // USDC
+	common.HexToAddress("0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8"): true, // USDCe
+	common.HexToAddress("0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9"): true, // USDT
+}
+
 func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOpportunity, semaphore chan struct{}) {
 	// 过期检查（goroutine 调度延迟可能超过 ValidUntil）
 	if !opp.ValidUntil.IsZero() && time.Now().After(opp.ValidUntil) {
+		return
+	}
+
+	// 只允许高价值 token 做套利（低价值 token 利润无法覆盖 gas）
+	if len(opp.SwapPath) > 0 && !profitableAssets[opp.SwapPath[0]] {
 		return
 	}
 
@@ -671,24 +693,33 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 		opp.ExpectProfit = big.NewInt(1)
 	}
 
-	// MinProfit 动态计算：覆盖 gas 成本 + 安全边际
-	// Arbitrum L2: gasUsed ~1M, gasPrice ~0.1 gwei → gasCost ≈ 0.0001 ETH
-	// 加上 L1 calldata 成本，保守估计 0.0002 ETH
-	// MinProfit = max(2×gasCost, amountIn×0.5%)，取较小值避免过度过滤
-	if opp.MinProfit == nil || opp.MinProfit.Sign() == 0 {
-		gasCostEstimate := big.NewInt(200_000_000_000_000) // 0.0002 ETH
-		minProfitGas := new(big.Int).Mul(gasCostEstimate, big.NewInt(2)) // 2× gas cost = 0.0004 ETH
+	// MinProfit 动态计算：覆盖实际 gas 成本即可
+	// Arbitrum 实测: gasUsed ~700K, gasPrice ~0.04 gwei → gasCost ≈ 0.00003 ETH
+	// 设 2x 安全边际: MinProfit = 0.00006 ETH
+	gasCostEstimate := big.NewInt(30_000_000_000_000) // 0.00003 ETH（Arbitrum 实测值）
 
-		// amountIn 的 0.5%
-		minProfitPct := new(big.Int).Div(opp.AmountIn, big.NewInt(200))
-
-		// 取较小值：避免小额交易被过度过滤
-		if minProfitPct.Sign() > 0 && minProfitPct.Cmp(minProfitGas) < 0 {
-			opp.MinProfit = minProfitPct
-		} else {
-			opp.MinProfit = minProfitGas
-		}
+	// 预检：ExpectProfit 必须 > gas 成本，否则跳过（不浪费 eth_call）
+	if opp.ExpectProfit != nil && opp.ExpectProfit.Cmp(gasCostEstimate) < 0 {
+		return // 预期利润不覆盖 gas，跳过
 	}
+
+	// 聚合器交叉验证（可选，非阻塞）
+	if s.aggregatorOracle != nil && len(opp.SwapPath) >= 3 {
+		aggCtx, aggCancel := context.WithTimeout(context.Background(), 3*time.Second)
+		confirmed, route := s.aggregatorOracle.CrossValidateOpportunity(aggCtx, opp)
+		aggCancel()
+		if confirmed {
+			log.Scheduler().Info().
+				Str("path", opp.ID).
+				Str("aggregator_route", route).
+				Msg("📊 Aggregator confirms opportunity")
+		}
+		// 不阻塞：即使聚合器不确认，仍然走 eth_call 验证
+	}
+
+	// MinProfit = 2× 预估 gas 成本，让合约实际验证利润覆盖 gas
+	// 之前用 1 wei 导致合约 require(actProfit >= minProfit) 形同虚设
+	opp.MinProfit = new(big.Int).Mul(gasCostEstimate, big.NewInt(2)) // 0.00006 ETH
 
 	// eth_call 模拟验证（免费，不消耗 Gas）
 	// 有 RPC 池时降低限流（429 由 Simulator 内部轮换处理）
@@ -747,7 +778,6 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 
 		if simErr != nil || !simResult.Profitable {
 			metrics.GetMetrics().RecordSimFiltered()
-			// 反馈失败给路径置信度
 			if s.detector != nil {
 				s.detector.RecordResult(opp.ID, false)
 			}
@@ -764,12 +794,25 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 			return
 		}
 
+		// 过滤假阳性：gas_used < 100K 说明合约没有真正执行 swap（单次 V3 swap ~120K gas）
+		// 实测假阳性 gas_used = 46K-53K，真正执行应 > 200K
+		if simResult.GasUsed < 100_000 {
+			metrics.GetMetrics().RecordSimFiltered()
+			if s.detector != nil {
+				s.detector.RecordResult(opp.ID, false)
+			}
+			log.Scheduler().Info().
+				Str("path", opp.ID).
+				Uint64("gas_used", simResult.GasUsed).
+				Float64("profit_pct", opp.ProfitRate*100).
+				Msg("  ⚠️ eth_call false positive (gas_used too low, no real swaps executed)")
+			return
+		}
+
 		metrics.GetMetrics().RecordSimPassed()
-		// 反馈成功给路径置信度
 		if s.detector != nil {
 			s.detector.RecordResult(opp.ID, true)
 		}
-		// 模拟通过了！这是一个链上此刻确实有利润的机会
 		log.Scheduler().Info().
 			Str("path", opp.ID).
 			Float64("profit_pct", opp.ProfitRate*100).

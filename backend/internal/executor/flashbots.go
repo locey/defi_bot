@@ -25,6 +25,10 @@ const (
 	// so private submission is unnecessary.
 	ArbitrumChainID int64 = 42161
 
+	// BaseChainID is the chain ID for Base.
+	// Base also uses a centralized sequencer (OP Stack), no public mempool.
+	BaseChainID int64 = 8453
+
 	// EthereumMainnetChainID is the chain ID for Ethereum mainnet.
 	EthereumMainnetChainID int64 = 1
 
@@ -181,8 +185,8 @@ func isFlashbotsSupported(chainID int64) bool {
 	switch chainID {
 	case EthereumMainnetChainID:
 		return true
-	case ArbitrumChainID:
-		// Arbitrum uses a centralized sequencer with FCFS ordering.
+	case ArbitrumChainID, BaseChainID:
+		// Arbitrum/Base use centralized sequencers with FCFS ordering.
 		// No public mempool means no MEV risk from frontrunning.
 		return false
 	default:

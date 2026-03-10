@@ -55,8 +55,8 @@ contracts:
   # Aave V3 LendingPool（Arbitrum）- 用于闪电贷
   aave_lending_pool: "0x794a61358D6845594F94dc1DB02A252b5b4814aD"
 
-  # FlashLoanArbitrage 合约地址（需部署后填入，空则禁用 Flash Loan 路径）
-  flash_loan_arbitrage: ""
+  # FlashLoanArbitrage 合约地址（2026-03-10 部署，arbitrageCore=keeper 地址）
+  flash_loan_arbitrage: "0x8dbcdA14888b48CF3b6484e6aeb870B19563C01D"
 
   # FlashLoanRouter 合约地址
   flash_loan_router: "0x4A89d8B8B0376Fc8c7e2119445c828719BeC019E"
@@ -234,7 +234,7 @@ scheduler:
   min_profit_rate: 0.4   # 0.4%（确保扣完 Gas + Aave 0.05% 费率后净正）
   mode: high_performance
   enable_execution: true    # 开启真实执行
-  dry_run: false            # 关闭 dry-run，提交真实交易
+  dry_run: true             # dry-run 模式：监控机会但不提交交易
   min_confidence: 0.15      # 低阈值，让 eth_call 做最终裁定
   max_concurrent_exec: 3    # 允许 3 笔并行 eth_call 模拟
 

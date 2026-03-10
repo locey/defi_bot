@@ -349,7 +349,7 @@ func GetConfig() *Config {
 // GetDSN 获取数据库连接字符串
 func (c *DatabaseConfig) GetDSN() string {
 	return fmt.Sprintf(
-		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s TimeZone=%s",
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s TimeZone=%s connect_timeout=10",
 		c.Host, c.Port, c.User, c.Password, c.DBName, c.SSLMode, c.Timezone,
 	)
 }

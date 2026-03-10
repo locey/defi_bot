@@ -185,11 +185,11 @@ func (e *ArbitrageExecutor) Execute(
 		return nil, fmt.Errorf("daily gas loss limit exceeded, execution paused")
 	}
 
-	// 4b. eth_call 二次模拟验证（executor 层安全门，防止绕过 scheduler 直接调用）
+	// eth_call 二次模拟验证（executor 层安全门，防止提交会 revert 的交易浪费 gas）
 	if e.contractCaller != nil {
 		simGas, simErr := e.contractCaller.SimulateArbitrage(ctx, params)
 		if simErr != nil {
-			log.Executor().Warn().Err(simErr).Str("path", opp.ID).Msg("Executor simulation reverted, skipping")
+			log.Executor().Warn().Err(simErr).Str("path", opp.ID).Msg("Executor simulation reverted, skipping (saved gas)")
 			return nil, fmt.Errorf("executor simulation failed: %w", simErr)
 		}
 		log.Executor().Info().

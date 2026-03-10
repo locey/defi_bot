@@ -496,9 +496,34 @@ func (d *ArbitrageDetector) calculatePath(path *ArbitragePath) *ArbitrageOpportu
 			if err != nil || amountOutInt == nil || amountOutInt.Sign() <= 0 {
 				return nil
 			}
+			// V3 诊断日志：追踪每一跳的输入输出，排查 8000x 高估
+			log.Strategy().Debug().
+				Str("path", path.ID).
+				Int("hop", i).
+				Str("tokenIn", tokenIn.Hex()[:10]).
+				Str("tokenOut", tokenOut.Hex()[:10]).
+				Str("amountIn", currentAmountInt.String()).
+				Str("amountOut", amountOutInt.String()).
+				Str("sqrtPriceX96", price.SqrtPriceX96.String()).
+				Str("liquidity", price.Liquidity.String()).
+				Uint64("fee", price.Fee).
+				Bool("zeroForOne", zeroForOne).
+				Str("pool", path.Pools[i][:10]).
+				Msg("V3 hop calc")
 			amountOut = new(big.Float).SetInt(amountOutInt)
 		} else {
-			// V2 池子：使用恒定乘积公式
+			// V2 池子或 V3 fallback（缺少 sqrtPriceX96/Liquidity 数据）
+			if price.IsV3 {
+				// V3 池子但缺少 V3 数据，用 V2 公式 = 不可靠（token balances ≠ active reserves）
+				log.Strategy().Warn().
+					Str("path", path.ID).
+					Int("hop", i).
+					Str("pool", path.Pools[i][:10]).
+					Bool("hasSqrt", price.SqrtPriceX96 != nil && price.SqrtPriceX96.Sign() > 0).
+					Bool("hasLiq", price.Liquidity != nil && price.Liquidity.Sign() > 0).
+					Msg("⚠️ V3 pool using V2 fallback — unreliable")
+				return nil // 直接跳过：V3 池子用 V2 公式计算不可靠
+			}
 			if price.Reserve0 == nil || price.Reserve1 == nil ||
 				price.Reserve0.Sign() <= 0 || price.Reserve1.Sign() <= 0 {
 				return nil
@@ -518,6 +543,25 @@ func (d *ArbitrageDetector) calculatePath(path *ArbitragePath) *ArbitrageOpportu
 					price.Fee,
 				)
 			}
+			// V2 诊断日志
+			amtOutStr := "nil"
+			if amountOut != nil {
+				amtOutStr = amountOut.Text('f', 0)
+			}
+			log.Strategy().Debug().
+				Str("path", path.ID).
+				Int("hop", i).
+				Str("tokenIn", tokenIn.Hex()[:10]).
+				Str("tokenOut", tokenOut.Hex()[:10]).
+				Str("amountIn", currentAmount.Text('f', 0)).
+				Str("amountOut", amtOutStr).
+				Str("reserve0", price.Reserve0.String()).
+				Str("reserve1", price.Reserve1.String()).
+				Uint64("fee", price.Fee).
+				Uint8("dec0", price.Decimals0).
+				Uint8("dec1", price.Decimals1).
+				Str("pool", path.Pools[i][:10]).
+				Msg("V2 hop calc")
 		}
 		_ = tokenOut
 
@@ -531,6 +575,28 @@ func (d *ArbitrageDetector) calculatePath(path *ArbitragePath) *ArbitrageOpportu
 	grossProfit := new(big.Float).Sub(currentAmount, amountIn)
 	grossProfitRate := new(big.Float).Quo(grossProfit, amountIn)
 	grossProfitRateFloat, _ := grossProfitRate.Float64()
+
+	// 异常利润诊断：>10% 一定是 bug，打印完整路径帮助定位
+	if grossProfitRateFloat > 0.10 {
+		tokenAddrs := make([]string, len(path.Tokens))
+		for ti, t := range path.Tokens {
+			tokenAddrs[ti] = t.Hex()[:10]
+		}
+		poolAddrs := make([]string, len(path.Pools))
+		for pi, p := range path.Pools {
+			poolAddrs[pi] = p[:10]
+		}
+		log.Strategy().Warn().
+			Str("path", path.ID).
+			Str("amountIn", amountIn.Text('f', 0)).
+			Str("amountOut", currentAmount.Text('f', 0)).
+			Float64("gross_pct", grossProfitRateFloat*100).
+			Strs("tokens", tokenAddrs).
+			Strs("pools", poolAddrs).
+			Strs("dexes", path.DexNames).
+			Int("hops", len(path.Pools)).
+			Msg("🚨 Abnormal profit — likely calculation bug")
+	}
 
 	// 估算 Gas 成本并从利润中扣除，得到净利润率
 	// Arbitrum: L2 gas ~450K/hop × 0.1 gwei + L1 calldata ~800 bytes × 16 gas × 20 gwei
@@ -561,8 +627,9 @@ func (d *ArbitrageDetector) calculatePath(path *ArbitragePath) *ArbitrageOpportu
 		return nil
 	}
 
-	// 过滤荒谬利润率（>50% 几乎都是代币精度不匹配或 V3 数学错误的假阳性）
-	if grossProfitRateFloat > 0.50 {
+	// 过滤荒谬利润率（>3% 几乎都是 V3 计算误差的假阳性）
+	// 实测：aggregator 确认实际利润 <0.01%，本地计算 7-11% 高估 8000 倍
+	if grossProfitRateFloat > 0.03 {
 		return nil
 	}
 
@@ -693,29 +760,44 @@ func generatePathID(index int) string {
 	return "path_" + time.Now().Format("20060102") + "_" + string(rune('A'+index%26)) + string(rune('0'+index/26%10))
 }
 
-// calculateSwapOutput 计算AMM交换输出（恒定乘积公式）
-// amountOut = reserveOut * amountIn * (1 - fee) / (reserveIn + amountIn * (1 - fee))
+// calculateSwapOutput 计算AMM交换输出（恒定乘积公式，纯整数运算）
+// amountOut = reserveOut * amountIn * (10000 - feeBps) / (reserveIn * 10000 + amountIn * (10000 - feeBps))
+// 使用 big.Int 避免 float64 精度丢失（之前 float64 版本导致 5-44% 利润高估）
 func calculateSwapOutput(amountIn, reserveIn, reserveOut *big.Float, feeBps uint64) *big.Float {
 	if reserveIn.Sign() <= 0 || reserveOut.Sign() <= 0 {
 		return big.NewFloat(0)
 	}
 
-	// 手续费：feeBps 是基点（30 = 0.3%）
-	feeMultiplier := big.NewFloat(1 - float64(feeBps)/10000)
+	// 转换为 big.Int 做纯整数运算
+	amtIn, _ := amountIn.Int(nil)
+	resIn, _ := reserveIn.Int(nil)
+	resOut, _ := reserveOut.Int(nil)
+	if amtIn == nil || resIn == nil || resOut == nil {
+		return big.NewFloat(0)
+	}
 
-	// amountInWithFee = amountIn * (1 - fee)
-	amountInWithFee := new(big.Float).Mul(amountIn, feeMultiplier)
+	feeNumerator := big.NewInt(int64(10000 - feeBps)) // e.g. 9970 for 30bps
+	base := big.NewInt(10000)
+
+	// amountInWithFee = amountIn * (10000 - feeBps)
+	amountInWithFee := new(big.Int).Mul(amtIn, feeNumerator)
 
 	// numerator = reserveOut * amountInWithFee
-	numerator := new(big.Float).Mul(reserveOut, amountInWithFee)
+	numerator := new(big.Int).Mul(resOut, amountInWithFee)
 
-	// denominator = reserveIn + amountInWithFee
-	denominator := new(big.Float).Add(reserveIn, amountInWithFee)
+	// denominator = reserveIn * 10000 + amountInWithFee
+	denominator := new(big.Int).Add(
+		new(big.Int).Mul(resIn, base),
+		amountInWithFee,
+	)
+
+	if denominator.Sign() <= 0 {
+		return big.NewFloat(0)
+	}
 
 	// amountOut = numerator / denominator
-	amountOut := new(big.Float).Quo(numerator, denominator)
-
-	return amountOut
+	amountOutInt := new(big.Int).Div(numerator, denominator)
+	return new(big.Float).SetInt(amountOutInt)
 }
 
 // calculateOptimalAmount 计算最优投入金额（简化版）

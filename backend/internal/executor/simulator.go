@@ -100,28 +100,18 @@ func (s *Simulator) SimulateArbitrage(
 		Value: big.NewInt(0),
 	}
 
-	// eth_call 模拟执行（429 时轮换 RPC 节点）
-	_, err = ethClient.CallContract(ctx, callMsg, nil)
+	// 使用 EstimateGas 作为统一模拟方式（与 executor 一致）
+	// EstimateGas 会执行完整模拟，如果交易 revert 则返回 error
+	gasUsed, err := ethClient.EstimateGas(ctx, callMsg)
 	if err != nil && strings.Contains(err.Error(), "429") {
 		ethClient = s.getEthClient() // 轮换到下一个 RPC
 		time.Sleep(200 * time.Millisecond)
-		_, err = ethClient.CallContract(ctx, callMsg, nil)
+		gasUsed, err = ethClient.EstimateGas(ctx, callMsg)
 	}
 	if err != nil {
 		result.Error = fmt.Sprintf("eth_call reverted: %v", err)
 		result.Profitable = false
 		return result, nil
-	}
-
-	// 3. 估算 Gas（429 时轮换 RPC）
-	gasUsed, err := ethClient.EstimateGas(ctx, callMsg)
-	if err != nil && strings.Contains(err.Error(), "429") {
-		ethClient = s.getEthClient()
-		time.Sleep(200 * time.Millisecond)
-		gasUsed, err = ethClient.EstimateGas(ctx, callMsg)
-	}
-	if err != nil {
-		gasUsed = 1_000_000 // Arbitrum 上套利交易通常 ~800K-1M gas
 	}
 	result.GasUsed = gasUsed
 

@@ -121,7 +121,7 @@ func (a *DEXPriceAdapter) initDefaultMappings() {
 		quoteToken string
 	}{
 		{"ETHUSDT", "WETH", "USDC"},   // Arbitrum: WETH/USDC 流动性最高
-		{"BTCUSDT", "WBTC", "USDC"},
+		{"BTCUSDT", "WBTC", "WETH"},    // Arbitrum: WBTC/WETH 流动性最高
 		{"ARBUSDT", "ARB", "USDC"},
 		{"USDCUSDT", "USDC", "USDT"},  // 稳定币对仍用 USDT
 		{"DAIUSDT", "DAI", "USDC"},
@@ -242,6 +242,13 @@ func (a *DEXPriceAdapter) GetPrice(symbol string) (float64, error) {
 		return 0, nil
 	}
 
+	// 诊断：打印最佳池子信息
+	if symbol == "BTCUSDT" || symbol == "ETHUSDT" {
+		log.Info("DEX GetPrice: symbol=%s pool=%s t0=%s t1=%s price=%.10g isV3=%v score=%.4f dec0=%d dec1=%d",
+			symbol, bestPool.PoolAddress[:10], bestPool.Token0.Hex()[:10], bestPool.Token1.Hex()[:10],
+			bestPool.Price, bestPool.IsV3, bestScore, bestPool.Decimals0, bestPool.Decimals1)
+	}
+
 	// PriceCache 存储的 Price 是 token1/token0（已调整 decimals）
 	// CEX 价格 "ETHUSDT = 1978" 表示 1 ETH = 1978 USDT，即 quoteToken/baseToken
 	// 我们需要返回 quoteToken/baseToken
@@ -269,6 +276,8 @@ func (a *DEXPriceAdapter) GetPrice(symbol string) (float64, error) {
 	if !quoteIsStable && finalPrice > 0 {
 		// quote token 是 WETH 等非稳定币，需要获取其 USD 价格
 		wethUSDPrice := a.getWETHUSDPrice()
+		log.Info("DEX Price debug: symbol=%s poolPrice=%.10g baseIsToken0=%v finalPriceBeforeConvert=%.10g wethUSD=%.4f result=%.10g",
+			symbol, poolPrice, baseIsToken0, finalPrice, wethUSDPrice, finalPrice*wethUSDPrice)
 		if wethUSDPrice > 0 {
 			finalPrice = finalPrice * wethUSDPrice
 		}
