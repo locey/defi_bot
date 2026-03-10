@@ -286,6 +286,9 @@ func main() {
 	var activeScheduler Stopper
 	var highPerfScheduler *scheduler.HighPerformanceScheduler // 用于 CEX-DEX 套利
 
+	// DEX 名称 → Router 地址映射（供调度器 + CEX-DEX 跨 DEX 搜索共用）
+	dexRouters := make(map[string]common.Address)
+
 	switch schedulerMode {
 	case "high_performance":
 		log.Main().Info().Msg("创建高性能事件驱动调度器...")
@@ -298,8 +301,7 @@ func main() {
 			}
 		}
 
-		// 构建 DEX 名称 → Router 地址映射，提取 QuoterV2 地址
-		dexRouters := make(map[string]common.Address)
+		// 填充 DEX Router 映射，提取 QuoterV2 地址
 		quoterAddr := ""
 		for _, d := range cfg.Dexes {
 			if d.Router != "" && d.Name != "" {
@@ -439,33 +441,78 @@ func main() {
 		}()
 
 		// 桥接 CEX-DEX 机会到主执行管道
+		// CEX-DEX 策略: CEX 价格作为预言机，在 DEX 间寻找跨池价差
+		// 买入腿: 用检测到的最低价池
+		// 卖出腿: 在 PriceCache 中搜索同 token pair 的最高价池
 		go func() {
 			for opp := range cexdexDetector.GetOpportunityChan() {
-				// 验证 TokenIn/TokenOut 已填充（Step 4 修复）
+				// 验证 TokenIn/TokenOut 已填充
 				emptyAddr := common.Address{}
 				if opp.TokenIn == emptyAddr || opp.TokenOut == emptyAddr {
 					log.Main().Warn().Str("id", opp.ID).Msg("CEX-DEX: TokenIn/TokenOut empty, skipping")
 					continue
 				}
 
-				// 构建正确的 SwapPath: [asset, tokenOut, asset]
-				// asset = TokenIn（套利起点/终点），中间代币 = TokenOut
-				// 合约要求: swapPath[0] == swapPath[last] == asset
 				asset := opp.TokenIn
 				midToken := opp.TokenOut
 				swapPath := []common.Address{asset, midToken, asset}
 
-				// Dexes: 买入和卖出用同一个 DEX Router（2步 = 2个 router）
-				dexes := []common.Address{opp.DEXRouter, opp.DEXRouter}
+				// 跨 DEX 搜索: 为卖出腿找一个不同的池（价格更高）
+				buyRouter := opp.DEXRouter
+				sellRouter := opp.DEXRouter
+				buyFeeTier := opp.FeeTier
+				sellFeeTier := opp.FeeTier
+				crossDEX := false
 
-				// FeeTiers: 从 DEXPriceAdapter 获取的池 fee tier
-				feeTiers := []uint32{opp.FeeTier, opp.FeeTier}
+				pcache := highPerfScheduler.GetPriceCache()
+				if pcache != nil {
+					pools := pcache.GetByTokenPair(midToken.Hex(), asset.Hex())
+					if len(pools) > 1 {
+						// 找到卖出池: 不同 DEX、价格最高的池
+						var bestSellPrice float64
+						for _, p := range pools {
+							if p.PoolAddress == opp.DEXPool.Hex() {
+								continue // 跳过买入池
+							}
+							if p.Price <= 0 {
+								continue
+							}
+							// 从 dexRouters map 查找 router 地址
+							router, hasRouter := dexRouters[p.DexName]
+							if !hasRouter {
+								continue
+							}
+							if p.Price > bestSellPrice {
+								bestSellPrice = p.Price
+								sellRouter = router
+								if p.IsV3 {
+									sellFeeTier = uint32(p.Fee * 100) // bps→raw
+									if sellFeeTier == 0 {
+										sellFeeTier = 3000
+									}
+								} else {
+									sellFeeTier = 0
+								}
+							}
+						}
+						if sellRouter != buyRouter {
+							crossDEX = true
+						}
+					}
+				}
+
+				dexes := []common.Address{buyRouter, sellRouter}
+				feeTiers := []uint32{buyFeeTier, sellFeeTier}
+				dexLabel := "CEX-DEX"
+				if crossDEX {
+					dexLabel = "CrossDEX"
+				}
 
 				arbOpp := &strategy.ArbitrageOpportunity{
 					ID:         opp.ID,
 					SwapPath:   swapPath,
 					Dexes:      dexes,
-					DexNames:   []string{"CEX-DEX:" + opp.Direction, "CEX-DEX:" + opp.Direction},
+					DexNames:   []string{dexLabel + ":" + opp.Direction, dexLabel + ":sell"},
 					FeeTiers:   feeTiers,
 					ProfitRate: opp.ProfitRate,
 					Confidence: opp.Confidence,
@@ -474,50 +521,51 @@ func main() {
 					IsCex:      true,
 					PathLength: 2,
 				}
-				// 转换金额 (USD -> wei 需要价格转换, 简化为直接设置)
+				// 转换金额 (USD -> wei)
 				if opp.TradeAmount > 0 {
 					arbOpp.AmountIn = new(big.Int).SetUint64(uint64(opp.TradeAmount * 1e6)) // USDC 精度
 				}
 				if opp.ExpectProfit > 0 {
 					arbOpp.ExpectProfit = new(big.Int).SetUint64(uint64(opp.ExpectProfit * 1e6))
 				}
-				// MinProfit 动态计算: min(2×gasCost, amountIn×0.5%) — 取较小值避免过滤
-				gasCostWei := big.NewInt(400_000_000_000_000) // 0.0004 ETH = 2×0.0002
-				minProfitPct := new(big.Int).Div(arbOpp.AmountIn, big.NewInt(200)) // 0.5%
+				// MinProfit = 2×gasCost
+				gasCostWei := big.NewInt(60_000_000_000_000) // 0.00006 ETH
 				arbOpp.MinProfit = gasCostWei
-				if minProfitPct.Sign() > 0 && minProfitPct.Cmp(gasCostWei) < 0 {
-					arbOpp.MinProfit = minProfitPct
-				}
 
 				log.Main().Info().
 					Str("id", opp.ID).
 					Str("direction", opp.Direction).
-					Str("asset", asset.Hex()[:14]).
-					Str("mid_token", midToken.Hex()[:14]).
-					Int("path_len", len(swapPath)).
+					Str("mode", dexLabel).
+					Bool("cross_dex", crossDEX).
 					Float64("profit_rate", opp.ProfitRate*100).
 					Float64("net_profit_usd", opp.NetProfit).
-					Msg("CEX-DEX opportunity detected (valid SwapPath)")
+					Msg("CEX-DEX opportunity detected")
 
-				// 尝试通过主执行器执行（需要 enable_execution=true）
+				// 非跨 DEX 时只记录（同池往返必亏）
+				if !crossDEX {
+					log.Main().Debug().Str("id", opp.ID).Msg("  ⚠️ Same-DEX round-trip, skipping (needs cross-DEX or CEX API)")
+					continue
+				}
+
+				// 尝试执行跨 DEX 路由
 				if arbitrageExecutor != nil && cfg.Scheduler.EnableExecution && !cfg.Scheduler.DryRun {
 					execCtx, execCancel := context.WithTimeout(ctx, 30*time.Second)
 					result, err := arbitrageExecutor.Execute(execCtx, arbOpp)
 					execCancel()
 					if err != nil {
-						log.Main().Warn().Err(err).Str("id", opp.ID).Msg("CEX-DEX execution failed")
+						log.Main().Warn().Err(err).Str("id", opp.ID).Msg("CrossDEX execution failed")
 					} else if result != nil && result.Success {
 						log.Main().Info().
 							Str("tx_hash", result.TxHash).
 							Str("profit", result.ActualProfit.String()).
-							Msg("✅ CEX-DEX execution succeeded")
+							Msg("✅ CrossDEX execution succeeded")
 					}
 				} else {
 					log.Main().Info().
 						Str("id", opp.ID).
-						Str("direction", opp.Direction).
+						Bool("cross_dex", crossDEX).
 						Float64("net_profit_usd", opp.NetProfit).
-						Msg("📊 CEX-DEX opportunity (dry-run, not executing)")
+						Msg("📊 CEX-DEX opportunity (dry-run)")
 				}
 			}
 		}()
