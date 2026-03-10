@@ -207,12 +207,18 @@ func (s *HighPerformanceScheduler) initComponents() error {
 	}
 	log.Scheduler().Info().Msg("  ✓ Multicall initialized")
 
-	// 4. 创建高速采集器
+	// 4. 创建高速采集器（传入核心代币用于多链分层）
+	collectorCfg := s.config.CollectorConfig
+	if collectorCfg == nil && len(s.config.BaseTokens) > 0 {
+		collectorCfg = &collector.FastCollectorConfig{
+			CoreTokens: s.config.BaseTokens,
+		}
+	}
 	s.collector = collector.NewFastCollector(
 		s.wsClient,
 		s.multicall,
 		s.priceCache,
-		s.config.CollectorConfig,
+		collectorCfg,
 	)
 	log.Scheduler().Info().Msg("  ✓ FastCollector initialized")
 

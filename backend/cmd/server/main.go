@@ -344,6 +344,12 @@ func main() {
 			hpConfig.MinConfidence = 0.3 // 降低阈值让更多机会通过，eth_call 模拟做最终验证
 		}
 
+		// 高性能模式也需要初始交易对发现（通过 factory 合约查询链上池）
+		log.Main().Info().Msg("高性能模式：执行初始交易对发现...")
+		if err := dataCollector.CollectTradingPairs(); err != nil {
+			log.Main().Warn().Err(err).Msg("初始交易对发现失败（将使用已有数据）")
+		}
+
 		hpScheduler, err := scheduler.NewHighPerformanceScheduler(
 			db,
 			web3Client,
@@ -407,7 +413,16 @@ func main() {
 		if highPerfScheduler != nil {
 			priceCache := highPerfScheduler.GetPriceCache()
 			if priceCache != nil {
-				dexPriceProvider = cexdex.NewDEXPriceAdapter(priceCache)
+				// 从配置构建代币映射（多链支持）
+				var tokenConfigs []cexdex.TokenConfig
+				for _, t := range cfg.Tokens {
+					tokenConfigs = append(tokenConfigs, cexdex.TokenConfig{
+						Symbol:    t.Symbol,
+						Address:   t.Address,
+						CEXSymbol: t.CEXSymbol,
+					})
+				}
+				dexPriceProvider = cexdex.NewDEXPriceAdapter(priceCache, tokenConfigs)
 				log.Main().Info().Msg("✅ DEX 价格适配器已创建，连接到 PriceCache")
 			}
 		}

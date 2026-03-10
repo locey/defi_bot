@@ -29,6 +29,8 @@ type FastCollectorConfig struct {
 	Tier1 TierConfig
 	Tier2 TierConfig
 	Tier3 TierConfig
+	// CoreTokens 核心代币地址（用于分层判断）。如果为空则使用内置默认列表。
+	CoreTokens []common.Address
 }
 
 // PoolTier 池子分层信息
@@ -97,8 +99,20 @@ func NewFastCollector(
 	priceCache *cache.PriceCache,
 	config *FastCollectorConfig,
 ) *FastCollector {
+	defaults := defaultFastCollectorConfig()
 	if config == nil {
-		config = defaultFastCollectorConfig()
+		config = defaults
+	} else {
+		// 保留调用者设置的 CoreTokens，其余用默认值补齐
+		if config.Tier1.Method == "" {
+			config.Tier1 = defaults.Tier1
+		}
+		if config.Tier2.Method == "" {
+			config.Tier2 = defaults.Tier2
+		}
+		if config.Tier3.Method == "" {
+			config.Tier3 = defaults.Tier3
+		}
 	}
 
 	return &FastCollector{
@@ -236,13 +250,24 @@ func (c *FastCollector) LoadAndClassifyPools() error {
 	c.tier3Pools = make([]*PoolTier, 0)
 
 	// 主流代币地址（用于分层优先级判断）
-	coreTokens := map[string]bool{
-		strings.ToLower("0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"): true, // WETH
-		strings.ToLower("0xaf88d065e77c8cC2239327C5EDb3A432268e5831"): true, // USDC
-		strings.ToLower("0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8"): true, // USDCe
-		strings.ToLower("0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9"): true, // USDT
-		strings.ToLower("0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f"): true, // WBTC
-		strings.ToLower("0x912CE59144191C1204E64559FE8253a0e49E6548"): true, // ARB
+	coreTokens := make(map[string]bool)
+	if len(c.config.CoreTokens) > 0 {
+		// 使用配置中传入的核心代币（支持多链）
+		for _, addr := range c.config.CoreTokens {
+			coreTokens[strings.ToLower(addr.Hex())] = true
+		}
+	} else {
+		// 默认 Arbitrum 核心代币
+		for _, addr := range []string{
+			"0x82aF49447D8a07e3bd95BD0d56f35241523fBab1", // WETH (Arbitrum)
+			"0xaf88d065e77c8cC2239327C5EDb3A432268e5831", // USDC
+			"0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8", // USDCe
+			"0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", // USDT
+			"0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f", // WBTC
+			"0x912CE59144191C1204E64559FE8253a0e49E6548", // ARB
+		} {
+			coreTokens[strings.ToLower(addr)] = true
+		}
 	}
 
 	for _, p := range pools {

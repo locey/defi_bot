@@ -29,22 +29,48 @@ type DEXPriceAdapter struct {
 	tokenAddrs map[string]common.Address
 }
 
+// TokenConfig 链特定的代币配置
+type TokenConfig struct {
+	Symbol    string
+	Address   string
+	CEXSymbol string // 对应的 CEX 交易对（如 "ETHUSDT"）
+}
+
 // NewDEXPriceAdapter 创建 DEX 价格适配器
-func NewDEXPriceAdapter(priceCache *cache.PriceCache) *DEXPriceAdapter {
+// tokenConfigs 可选：如果提供则使用配置中的代币地址（多链支持），否则使用 Arbitrum 默认值
+func NewDEXPriceAdapter(priceCache *cache.PriceCache, tokenConfigs ...[]TokenConfig) *DEXPriceAdapter {
 	adapter := &DEXPriceAdapter{
 		priceCache: priceCache,
 		mappings:   make(map[string]*TokenMapping),
 		tokenAddrs: make(map[string]common.Address),
 	}
 
-	// 初始化 Arbitrum 主网常用 token 地址
-	adapter.initArbitrumTokens()
+	if len(tokenConfigs) > 0 && len(tokenConfigs[0]) > 0 {
+		// 使用配置传入的代币地址（支持任意链）
+		adapter.initTokensFromConfig(tokenConfigs[0])
+	} else {
+		// 默认 Arbitrum 主网
+		adapter.initArbitrumTokens()
+	}
 	adapter.initDefaultMappings()
 
 	// 诊断：打印 PriceCache 中的池子信息
 	adapter.diagnosePriceCache()
 
 	return adapter
+}
+
+// initTokensFromConfig 从配置初始化代币地址（多链支持）
+func (a *DEXPriceAdapter) initTokensFromConfig(configs []TokenConfig) {
+	for _, tc := range configs {
+		if tc.Address != "" && tc.Symbol != "" {
+			a.tokenAddrs[tc.Symbol] = common.HexToAddress(tc.Address)
+			// WETH/ETH 互为别名
+			if tc.Symbol == "WETH" {
+				a.tokenAddrs["ETH"] = common.HexToAddress(tc.Address)
+			}
+		}
+	}
 }
 
 // diagnosePriceCache 诊断 PriceCache 中的数据

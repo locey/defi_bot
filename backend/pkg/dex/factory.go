@@ -26,6 +26,7 @@ func (f *ProtocolFactory) CreateProtocol(protocolName string) (Protocol, error) 
 	case "uniswap_v2", "sushiswap", "pancakeswap_v2", "shibaswap", "biswap",
 		"quickswap",    // Polygon QuickSwap V2（兼容 Uni V2 接口）
 		"velodrome_v2", // Optimism Velodrome V2（兼容 Uni V2 接口）
+		"aerodrome",    // Base Aerodrome（Solidly fork，factory 接口不同但 router 兼容 V2）
 		"camelot",      // Arbitrum Camelot（兼容 Uni V2 接口）
 		"":
 		return NewUniswapV2Protocol(f.web3Client), nil
