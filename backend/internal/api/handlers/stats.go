@@ -19,8 +19,11 @@ type StatsResponse struct {
 	FailedCount          int64   `json:"failed_count"`
 	SuccessRate          float64 `json:"success_rate"`
 	TotalProfit          string  `json:"total_profit"`
+	TotalGasSpent        string  `json:"total_gas_spent"`
+	NetProfit            string  `json:"net_profit"`
 	AvgProfitRate        float64 `json:"avg_profit_rate"`
 	Last24hProfit        string  `json:"last_24h_profit"`
+	Last24hGasSpent      string  `json:"last_24h_gas_spent"`
 	Last24hExecutions    int64   `json:"last_24h_executions"`
 	Last24hSuccessRate   float64 `json:"last_24h_success_rate"`
 }
@@ -62,6 +65,32 @@ func GetStats(db *gorm.DB) gin.HandlerFunc {
 			stats.TotalProfit = "0"
 		}
 
+		// 总 Gas 消耗（所有交易，含失败的）
+		var totalGas struct {
+			Sum *string
+		}
+		db.Model(&models.ArbitrageExecution{}).
+			Select("COALESCE(SUM(CAST(gas_used AS NUMERIC) * CAST(gas_price AS NUMERIC)), 0)::text as sum").
+			Scan(&totalGas)
+		if totalGas.Sum != nil {
+			stats.TotalGasSpent = *totalGas.Sum
+		} else {
+			stats.TotalGasSpent = "0"
+		}
+
+		// 净利润 = 总利润 - 总 Gas
+		stats.NetProfit = "0"
+		if totalProfit.Sum != nil && totalGas.Sum != nil {
+			// 用 SQL 精确计算
+			var netProfit struct {
+				Val *string
+			}
+			db.Raw(`SELECT (COALESCE((SELECT SUM(CAST(actual_profit AS NUMERIC)) FROM arbitrage_executions WHERE status = 'success'), 0) - COALESCE((SELECT SUM(CAST(gas_used AS NUMERIC) * CAST(gas_price AS NUMERIC)) FROM arbitrage_executions), 0))::text as val`).Scan(&netProfit)
+			if netProfit.Val != nil {
+				stats.NetProfit = *netProfit.Val
+			}
+		}
+
 		// 平均利润率
 		db.Model(&models.ArbitrageExecution{}).
 			Select("COALESCE(AVG(profit_rate), 0)").
@@ -99,6 +128,20 @@ func GetStats(db *gorm.DB) gin.HandlerFunc {
 			stats.Last24hProfit = *last24hProfit.Sum
 		} else {
 			stats.Last24hProfit = "0"
+		}
+
+		// 24小时 Gas 消耗
+		var last24hGas struct {
+			Sum *string
+		}
+		db.Model(&models.ArbitrageExecution{}).
+			Select("COALESCE(SUM(CAST(gas_used AS NUMERIC) * CAST(gas_price AS NUMERIC)), 0)::text as sum").
+			Where("timestamp > ?", yesterday).
+			Scan(&last24hGas)
+		if last24hGas.Sum != nil {
+			stats.Last24hGasSpent = *last24hGas.Sum
+		} else {
+			stats.Last24hGasSpent = "0"
 		}
 
 		c.JSON(http.StatusOK, gin.H{
