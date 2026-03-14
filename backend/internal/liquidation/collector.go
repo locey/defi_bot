@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -464,7 +465,7 @@ func (c *AaveCollector) GetLiquidatablePositions() []*UserPosition {
 	return liquidatable
 }
 
-// GetAtRiskPositions 返回高风险仓位（healthFactor < threshold）
+// GetAtRiskPositions 返回高风险仓位（healthFactor < threshold），按 HF 升序
 func (c *AaveCollector) GetAtRiskPositions(threshold float64) []*UserPosition {
 	c.positionsMu.RLock()
 	defer c.positionsMu.RUnlock()
@@ -475,6 +476,10 @@ func (c *AaveCollector) GetAtRiskPositions(threshold float64) []*UserPosition {
 			atRisk = append(atRisk, p)
 		}
 	}
+	// 按 HealthFactor 升序排列（最危险的在前面）
+	sort.Slice(atRisk, func(i, j int) bool {
+		return atRisk[i].HealthFactorFloat() < atRisk[j].HealthFactorFloat()
+	})
 	return atRisk
 }
 

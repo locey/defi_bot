@@ -274,8 +274,13 @@ func (s *Service) runCycle(ctx context.Context, lastScannedBlock *uint64) {
 			Dur("elapsed", time.Since(cycleStart)).
 			Msg("清算：⚠️ 发现高风险仓位")
 
-		// 输出高风险仓位详情
-		for _, p := range atRisk {
+		// 输出 Top 5 高风险仓位（避免日志刷屏）
+		maxShow := 5
+		if len(atRisk) < maxShow {
+			maxShow = len(atRisk)
+		}
+		for i := 0; i < maxShow; i++ {
+			p := atRisk[i]
 			debtUSD := baseToUSD(p.TotalDebtBase)
 			collUSD := baseToUSD(p.TotalCollateralBase)
 			log.Strategy().Info().
