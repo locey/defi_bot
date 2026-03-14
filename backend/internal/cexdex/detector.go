@@ -87,6 +87,8 @@ type Detector struct {
 	running         bool
 	runningMu       sync.RWMutex
 	cancelFunc      context.CancelFunc
+	lastEmit        map[string]time.Time // dedup: symbol+direction → last emit time
+	lastEmitMu      sync.Mutex
 }
 
 // NewDetector 创建检测器
@@ -98,6 +100,7 @@ func NewDetector(config *DetectorConfig, cexMonitor *PriceMonitor, dexProvider D
 	return &Detector{
 		config:        config,
 		cexMonitor:    cexMonitor,
+		lastEmit:      make(map[string]time.Time),
 		dexProvider:   dexProvider,
 		opportunities: make(map[string]*CEXDEXOpportunity),
 		opportunityCh: make(chan *CEXDEXOpportunity, 100),
@@ -216,10 +219,6 @@ func (d *Detector) checkOpportunity(cexPrice *CEXPrice) {
 	// 方向2: CEX -> DEX (在 CEX 买，在 DEX 卖)
 	spread2 := (dexPrice-cexPrice.AskPrice)/cexPrice.AskPrice - totalFeeRate
 
-	// 输出价格比较（周期性，Debug 避免日志刷屏）
-	log.Debug("CEX-DEX 价格比较: symbol=%s cex_bid=%.4f cex_ask=%.4f dex=%.4f spread1=%.4f%% spread2=%.4f%% (min=%.4f%%)",
-		cexPrice.Symbol, cexPrice.BidPrice, cexPrice.AskPrice, dexPrice, spread1*100, spread2*100, d.config.MinProfitRate*100)
-
 	if spread1 > d.config.MinProfitRate {
 		d.createOpportunity(cexPrice.Symbol, "dex_to_cex", dexPrice, cexPrice.BidPrice, spread1)
 	}
@@ -299,13 +298,23 @@ func (d *Detector) createOpportunity(symbol, direction string, buyPrice, sellPri
 	d.opportunities[oppID] = opp
 	d.opportunitiesMu.Unlock()
 
+	// 10 秒内同 symbol+direction 不重复发送（避免通道堆积）
+	emitKey := symbol + "_" + direction
+	d.lastEmitMu.Lock()
+	if last, ok := d.lastEmit[emitKey]; ok && time.Since(last) < 10*time.Second {
+		d.lastEmitMu.Unlock()
+		return
+	}
+	d.lastEmit[emitKey] = time.Now()
+	d.lastEmitMu.Unlock()
+
 	// 发送到通道
 	select {
 	case d.opportunityCh <- opp:
 		log.Info("发现 CEX-DEX 套利机会: %s %s, 利润率: %.2f%%, 净利润: $%.2f",
 			symbol, direction, profitRate*100, netProfit)
 	default:
-		log.Warn("机会通道已满，丢弃机会")
+		// 通道已满，静默丢弃
 	}
 }
 
