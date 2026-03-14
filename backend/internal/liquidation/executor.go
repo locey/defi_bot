@@ -315,6 +315,16 @@ func (e *LiquidationExecutor) sendTransaction(ctx context.Context, callData []by
 		tip = big.NewInt(1_000_000)
 	}
 
+	// 清算竞速：提高 gas tip 以获得 Arbitrum FCFS 排序优先
+	// Arbitrum 正常 tip ~0.01 gwei，清算时 10x boost = ~0.1 gwei（仍然很便宜）
+	boostedTip := new(big.Int).Mul(tip, big.NewInt(10))
+	// 最低 0.1 gwei tip（确保竞争力）
+	minTip := big.NewInt(100_000_000) // 0.1 gwei
+	if boostedTip.Cmp(minTip) < 0 {
+		boostedTip = minTip
+	}
+	tip = boostedTip
+
 	maxFee := new(big.Int).Mul(baseFee, big.NewInt(2))
 	maxFee.Add(maxFee, tip)
 

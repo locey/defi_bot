@@ -64,6 +64,9 @@ contracts:
   # Aave V3 PoolDataProvider（Arbitrum）
   aave_data_provider: "0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654"
 
+  # Aave V3 Oracle（Arbitrum）— 用于查询 Chainlink 价格源地址
+  aave_oracle: "0xb56c2F0B653B2e0b10C9b928C8580Ac5Df02C7C7"
+
   # FlashLoanLiquidator v3 合约地址（2026-03-12 重部署，增加 minProfit MEV 防护）
   flash_loan_liquidator: "0xc9bC59dCdf24071203053719CE5276e84e2158d4"
 

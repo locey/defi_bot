@@ -119,6 +119,7 @@ type ContractsConfig struct {
 	BalancerLiquidator   string `mapstructure:"balancer_liquidator"`     // BalancerLiquidator 合约地址（Balancer 闪电贷，0% 费率）
 	BalancerVault        string `mapstructure:"balancer_vault"`          // Balancer V2 Vault 地址
 	AaveDataProvider     string `mapstructure:"aave_data_provider"`      // Aave V3 PoolDataProvider
+	AaveOracle           string `mapstructure:"aave_oracle"`             // Aave V3 Oracle（用于查询 Chainlink feed 地址）
 }
 
 // KeeperConfig Keeper 配置

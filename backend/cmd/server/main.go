@@ -740,6 +740,7 @@ func main() {
 		liqConfig := &liquidation.ServiceConfig{
 			AavePool:          common.HexToAddress(cfg.Contracts.AaveLendingPool),
 			AaveDataProvider:  common.HexToAddress(cfg.Contracts.AaveDataProvider),
+			AaveOracle:        common.HexToAddress(cfg.Contracts.AaveOracle),
 			KeeperPrivateKey:  cfg.Keeper.PrivateKey,
 			ChainID:           cfg.Blockchain.ChainID,
 			DryRun:            cfg.Liquidation.DryRun,
@@ -750,6 +751,7 @@ func main() {
 			EventScanBlocks:   uint64(cfg.Liquidation.EventScanBlocks),
 			DefaultSwapRouter: common.HexToAddress(cfg.Liquidation.SwapRouter),
 			DefaultSwapFee:    uint32(cfg.Liquidation.SwapFeeTier),
+			WSURL:             cfg.Blockchain.WSURL,
 		}
 
 		if cfg.Contracts.FlashLoanLiquidator != "" {

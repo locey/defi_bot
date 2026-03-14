@@ -19,6 +19,7 @@ type ServiceConfig struct {
 	// Aave V3 地址
 	AavePool         common.Address
 	AaveDataProvider common.Address
+	AaveOracle       common.Address // Aave V3 Oracle（用于查询 Chainlink feed 地址）
 
 	// 清算合约地址
 	LiquidatorContract        common.Address // FlashLoanLiquidator（Aave 闪电贷 0.05%）
@@ -44,6 +45,9 @@ type ServiceConfig struct {
 	// DEX swap 参数
 	DefaultSwapRouter common.Address
 	DefaultSwapFee    uint32
+
+	// WebSocket URL（用于预言机订阅）
+	WSURL string
 }
 
 // DefaultServiceConfig 默认配置
@@ -66,12 +70,22 @@ type Service struct {
 
 	web3Client *web3.Client
 
+	// 预言机监控（事件驱动，替代轮询）
+	oracleMonitor *OracleMonitor
+	// 预言机价格更新时触发快速检查
+	oracleTrigger chan struct{}
+
+	// 预计算缓存：高风险用户的清算参数
+	precomputedOpps   map[common.Address]*LiquidationOpportunity
+	precomputedOppsMu sync.RWMutex
+
 	// 统计
-	totalChecked    int64
-	totalDetected   int64
-	totalExecuted   int64
-	totalProfit     *big.Int
-	statsMu         sync.Mutex
+	totalChecked      int64
+	totalDetected     int64
+	totalExecuted     int64
+	totalProfit       *big.Int
+	oracleTriggers    int64 // 预言机触发的快速检查次数
+	statsMu           sync.Mutex
 
 	// 控制
 	stopCh chan struct{}
@@ -121,13 +135,15 @@ func NewService(web3Client *web3.Client, config *ServiceConfig) (*Service, error
 	}
 
 	return &Service{
-		collector:   collector,
-		detector:    detector,
-		executor:    executor,
-		config:      config,
-		web3Client:  web3Client,
-		totalProfit: big.NewInt(0),
-		stopCh:      make(chan struct{}),
+		collector:       collector,
+		detector:        detector,
+		executor:        executor,
+		config:          config,
+		web3Client:      web3Client,
+		oracleTrigger:   make(chan struct{}, 1),
+		precomputedOpps: make(map[common.Address]*LiquidationOpportunity),
+		totalProfit:     big.NewInt(0),
+		stopCh:          make(chan struct{}),
 	}, nil
 }
 
@@ -149,13 +165,38 @@ func (s *Service) Start(ctx context.Context) error {
 		log.Strategy().Warn().Err(err).Msg("清算：初始借款人扫描失败")
 	}
 
+	// 启动预言机监控（事件驱动快速通道）
+	if s.config.AaveOracle != (common.Address{}) && s.config.WSURL != "" {
+		oracleMonitor, err := NewOracleMonitor(
+			s.web3Client,
+			s.config.WSURL,
+			s.config.AaveOracle,
+			s.onOraclePriceChange,
+		)
+		if err != nil {
+			log.Strategy().Warn().Err(err).Msg("清算：预言机监控创建失败（将使用轮询模式）")
+		} else {
+			reserves := s.collector.GetReserves()
+			if err := oracleMonitor.Start(ctx, reserves); err != nil {
+				log.Strategy().Warn().Err(err).Msg("清算：预言机监控启动失败（将使用轮询模式）")
+			} else {
+				s.oracleMonitor = oracleMonitor
+			}
+		}
+	}
+
 	// 启动主循环
 	s.wg.Add(1)
 	go s.mainLoop(ctx)
 
+	mode := "轮询"
+	if s.oracleMonitor != nil {
+		mode = "预言机事件驱动 + 轮询"
+	}
 	log.Strategy().Info().
 		Int("reserves", len(s.collector.GetReserves())).
 		Int("borrowers", s.collector.GetBorrowerCount()).
+		Str("mode", mode).
 		Msg("清算服务已启动")
 
 	return nil
@@ -164,6 +205,9 @@ func (s *Service) Start(ctx context.Context) error {
 // Stop 停止清算服务
 func (s *Service) Stop() {
 	close(s.stopCh)
+	if s.oracleMonitor != nil {
+		s.oracleMonitor.Stop()
+	}
 	s.wg.Wait()
 	log.Strategy().Info().Msg("清算服务已停止")
 }
@@ -206,7 +250,7 @@ func (s *Service) initialBorrowerScan(ctx context.Context) error {
 	return nil
 }
 
-// mainLoop 主循环
+// mainLoop 主循环（轮询 + 预言机事件双驱动）
 func (s *Service) mainLoop(ctx context.Context) {
 	defer s.wg.Done()
 
@@ -223,8 +267,193 @@ func (s *Service) mainLoop(ctx context.Context) {
 		case <-s.stopCh:
 			return
 		case <-ticker.C:
+			// 常规轮询：全量检查 + 增量事件扫描
 			s.runCycle(ctx, &lastScannedBlock)
+			// 轮询周期结束后，预计算高风险用户的清算参数
+			s.precomputeAtRiskOpportunities(ctx)
+		case <-s.oracleTrigger:
+			// 预言机触发：仅快速检查高风险用户（跳过全量扫描）
+			s.statsMu.Lock()
+			s.oracleTriggers++
+			s.statsMu.Unlock()
+			s.fastCheckAtRiskUsers(ctx)
 		}
+	}
+}
+
+// onOraclePriceChange 预言机价格变动回调
+func (s *Service) onOraclePriceChange(asset common.Address, newPrice *big.Int) {
+	// 非阻塞触发快速检查
+	select {
+	case s.oracleTrigger <- struct{}{}:
+	default:
+		// 已有触发排队，跳过
+	}
+}
+
+// fastCheckAtRiskUsers 快速检查高风险用户（预言机触发，仅查 HF < 1.15 的用户）
+func (s *Service) fastCheckAtRiskUsers(ctx context.Context) {
+	// 获取已知高风险用户
+	atRisk := s.collector.GetAtRiskPositions(1.15) // 比 WatchThreshold 宽松一点
+	if len(atRisk) == 0 {
+		return
+	}
+
+	// 提取地址，仅查这些用户
+	users := make([]common.Address, len(atRisk))
+	for i, p := range atRisk {
+		users[i] = p.User
+	}
+
+	multicallAddr := common.HexToAddress(web3.Multicall3Address)
+	positions, err := s.collector.batchCheckHealthFactorsBatch(ctx, multicallAddr, users)
+	if err != nil {
+		return
+	}
+
+	// 更新缓存
+	s.collector.positionsMu.Lock()
+	for _, p := range positions {
+		s.collector.positions[p.User] = p
+	}
+	s.collector.positionsMu.Unlock()
+
+	// 检查是否有刚跌破 HF=1 的用户
+	for _, p := range positions {
+		if !p.IsLiquidatable() {
+			continue
+		}
+
+		// 检查是否有预计算的清算参数
+		s.precomputedOppsMu.RLock()
+		precomputed, exists := s.precomputedOpps[p.User]
+		s.precomputedOppsMu.RUnlock()
+
+		if exists && precomputed != nil {
+			// 直接使用预计算参数，立即执行！
+			precomputed.HealthFactor = p.HealthFactorFloat()
+			precomputed.Timestamp = time.Now()
+			precomputed.ValidUntil = time.Now().Add(15 * time.Second)
+
+			debtUSD := baseToUSD(p.TotalDebtBase)
+			log.Strategy().Info().
+				Str("user", p.User.Hex()[:10]+"...").
+				Float64("health_factor", p.HealthFactorFloat()).
+				Float64("debt_usd", debtUSD).
+				Msg("🚨 预言机触发：发现可清算仓位（使用预计算参数）")
+
+			s.statsMu.Lock()
+			s.totalDetected++
+			s.statsMu.Unlock()
+
+			s.executeLiquidation(ctx, precomputed)
+		} else {
+			// 没有预计算参数，走常规检测
+			debtUSD := baseToUSD(p.TotalDebtBase)
+			log.Strategy().Info().
+				Str("user", p.User.Hex()[:10]+"...").
+				Float64("health_factor", p.HealthFactorFloat()).
+				Float64("debt_usd", debtUSD).
+				Msg("🚨 预言机触发：发现可清算仓位（走常规检测）")
+
+			opps, err := s.detector.Detect(ctx)
+			if err != nil || len(opps) == 0 {
+				continue
+			}
+			s.statsMu.Lock()
+			s.totalDetected += int64(len(opps))
+			s.statsMu.Unlock()
+			for _, opp := range opps {
+				s.executeLiquidation(ctx, opp)
+			}
+		}
+	}
+}
+
+// precomputeAtRiskOpportunities 预计算高风险用户的清算参数
+// 每轮轮询后调用，对 HF < 1.1 的用户提前算好参数
+func (s *Service) precomputeAtRiskOpportunities(ctx context.Context) {
+	atRisk := s.collector.GetAtRiskPositions(1.10)
+	if len(atRisk) == 0 {
+		s.precomputedOppsMu.Lock()
+		s.precomputedOpps = make(map[common.Address]*LiquidationOpportunity)
+		s.precomputedOppsMu.Unlock()
+		return
+	}
+
+	reserves := s.collector.GetReserves()
+	if len(reserves) == 0 {
+		return
+	}
+
+	reserveMap := make(map[common.Address]*ReserveInfo)
+	var assetAddrs []common.Address
+	for i := range reserves {
+		reserveMap[reserves[i].Asset] = &reserves[i]
+		assetAddrs = append(assetAddrs, reserves[i].Asset)
+	}
+
+	newPrecomputed := make(map[common.Address]*LiquidationOpportunity)
+
+	for _, pos := range atRisk {
+		debtUSD := baseToUSD(pos.TotalDebtBase)
+		if debtUSD < s.detector.config.MinDebtUSD {
+			continue
+		}
+
+		// 获取用户各资产头寸
+		userReserves, err := s.collector.FetchUserReserveData(ctx, pos.User, assetAddrs)
+		if err != nil {
+			continue
+		}
+
+		// 计算最佳清算对
+		opp := s.detector.findBestLiquidationPair(pos, userReserves, reserveMap)
+		if opp != nil {
+			newPrecomputed[pos.User] = opp
+		}
+	}
+
+	s.precomputedOppsMu.Lock()
+	s.precomputedOpps = newPrecomputed
+	s.precomputedOppsMu.Unlock()
+
+	if len(newPrecomputed) > 0 {
+		log.Strategy().Debug().
+			Int("precomputed", len(newPrecomputed)).
+			Int("at_risk", len(atRisk)).
+			Msg("清算：已预计算高风险用户清算参数")
+	}
+}
+
+// executeLiquidation 执行清算（抽取公共逻辑）
+func (s *Service) executeLiquidation(ctx context.Context, opp *LiquidationOpportunity) {
+	if s.executor == nil || !s.config.EnableExecution {
+		log.Strategy().Info().
+			Str("user", opp.User.Hex()).
+			Str("collateral", opp.CollateralSymbol).
+			Str("debt", opp.DebtSymbol).
+			Float64("health_factor", opp.HealthFactor).
+			Str("expected_profit", opp.ExpectedProfit.String()).
+			Msg("清算机会（仅检测，未执行）")
+		return
+	}
+
+	result, err := s.executor.Execute(ctx, opp)
+	if err != nil {
+		log.Executor().Warn().Err(err).
+			Str("opp_id", opp.ID).
+			Msg("清算执行失败")
+		return
+	}
+
+	if result.Success {
+		s.statsMu.Lock()
+		s.totalExecuted++
+		if result.Profit != nil {
+			s.totalProfit.Add(s.totalProfit, result.Profit)
+		}
+		s.statsMu.Unlock()
 	}
 }
 
@@ -320,37 +549,8 @@ func (s *Service) runCycle(ctx context.Context, lastScannedBlock *uint64) {
 	s.statsMu.Unlock()
 
 	// Step 4: 执行清算
-	if s.executor == nil || !s.config.EnableExecution {
-		for _, opp := range opportunities {
-			log.Strategy().Info().
-				Str("user", opp.User.Hex()).
-				Str("collateral", opp.CollateralSymbol).
-				Str("debt", opp.DebtSymbol).
-				Float64("health_factor", opp.HealthFactor).
-				Str("debt_to_cover", opp.DebtToCover.String()).
-				Str("expected_profit", opp.ExpectedProfit.String()).
-				Msg("清算机会（仅检测，未执行）")
-		}
-		return
-	}
-
 	for _, opp := range opportunities {
-		result, err := s.executor.Execute(ctx, opp)
-		if err != nil {
-			log.Executor().Warn().Err(err).
-				Str("opp_id", opp.ID).
-				Msg("清算执行失败")
-			continue
-		}
-
-		if result.Success {
-			s.statsMu.Lock()
-			s.totalExecuted++
-			if result.Profit != nil {
-				s.totalProfit.Add(s.totalProfit, result.Profit)
-			}
-			s.statsMu.Unlock()
-		}
+		s.executeLiquidation(ctx, opp)
 	}
 }
 
@@ -359,14 +559,28 @@ func (s *Service) Stats() map[string]interface{} {
 	s.statsMu.Lock()
 	defer s.statsMu.Unlock()
 
-	return map[string]interface{}{
-		"total_checked":  s.totalChecked,
-		"total_detected": s.totalDetected,
-		"total_executed": s.totalExecuted,
-		"total_profit":   s.totalProfit.String(),
-		"borrowers":      s.collector.GetBorrowerCount(),
-		"reserves":       len(s.collector.GetReserves()),
-		"at_risk":        len(s.collector.GetAtRiskPositions(s.config.WatchThreshold)),
-		"liquidatable":   len(s.collector.GetLiquidatablePositions()),
+	s.precomputedOppsMu.RLock()
+	precomputed := len(s.precomputedOpps)
+	s.precomputedOppsMu.RUnlock()
+
+	stats := map[string]interface{}{
+		"total_checked":    s.totalChecked,
+		"total_detected":   s.totalDetected,
+		"total_executed":   s.totalExecuted,
+		"total_profit":     s.totalProfit.String(),
+		"borrowers":        s.collector.GetBorrowerCount(),
+		"reserves":         len(s.collector.GetReserves()),
+		"at_risk":          len(s.collector.GetAtRiskPositions(s.config.WatchThreshold)),
+		"liquidatable":     len(s.collector.GetLiquidatablePositions()),
+		"precomputed_opps": precomputed,
+		"oracle_triggers":  s.oracleTriggers,
 	}
+
+	if s.oracleMonitor != nil {
+		for k, v := range s.oracleMonitor.Stats() {
+			stats["oracle_"+k] = v
+		}
+	}
+
+	return stats
 }
