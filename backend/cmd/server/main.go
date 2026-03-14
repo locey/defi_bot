@@ -636,10 +636,16 @@ func main() {
 					continue
 				}
 
-				// 跨 DEX 路由：通过链上合约执行
+				// 跨 DEX 路由：通过 FlashLoan 执行（零资本风险，不依赖 Vault 余额）
 				if arbitrageExecutor != nil && cfg.Scheduler.EnableExecution && !cfg.Scheduler.DryRun {
 					execCtx, execCancel := context.WithTimeout(ctx, 30*time.Second)
-					result, err := arbitrageExecutor.Execute(execCtx, arbOpp)
+					var result *executor.ExecutionResult
+					var err error
+					if arbitrageExecutor.HasFlashLoan() {
+						result, err = arbitrageExecutor.ExecuteWithFlashLoan(execCtx, arbOpp)
+					} else {
+						result, err = arbitrageExecutor.Execute(execCtx, arbOpp)
+					}
 					execCancel()
 					if err != nil {
 						log.Main().Warn().Err(err).Str("id", opp.ID).Msg("CrossDEX execution failed")

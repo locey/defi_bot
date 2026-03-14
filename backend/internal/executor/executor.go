@@ -273,7 +273,7 @@ func (e *ArbitrageExecutor) ExecuteWithFlashLoan(
 
 	// 构建 Flash Loan 参数
 	flParams := &FlashLoanParams{
-		Platform:     0, // Aave_V2 (默认)
+		Platform:     1, // Aave_V3 (Arbitrum)
 		TokenIn:      opp.SwapPath[0],
 		AmountIn:     opp.AmountIn,
 		SwapPath:     opp.SwapPath,
@@ -283,12 +283,40 @@ func (e *ArbitrageExecutor) ExecuteWithFlashLoan(
 		MinProfit:    opp.MinProfit,
 	}
 
+	// 调试：打印 FlashLoan 参数
+	pathStrs := make([]string, len(flParams.SwapPath))
+	for i, p := range flParams.SwapPath {
+		pathStrs[i] = p.Hex()[:10]
+	}
+	dexStrs := make([]string, len(flParams.Dexes))
+	for i, d := range flParams.Dexes {
+		dexStrs[i] = d.Hex()[:10]
+	}
+	log.Executor().Info().
+		Str("path", opp.ID).
+		Uint8("platform", flParams.Platform).
+		Str("tokenIn", flParams.TokenIn.Hex()[:14]).
+		Str("amountIn", flParams.AmountIn.String()).
+		Strs("swapPath", pathStrs).
+		Strs("dexes", dexStrs).
+		Uints32("feeTiers", flParams.FeeTiers).
+		Str("minProfit", flParams.MinProfit.String()).
+		Msg("FlashLoan simulation params")
+
+	// eth_call 预检：避免提交 revert 交易浪费 gas
+	simGas, simErr := e.contractCaller.SimulateFlashLoan(ctx, flParams)
+	if simErr != nil {
+		log.Executor().Warn().Err(simErr).Str("path", opp.ID).Msg("Flash Loan simulation reverted, skipping")
+		return nil, fmt.Errorf("flash loan simulation failed: %w", simErr)
+	}
+
 	log.Executor().Info().
 		Str("path", opp.ID).
 		Str("amount_in", flParams.AmountIn.String()).
 		Str("token", flParams.TokenIn.Hex()[:14]).
 		Int("dexes", len(flParams.Dexes)).
-		Msg("⚡ Submitting Flash Loan transaction")
+		Str("sim_gas", simGas.String()).
+		Msg("⚡ Flash Loan simulation passed, submitting tx")
 
 	// 执行 Flash Loan 交易
 	tx, err := e.contractCaller.ExecuteFlashLoanArbitrage(ctx, e.keeperPrivateKey, flParams)

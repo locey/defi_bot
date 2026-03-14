@@ -415,6 +415,35 @@ type FlashLoanParams struct {
 	MinProfit    *big.Int
 }
 
+// SimulateFlashLoan eth_call 预检 FlashLoan 交易是否会 revert
+func (cc *ContractCaller) SimulateFlashLoan(
+	ctx context.Context,
+	params *FlashLoanParams,
+) (*big.Int, error) {
+	if cc.flashLoanAddress == (common.Address{}) {
+		return nil, fmt.Errorf("flash loan contract address not configured")
+	}
+
+	callData, err := cc.buildFlashLoanCallData(params)
+	if err != nil {
+		return nil, fmt.Errorf("build flash loan calldata: %w", err)
+	}
+
+	callMsg := ethereum.CallMsg{
+		From:  cc.keeperAddress,
+		To:    &cc.flashLoanAddress,
+		Data:  callData,
+		Value: big.NewInt(0),
+	}
+
+	gasEstimate, err := cc.web3Client.GetClient().EstimateGas(ctx, callMsg)
+	if err != nil {
+		return nil, fmt.Errorf("flash loan simulation reverted: %w", err)
+	}
+
+	return big.NewInt(int64(gasEstimate)), nil
+}
+
 // ExecuteFlashLoanArbitrage 通过 FlashLoanArbitrage 合约执行闪电贷套利
 func (cc *ContractCaller) ExecuteFlashLoanArbitrage(
 	ctx context.Context,
