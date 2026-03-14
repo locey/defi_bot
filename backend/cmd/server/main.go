@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -527,7 +528,21 @@ func main() {
 		// 买入腿: 用检测到的最低价池
 		// 卖出腿: 在 PriceCache 中搜索同 token pair 的最高价池
 		go func() {
+			// Dedup: 同一 symbol+direction 5 秒内不重复执行
+			lastExec := make(map[string]time.Time)
+			var lastExecMu sync.Mutex
+
 			for opp := range cexdexDetector.GetOpportunityChan() {
+				// 去重：避免同一价差秒级刷屏
+				dedupKey := opp.Symbol + "_" + opp.Direction
+				lastExecMu.Lock()
+				if last, ok := lastExec[dedupKey]; ok && time.Since(last) < 5*time.Second {
+					lastExecMu.Unlock()
+					continue
+				}
+				lastExec[dedupKey] = time.Now()
+				lastExecMu.Unlock()
+
 				// 验证 TokenIn/TokenOut 已填充
 				emptyAddr := common.Address{}
 				if opp.TokenIn == emptyAddr || opp.TokenOut == emptyAddr {
@@ -548,6 +563,28 @@ func main() {
 
 				pcache := highPerfScheduler.GetPriceCache()
 				if pcache != nil {
+					// 如果买入 router 未知，从 PriceCache 中查找
+					if buyRouter == (common.Address{}) {
+						pools0 := pcache.GetByTokenPair(asset.Hex(), midToken.Hex())
+						if len(pools0) == 0 {
+							pools0 = pcache.GetByTokenPair(midToken.Hex(), asset.Hex())
+						}
+						for _, p := range pools0 {
+							if r, ok := dexRouters[p.DexName]; ok {
+								buyRouter = r
+								sellRouter = r
+								if p.IsV3 {
+									buyFeeTier = uint32(p.Fee * 100)
+									if buyFeeTier == 0 {
+										buyFeeTier = 3000
+									}
+									sellFeeTier = buyFeeTier
+								}
+								break
+							}
+						}
+					}
+
 					pools := pcache.GetByTokenPair(midToken.Hex(), asset.Hex())
 					if len(pools) > 1 {
 						// 找到卖出池: 不同 DEX、价格最高的池
@@ -603,9 +640,16 @@ func main() {
 					IsCex:      true,
 					PathLength: 2,
 				}
-				// 转换金额 (USD -> wei)
-				if opp.TradeAmount > 0 {
-					arbOpp.AmountIn = new(big.Int).SetUint64(uint64(opp.TradeAmount * 1e6)) // USDC 精度
+				// 转换金额：TradeAmount 是 USD 金额，需要转成 tokenIn 的 wei
+				// tokenIn = asset (UNI/LINK 等, 18 decimals)
+				// 用 CEX 价格转换: amountInToken = tradeAmountUSD / cexPrice
+				if opp.TradeAmount > 0 && opp.CEXPrice > 0 {
+					amountInToken := opp.TradeAmount / opp.CEXPrice
+					// 18 decimals: 乘以 1e18
+					amountWei := uint64(amountInToken * 1e18)
+					arbOpp.AmountIn = new(big.Int).SetUint64(amountWei)
+				} else if opp.TradeAmount > 0 {
+					arbOpp.AmountIn = new(big.Int).SetUint64(uint64(opp.TradeAmount * 1e18))
 				}
 				if opp.ExpectProfit > 0 {
 					arbOpp.ExpectProfit = new(big.Int).SetUint64(uint64(opp.ExpectProfit * 1e6))
