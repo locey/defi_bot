@@ -181,16 +181,14 @@ describe("SpotArbitrage Comprehensive Tests", function () {
       expect(coreBal).to.be.gt(0);
     });
 
-    it("非授权调用者不能执行套利", async function () {
-      await expect(
-        spotArbitrage.connect(backend).executeSwaps(
-          mockTokenA.target, mockTokenA.target, amountIn,
-          [mockTokenA.target, mockTokenB.target, mockTokenA.target],
-          [mockDoubleRouterIntegration.target, mockDoubleRouterIntegration.target],
-          [FEE_V2, FEE_V2],
-          expectProfit, minProfit, false
-        )
-      ).to.be.revertedWith("Spot: not authorized");
+    it("backendCaller 可以执行套利", async function () {
+      await spotArbitrage.connect(backend).executeSwaps(
+        mockTokenA.target, mockTokenA.target, amountIn,
+        [mockTokenA.target, mockTokenB.target, mockTokenA.target],
+        [mockDoubleRouterIntegration.target, mockDoubleRouterIntegration.target],
+        [FEE_V2, FEE_V2],
+        expectProfit, minProfit, false
+      );
     });
 
     it("user 也不能执行套利", async function () {

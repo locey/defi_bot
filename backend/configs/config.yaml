@@ -16,18 +16,18 @@ database:
 
 # 区块链配置 - Arbitrum One
 blockchain:
-  # 主 RPC URL
-  rpc_url: https://arb1.arbitrum.io/rpc
-  
-  # 多 RPC URL（池模式）
+  # 主 RPC URL (QuickNode Build Plan, 50 RPS, ~30-80ms 延迟)
+  rpc_url: https://warmhearted-wild-road.arbitrum-mainnet.quiknode.pro/1ed461039e0b8a3008160cbc130479deb34798c9/
+
+  # 多 RPC URL（池模式：QuickNode 主力 + 公共节点备用）
   rpc_urls:
+    - https://warmhearted-wild-road.arbitrum-mainnet.quiknode.pro/1ed461039e0b8a3008160cbc130479deb34798c9/
     - https://arb1.arbitrum.io/rpc
     - https://arbitrum-one.publicnode.com
     - https://1rpc.io/arb
-    - https://arbitrum.drpc.org
-  
+
   # WebSocket URL（用于实时订阅）
-  ws_url: wss://arb1.arbitrum.io/ws
+  ws_url: wss://warmhearted-wild-road.arbitrum-mainnet.quiknode.pro/1ed461039e0b8a3008160cbc130479deb34798c9/
   
   chain_id: 42161  # Arbitrum One
   timeout: 30
@@ -42,7 +42,7 @@ contracts:
   config_manager: "0x8dD68621209D31D2c3202F894B956DDEdF893697"
   
   # 套利执行合约
-  vault: "0xBE312B103f89489Df5bFf0A59d327c4C8B19d94F"
+  vault: "0xB7e37Fb429795E10A8D25752fFC69Fbab71df677"
   spot_arbitrage: "0xceCCf5D3f5ab1dAB5b13Fd5Cf7deeA9C3DBaad17"
   
   # 集成合约
@@ -55,11 +55,35 @@ contracts:
   # Aave V3 LendingPool（Arbitrum）- 用于闪电贷
   aave_lending_pool: "0x794a61358D6845594F94dc1DB02A252b5b4814aD"
 
-  # FlashLoanArbitrage 合约地址（2026-03-10 部署，arbitrageCore=keeper 地址）
-  flash_loan_arbitrage: "0x8dbcdA14888b48CF3b6484e6aeb870B19563C01D"
+  # FlashLoanArbitrage 合约地址（2026-03-11 重新部署，修复 FlashLoanRouter 余额检查）
+  flash_loan_arbitrage: "0x63EeA22E5b8191A98490E55B0dF4b3A459430179"
 
-  # FlashLoanRouter 合约地址
-  flash_loan_router: "0x4A89d8B8B0376Fc8c7e2119445c828719BeC019E"
+  # FlashLoanRouter 合约地址（2026-03-11 重新部署）
+  flash_loan_router: "0x3D88345CAa5B059534839C14cA64B471cCFC73e3"
+
+  # Aave V3 PoolDataProvider（Arbitrum）
+  aave_data_provider: "0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654"
+
+  # FlashLoanLiquidator v3 合约地址（2026-03-12 重部署，增加 minProfit MEV 防护）
+  flash_loan_liquidator: "0xc9bC59dCdf24071203053719CE5276e84e2158d4"
+
+  # BalancerLiquidator 合约地址（使用 Balancer V2 免费闪电贷，省 0.05% 费率）
+  # 部署后填入地址，未部署前留空则自动 fallback 到 FlashLoanLiquidator
+  balancer_liquidator: "0x06BF1025c00f11FF7fb53aFC7bb398FCBafA7646"
+
+  # Balancer V2 Vault（所有链地址相同）
+  balancer_vault: "0xBA12222222228d8Ba445958a75a0704d566BF2C8"
+
+# 清算机器人配置
+liquidation:
+  enabled: true
+  dry_run: false
+  watch_threshold: 1.1        # 健康因子 < 1.1 进入监控（留更大安全窗口）
+  min_debt_usd: 50            # 最小债务 $50
+  scan_interval_sec: 3        # 每 3 秒扫描一次（提高响应速度）
+  event_scan_blocks: 500000   # 初始扫描最近 500000 区块（约 6 天，覆盖更多借款人）
+  swap_router: "0xE592427A0AEce92De3Edee1F18E0157C05861564"  # Uniswap V3 Router
+  swap_fee_tier: 3000         # 0.3% fee tier
 
 # Keeper 配置
 # ⚠️ 私钥通过环境变量 KEEPER_PRIVATE_KEY 注入，绝不在此文件中明文存储
@@ -234,7 +258,7 @@ scheduler:
   min_profit_rate: 0.4   # 0.4%（确保扣完 Gas + Aave 0.05% 费率后净正）
   mode: high_performance
   enable_execution: true    # 开启真实执行
-  dry_run: true             # dry-run 模式：监控机会但不提交交易
+  dry_run: false            # 实盘模式：检测到机会后提交交易
   min_confidence: 0.15      # 低阈值，让 eth_call 做最终裁定
   max_concurrent_exec: 3    # 允许 3 笔并行 eth_call 模拟
 
@@ -277,8 +301,8 @@ cex:
   # 币安配置
   binance:
     enabled: true
-    api_endpoint: "https://api.binance.us"
-    ws_endpoint: "wss://stream.binance.us:9443/ws"
+    api_endpoint: "https://api.binance.com"
+    ws_endpoint: "wss://stream.binance.com:9443/ws"
     api_key: ""
     api_secret: ""
     rate_limit: 1200

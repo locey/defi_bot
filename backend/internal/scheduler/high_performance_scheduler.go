@@ -68,6 +68,9 @@ type HighPerformanceScheduler struct {
 
 	// 聚合器预言机：交叉验证套利机会（Paraswap API）
 	aggregatorOracle *strategy.AggregatorOracle
+
+	// 1inch 聚合路由验证器
+	aggregatorRouter *strategy.AggregatorRouter
 }
 
 // HighPerformanceConfig 高性能配置
@@ -568,25 +571,24 @@ func (s *HighPerformanceScheduler) executionLoop() {
 }
 
 // handleOpportunity 处理套利机会
-// profitableAssets 只允许高价值 token 做套利起点
-// 低价值 token（如 RDNT ~$0.01）利润无法覆盖 gas 成本
-var profitableAssets = map[common.Address]bool{
-	common.HexToAddress("0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"): true, // WETH
-	common.HexToAddress("0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f"): true, // WBTC
-	common.HexToAddress("0xaf88d065e77c8cC2239327C5EDb3A432268e5831"): true, // USDC
-	common.HexToAddress("0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8"): true, // USDCe
-	common.HexToAddress("0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9"): true, // USDT
-}
-
 func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOpportunity, semaphore chan struct{}) {
 	// 过期检查（goroutine 调度延迟可能超过 ValidUntil）
 	if !opp.ValidUntil.IsZero() && time.Now().After(opp.ValidUntil) {
 		return
 	}
 
-	// 只允许高价值 token 做套利（低价值 token 利润无法覆盖 gas）
-	if len(opp.SwapPath) > 0 && !profitableAssets[opp.SwapPath[0]] {
-		return
+	// 只允许 BaseTokens 中的高价值 token 做套利起点（低价值 token 利润无法覆盖 gas）
+	if len(opp.SwapPath) > 0 && len(s.config.BaseTokens) > 0 {
+		isBase := false
+		for _, bt := range s.config.BaseTokens {
+			if opp.SwapPath[0] == bt {
+				isBase = true
+				break
+			}
+		}
+		if !isBase {
+			return
+		}
 	}
 
 	// 更新统计
@@ -635,7 +637,8 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 	}
 
 	// 查询 Vault 可用余额（优先用缓存，30s 内有效，避免阻塞 eth_call）
-	if len(opp.SwapPath) > 0 && s.executor != nil {
+	// executor 为 nil 时（dry-run），vault 余额视为 0 → 自动走 Flash Loan
+	if len(opp.SwapPath) > 0 {
 		assetHex := opp.SwapPath[0].Hex()
 		available := s.getCachedVaultBalance(assetHex)
 
@@ -657,7 +660,7 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 		}
 
 		// Vault 不足时切换到 Flash Loan 路径
-		if vaultInsufficient && s.config.EnableFlashLoan && s.executor.HasFlashLoan() {
+		if vaultInsufficient && s.config.EnableFlashLoan && (s.executor == nil || s.executor.HasFlashLoan()) {
 			useFlashLoan = true
 			flashLoanAmount := new(big.Int).Mul(big.NewInt(50), big.NewInt(1_000_000_000_000_000_000)) // 50 ETH
 			if opp.AmountIn != nil && opp.AmountIn.Sign() > 0 {
@@ -749,6 +752,26 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 		}
 	}
 
+	// 1inch 聚合路由验证：用 50+ DEX 覆盖面交叉验证本地利润计算
+	if s.aggregatorRouter != nil && opp.ProfitRate > 0 {
+		oneInchCtx, oneInchCancel := context.WithTimeout(context.Background(), 3*time.Second)
+		shouldProceed, adjustedRate := s.aggregatorRouter.ValidateOpportunity(oneInchCtx, opp)
+		oneInchCancel()
+
+		if !shouldProceed {
+			log.Scheduler().Info().
+				Str("path", opp.ID).
+				Float64("local_rate", opp.ProfitRate*100).
+				Float64("1inch_rate", adjustedRate*100).
+				Msg("  ❌ 1inch 验证无利润，过滤")
+			return
+		}
+		// 用 1inch 确认的利润率更新（更保守）
+		if adjustedRate > 0 && adjustedRate < opp.ProfitRate {
+			opp.ProfitRate = adjustedRate
+		}
+	}
+
 	// MinProfit 动态计算：覆盖实际 gas 成本即可
 	// Arbitrum 实测: gasUsed ~700K, gasPrice ~0.04 gwei → gasCost ≈ 0.00003 ETH
 	// 设 2x 安全边际: MinProfit = 0.00006 ETH
@@ -763,7 +786,34 @@ func (s *HighPerformanceScheduler) handleOpportunity(opp *strategy.ArbitrageOppo
 	// 之前用 1 wei 导致合约 require(actProfit >= minProfit) 形同虚设
 	opp.MinProfit = new(big.Int).Mul(gasCostEstimate, big.NewInt(2)) // 0.00006 ETH
 
-	// eth_call 模拟验证（免费，不消耗 Gas）
+	// Flash Loan 路径跳过 ArbitrageCore eth_call（ArbitrageCore 会检查 Vault 余额，Flash Loan 不需要）
+	// QuoterV2 已验证链上利润 — 直接进入执行阶段
+	if useFlashLoan {
+		log.Scheduler().Info().
+			Str("path", opp.ID).
+			Float64("profit_pct", opp.ProfitRate*100).
+			Str("amount", opp.AmountIn.String()).
+			Msg("⚡ Flash Loan: QuoterV2 verified, skipping ArbitrageCore eth_call")
+
+		if s.detector != nil {
+			s.detector.RecordResult(opp.ID, true)
+		}
+		s.statsMu.Lock()
+		s.stats.ExecutionsAttempted++
+		s.statsMu.Unlock()
+
+		if s.executor != nil && s.config.EnableExecution {
+			s.executeFlashLoanOpportunity(opp)
+		} else {
+			log.Scheduler().Info().
+				Str("path", opp.ID).
+				Float64("profit_pct", opp.ProfitRate*100).
+				Msg("⚡ Flash Loan opportunity (dry-run, would execute)")
+		}
+		return
+	}
+
+	// eth_call 模拟验证（免费，不消耗 Gas）— 仅 Vault 路径
 	// 有 RPC 池时降低限流（429 由 Simulator 内部轮换处理）
 	// 无 RPC 池时保留自适应限流
 	s.ethCallMu.Lock()
@@ -1165,6 +1215,16 @@ func (s *HighPerformanceScheduler) IsRunning() bool {
 // GetPriceCache 获取价格缓存（用于 CEX-DEX 套利）
 func (s *HighPerformanceScheduler) GetPriceCache() *cache.PriceCache {
 	return s.priceCache
+}
+
+// GetCollector 获取 FastCollector（用于池发现引擎动态添加池）
+func (s *HighPerformanceScheduler) GetCollector() *collector.FastCollector {
+	return s.collector
+}
+
+// SetAggregatorRouter 设置 1inch 聚合路由验证器
+func (s *HighPerformanceScheduler) SetAggregatorRouter(router *strategy.AggregatorRouter) {
+	s.aggregatorRouter = router
 }
 
 // getCachedVaultBalance 获取缓存的 Vault 余额（30s TTL，后台异步刷新）

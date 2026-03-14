@@ -76,7 +76,7 @@ func (a *DEXPriceAdapter) initTokensFromConfig(configs []TokenConfig) {
 // diagnosePriceCache 诊断 PriceCache 中的数据
 func (a *DEXPriceAdapter) diagnosePriceCache() {
 	allPools := a.priceCache.GetAll()
-	log.Info("DEX 适配器诊断: PriceCache 包含 %d 个池子", len(allPools))
+	log.Debug("DEX 适配器诊断: PriceCache 包含 %d 个池子", len(allPools))
 
 	if len(allPools) == 0 {
 		log.Warn("DEX 适配器诊断: PriceCache 为空！")
@@ -95,7 +95,7 @@ func (a *DEXPriceAdapter) diagnosePriceCache() {
 		// 检查是否包含 WETH 或 USDT
 		if strings.Contains(t0, "82af") || strings.Contains(t1, "82af") ||
 			strings.Contains(t0, "fd08") || strings.Contains(t1, "fd08") {
-			log.Info("DEX 适配器诊断: 找到相关池子 pool=%s token0=%s token1=%s price=%.6f",
+			log.Debug("DEX 适配器诊断: 找到相关池子 pool=%s token0=%s token1=%s price=%.6f",
 				pool.PoolAddress, pool.Token0.Hex(), pool.Token1.Hex(), pool.Price)
 			count++
 			if count >= 5 {
@@ -104,7 +104,7 @@ func (a *DEXPriceAdapter) diagnosePriceCache() {
 		}
 	}
 
-	log.Info("DEX 适配器诊断: 期望的 WETH=%s USDT=%s", wethAddr, usdtAddr)
+	log.Debug("DEX 适配器诊断: 期望的 WETH=%s USDT=%s", wethAddr, usdtAddr)
 }
 
 // initArbitrumTokens 初始化 Arbitrum 主网 token 地址
@@ -209,7 +209,7 @@ func (a *DEXPriceAdapter) GetPrice(symbol string) (float64, error) {
 			}
 		}
 		if len(pools) > 0 {
-			log.Info("CEX-DEX: 通过全量扫描找到 %s 的 %d 个池子（索引可能未建立）", symbol, len(pools))
+			log.Debug("CEX-DEX: 通过全量扫描找到 %s 的 %d 个池子（索引可能未建立）", symbol, len(pools))
 		} else {
 			log.Debug("CEX-DEX: DEX 价格为 0 (未找到池子) symbol=%s base=%s quote=%s allPools=%d",
 				symbol, baseHex[:10], quoteHex[:10], len(all))
@@ -270,7 +270,7 @@ func (a *DEXPriceAdapter) GetPrice(symbol string) (float64, error) {
 
 	// 诊断：打印最佳池子信息
 	if symbol == "BTCUSDT" || symbol == "ETHUSDT" {
-		log.Info("DEX GetPrice: symbol=%s pool=%s t0=%s t1=%s price=%.10g isV3=%v score=%.4f dec0=%d dec1=%d",
+		log.Debug("DEX GetPrice: symbol=%s pool=%s t0=%s t1=%s price=%.10g isV3=%v score=%.4f dec0=%d dec1=%d",
 			symbol, bestPool.PoolAddress[:10], bestPool.Token0.Hex()[:10], bestPool.Token1.Hex()[:10],
 			bestPool.Price, bestPool.IsV3, bestScore, bestPool.Decimals0, bestPool.Decimals1)
 	}
@@ -302,7 +302,7 @@ func (a *DEXPriceAdapter) GetPrice(symbol string) (float64, error) {
 	if !quoteIsStable && finalPrice > 0 {
 		// quote token 是 WETH 等非稳定币，需要获取其 USD 价格
 		wethUSDPrice := a.getWETHUSDPrice()
-		log.Info("DEX Price debug: symbol=%s poolPrice=%.10g baseIsToken0=%v finalPriceBeforeConvert=%.10g wethUSD=%.4f result=%.10g",
+		log.Debug("DEX Price debug: symbol=%s poolPrice=%.10g baseIsToken0=%v finalPriceBeforeConvert=%.10g wethUSD=%.4f result=%.10g",
 			symbol, poolPrice, baseIsToken0, finalPrice, wethUSDPrice, finalPrice*wethUSDPrice)
 		if wethUSDPrice > 0 {
 			finalPrice = finalPrice * wethUSDPrice

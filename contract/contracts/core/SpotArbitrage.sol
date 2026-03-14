@@ -90,7 +90,7 @@ contract SpotArbitrage is ISpotArbitrage, Initializable, UUPSUpgradeable, Ownabl
 
     modifier onlyAuthorizedCaller() {
         require(
-            msg.sender == arbitrageCore || msg.sender == owner(),
+            msg.sender == arbitrageCore || msg.sender == backendCaller || msg.sender == owner(),
             "Spot: not authorized"
         );
         _;

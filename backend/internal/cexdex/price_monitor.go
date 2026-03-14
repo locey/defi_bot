@@ -221,11 +221,11 @@ func (m *PriceMonitor) receiveLoop(ctx context.Context) {
 			continue
 		}
 
-		// 调试：打印第一条消息
+		// 调试：打印原始消息（Debug 级别避免刷屏）
 		if len(message) > 0 && len(message) < 500 {
 			msgStr := string(message)
 			if strings.Contains(msgStr, "ETHUSDT") {
-				log.Info("Binance 原始消息 (ETHUSDT): %s", msgStr[:min(len(msgStr), 200)])
+				log.Debug("Binance 原始消息 (ETHUSDT): %s", msgStr[:min(len(msgStr), 200)])
 			}
 		}
 
@@ -278,7 +278,7 @@ func (m *PriceMonitor) handleMessage(message []byte) {
 
 	// 每 100 次打印一次 ETHUSDT 价格（避免日志泛滥）
 	if ticker.Symbol == "ETHUSDT" && (oldPrice == nil || int(price.Timestamp.Unix())%30 == 0) {
-		log.Info("Binance ETHUSDT 价格更新: bid=%.2f ask=%.2f", bidPrice, askPrice)
+		log.Debug("Binance ETHUSDT 价格更新: bid=%.2f ask=%.2f", bidPrice, askPrice)
 	}
 
 	// 发送到通道

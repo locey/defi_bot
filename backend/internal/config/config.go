@@ -28,6 +28,9 @@ type Config struct {
 	Chains      map[string]ChainConfig    `mapstructure:"chains"`       // 多链配置
 	ActiveChain string                    `mapstructure:"active_chain"` // 当前活跃链名称
 
+	// 清算机器人配置
+	Liquidation LiquidationConfig `mapstructure:"liquidation"`
+
 	// Phase 4: 可观测性配置
 	Metrics  MetricsConfig  `mapstructure:"metrics"`  // Prometheus 指标
 	Telegram TelegramConfig `mapstructure:"telegram"` // Telegram 告警
@@ -110,6 +113,12 @@ type ContractsConfig struct {
 
 	// 外部合约
 	AaveLendingPool string `mapstructure:"aave_lending_pool"`
+
+	// 清算合约
+	FlashLoanLiquidator  string `mapstructure:"flash_loan_liquidator"`   // FlashLoanLiquidator 合约地址（Aave 闪电贷，0.05% 费率）
+	BalancerLiquidator   string `mapstructure:"balancer_liquidator"`     // BalancerLiquidator 合约地址（Balancer 闪电贷，0% 费率）
+	BalancerVault        string `mapstructure:"balancer_vault"`          // Balancer V2 Vault 地址
+	AaveDataProvider     string `mapstructure:"aave_data_provider"`      // Aave V3 PoolDataProvider
 }
 
 // KeeperConfig Keeper 配置
@@ -195,6 +204,18 @@ type RedisConfig struct {
 	Password string `mapstructure:"password"`
 	DB       int    `mapstructure:"db"`
 	TTL      int    `mapstructure:"ttl"` // 默认过期时间（秒）
+}
+
+// LiquidationConfig 清算机器人配置
+type LiquidationConfig struct {
+	Enabled          bool    `mapstructure:"enabled"`            // 是否启用清算机器人
+	DryRun           bool    `mapstructure:"dry_run"`            // 干运行模式
+	WatchThreshold   float64 `mapstructure:"watch_threshold"`    // 健康因子监控阈值（如 1.05）
+	MinDebtUSD       float64 `mapstructure:"min_debt_usd"`       // 最小债务金额 (USD)
+	ScanIntervalSec  int     `mapstructure:"scan_interval_sec"`  // 扫描间隔（秒）
+	EventScanBlocks  int     `mapstructure:"event_scan_blocks"`  // 事件扫描区块数
+	SwapRouter       string  `mapstructure:"swap_router"`        // collateral→debt DEX router
+	SwapFeeTier      int     `mapstructure:"swap_fee_tier"`      // V3 fee tier (0=V2)
 }
 
 // CexConfig CEX 配置

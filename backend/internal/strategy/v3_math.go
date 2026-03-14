@@ -88,6 +88,12 @@ func CalculateV3SwapOutput(
 		return nil, fmt.Errorf("v3_math: output is zero or negative")
 	}
 
+	// Conservative dampening: single-tick model overestimates by 2-100x for
+	// swaps that cross tick boundaries. Apply 50% haircut — QuoterV2 on-chain
+	// validation provides the ground truth for paths that survive this filter.
+	amountOut.Mul(amountOut, big.NewInt(50))
+	amountOut.Div(amountOut, big.NewInt(100))
+
 	return amountOut, nil
 }
 

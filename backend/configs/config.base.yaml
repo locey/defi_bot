@@ -16,14 +16,14 @@ database:
 
 # 区块链配置 - Base
 blockchain:
-  rpc_url: https://base-mainnet.public.blastapi.io
+  # QuickNode Build Plan (50 RPS, ~30-80ms 延迟)
+  rpc_url: https://icy-evocative-arrow.base-mainnet.quiknode.pro/0d97df94b14cabd1208cd8410f0e47f8d16ec675/
   rpc_urls:
-    - https://1rpc.io/base
-    - https://base.drpc.org
+    - https://icy-evocative-arrow.base-mainnet.quiknode.pro/0d97df94b14cabd1208cd8410f0e47f8d16ec675/
     - https://base-mainnet.public.blastapi.io
-    - https://base.publicnode.com
+    - https://1rpc.io/base
     - https://mainnet.base.org
-  ws_url: wss://base.publicnode.com
+  ws_url: wss://icy-evocative-arrow.base-mainnet.quiknode.pro/0d97df94b14cabd1208cd8410f0e47f8d16ec675/
   chain_id: 8453
   timeout: 30
   retry: 3
@@ -187,8 +187,8 @@ cex:
   enabled: true
   binance:
     enabled: true
-    api_endpoint: "https://api.binance.us"
-    ws_endpoint: "wss://stream.binance.us:9443/ws"
+    api_endpoint: "https://api.binance.com"
+    ws_endpoint: "wss://stream.binance.com:9443/ws"
     api_key: ""
     api_secret: ""
     rate_limit: 1200

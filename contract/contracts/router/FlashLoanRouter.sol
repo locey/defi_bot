@@ -86,12 +86,10 @@ contract FlashLoanRouter {
         PlatFormConfig memory config = platFormConfigs[platform];
         require(config.lendingPool != address(0), "platform not invalid");
 
-        //2.校验借款额度
-        uint256 poolBalance = IERC20(asset).balanceOf(config.lendingPool);
-        uint256 maxAllowedAmount = poolBalance * config.maxLoanRatio / 10000;
-        require(amount <= maxAllowedAmount, "Amount over a lot");
+        // Aave V3 holds tokens in aTokens, not the Pool contract.
+        // Aave's flashLoanSimple() validates available liquidity internally.
 
-        //3.转发请求到lendingPool
+        //2.转发请求到lendingPool
         ILendingPool(config.lendingPool).flashLoanSimple(
             receiver,    // 借款接收者
             asset,       // 借款资产

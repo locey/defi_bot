@@ -590,8 +590,8 @@ func (d *ArbitrageDetector) calculatePath(path *ArbitragePath) *ArbitrageOpportu
 	grossProfitRate := new(big.Float).Quo(grossProfit, amountIn)
 	grossProfitRateFloat, _ := grossProfitRate.Float64()
 
-	// 异常利润诊断：>10% 一定是 bug，打印完整路径帮助定位
-	if grossProfitRateFloat > 0.10 {
+	// 异常利润诊断：>5% 一定是计算误差（V3 dampening 后仍高估）
+	if grossProfitRateFloat > 0.05 {
 		tokenAddrs := make([]string, len(path.Tokens))
 		for ti, t := range path.Tokens {
 			tokenAddrs[ti] = t.Hex()[:10]
@@ -641,9 +641,9 @@ func (d *ArbitrageDetector) calculatePath(path *ArbitragePath) *ArbitrageOpportu
 		return nil
 	}
 
-	// 过滤荒谬利润率（>3% 几乎都是 V3 计算误差的假阳性）
-	// 实测：aggregator 确认实际利润 <0.01%，本地计算 7-11% 高估 8000 倍
-	if grossProfitRateFloat > 0.03 {
+	// 过滤荒谬利润率（V3 单 tick 模型已加 50% dampening，>1.5% 仍不可信）
+	// QuoterV2 on-chain 验证是最终裁判，本地计算只做粗筛
+	if grossProfitRateFloat > 0.015 {
 		return nil
 	}
 

@@ -15,12 +15,16 @@ import (
 	"github.com/defi-bot/backend/internal/cexdex"
 	"github.com/defi-bot/backend/internal/collector"
 	"github.com/defi-bot/backend/internal/config"
+	"github.com/defi-bot/backend/internal/discovery"
 	"github.com/defi-bot/backend/internal/database"
 	"github.com/defi-bot/backend/internal/executor"
+	"github.com/defi-bot/backend/internal/liquidation"
 	"github.com/defi-bot/backend/internal/metrics"
 	"github.com/defi-bot/backend/internal/models"
 	"github.com/defi-bot/backend/internal/scheduler"
+	"github.com/defi-bot/backend/internal/solver"
 	"github.com/defi-bot/backend/internal/strategy"
+	"github.com/defi-bot/backend/pkg/aggregator"
 	"github.com/defi-bot/backend/pkg/cache"
 	"github.com/defi-bot/backend/pkg/cex"
 	"github.com/defi-bot/backend/pkg/log"
@@ -371,6 +375,69 @@ func main() {
 		}
 	}
 
+	// 13x. 1inch 路由验证 + 池发现服务（依赖高性能调度器）
+	var discoveryService *discovery.DiscoveryService
+	if highPerfScheduler != nil {
+		// 注入 1inch 路由验证器（在 Quoter 之后、Simulator 之前过滤虚假利润）
+		oneInchForRouter := aggregator.NewOneInchClient(&aggregator.OneInchConfig{
+			ChainID: int64(cfg.Blockchain.ChainID),
+		})
+		aggRouter := strategy.NewAggregatorRouter(oneInchForRouter)
+		highPerfScheduler.SetAggregatorRouter(aggRouter)
+		log.Main().Info().Msg("✅ 1inch 路由验证已注入调度器")
+
+		// 启动池发现服务（监听工厂事件，自动扩展 FastCollector 监控池）
+		if cfg.Blockchain.WSURL != "" {
+			// 构建工厂列表
+			type dexInfo struct {
+				Name     string
+				Factory  string
+				Protocol string
+			}
+			var dexInfos []dexInfo
+			for _, d := range cfg.Dexes {
+				dexInfos = append(dexInfos, dexInfo{Name: d.Name, Factory: d.Factory, Protocol: d.Protocol})
+			}
+			// 转换为 BuildFactories 需要的格式
+			var factoryInputs []struct {
+				Name     string
+				Factory  string
+				Protocol string
+			}
+			for _, di := range dexInfos {
+				factoryInputs = append(factoryInputs, struct {
+					Name     string
+					Factory  string
+					Protocol string
+				}{Name: di.Name, Factory: di.Factory, Protocol: di.Protocol})
+			}
+
+			// 构建核心代币
+			var tokenAddrs []string
+			for _, t := range cfg.Tokens {
+				if t.Address != "" {
+					tokenAddrs = append(tokenAddrs, t.Address)
+				}
+			}
+
+			discoveryCfg := &discovery.ServiceConfig{
+				WSURL:      cfg.Blockchain.WSURL,
+				Factories:  discovery.BuildFactories(factoryInputs),
+				CoreTokens: discovery.BuildCoreTokens(tokenAddrs),
+			}
+
+			fc := highPerfScheduler.GetCollector()
+			if fc != nil {
+				discoveryService = discovery.NewDiscoveryService(discoveryCfg, fc)
+				if err := discoveryService.Start(ctx); err != nil {
+					log.Main().Warn().Err(err).Msg("池发现服务启动失败")
+				} else {
+					log.Main().Info().Int("factories", len(discoveryCfg.Factories)).Msg("✅ 池发现服务已启动")
+				}
+			}
+		}
+	}
+
 	// 标准模式（或高性能模式回退时）
 	if schedulerMode == "standard" || activeScheduler == nil {
 		log.Main().Info().Msg("创建标准定时任务调度器...")
@@ -556,13 +623,20 @@ func main() {
 					Float64("net_profit_usd", opp.NetProfit).
 					Msg("CEX-DEX opportunity detected")
 
-				// 非跨 DEX 时只记录（同池往返必亏）
+				// 非跨 DEX 时：尝试真正的 CEX-DEX 执行（需要 CEXDEXExecutor）
 				if !crossDEX {
-					log.Main().Debug().Str("id", opp.ID).Msg("  ⚠️ Same-DEX round-trip, skipping (needs cross-DEX or CEX API)")
+					// CEXDEXExecutor 会在 13c 中创建（需要 Binance API key + 余额）
+					// 这里只记录，执行在后续 goroutine 中处理
+					log.Main().Info().
+						Str("id", opp.ID).
+						Str("direction", opp.Direction).
+						Float64("spread_pct", opp.ProfitRate*100).
+						Float64("net_profit_usd", opp.NetProfit).
+						Msg("📊 CEX-DEX spread detected (needs CEX funds to execute)")
 					continue
 				}
 
-				// 尝试执行跨 DEX 路由
+				// 跨 DEX 路由：通过链上合约执行
 				if arbitrageExecutor != nil && cfg.Scheduler.EnableExecution && !cfg.Scheduler.DryRun {
 					execCtx, execCancel := context.WithTimeout(ctx, 30*time.Second)
 					result, err := arbitrageExecutor.Execute(execCtx, arbOpp)
@@ -590,6 +664,213 @@ func main() {
 		log.Main().Info().Msg("CEX-DEX 套利未启用（需要配置 Binance API 并启用 cexdex.enabled）")
 	}
 
+	// 13b. 清算机器人（Aave V3 Flash Loan Liquidation）
+	var liquidationService *liquidation.Service
+	if cfg.Liquidation.Enabled && cfg.Contracts.AaveLendingPool != "" {
+		log.Main().Info().Msg("初始化清算机器人...")
+
+		scanInterval := time.Duration(cfg.Liquidation.ScanIntervalSec) * time.Second
+		if scanInterval == 0 {
+			scanInterval = 10 * time.Second
+		}
+
+		liqConfig := &liquidation.ServiceConfig{
+			AavePool:          common.HexToAddress(cfg.Contracts.AaveLendingPool),
+			AaveDataProvider:  common.HexToAddress(cfg.Contracts.AaveDataProvider),
+			KeeperPrivateKey:  cfg.Keeper.PrivateKey,
+			ChainID:           cfg.Blockchain.ChainID,
+			DryRun:            cfg.Liquidation.DryRun,
+			EnableExecution:   cfg.Scheduler.EnableExecution,
+			WatchThreshold:    cfg.Liquidation.WatchThreshold,
+			MinDebtUSD:        cfg.Liquidation.MinDebtUSD,
+			ScanInterval:      scanInterval,
+			EventScanBlocks:   uint64(cfg.Liquidation.EventScanBlocks),
+			DefaultSwapRouter: common.HexToAddress(cfg.Liquidation.SwapRouter),
+			DefaultSwapFee:    uint32(cfg.Liquidation.SwapFeeTier),
+		}
+
+		if cfg.Contracts.FlashLoanLiquidator != "" {
+			liqConfig.LiquidatorContract = common.HexToAddress(cfg.Contracts.FlashLoanLiquidator)
+		}
+		if cfg.Contracts.BalancerLiquidator != "" {
+			liqConfig.BalancerLiquidatorContract = common.HexToAddress(cfg.Contracts.BalancerLiquidator)
+		}
+
+		var liqErr error
+		liquidationService, liqErr = liquidation.NewService(web3Client, liqConfig)
+		if liqErr != nil {
+			log.Main().Warn().Err(liqErr).Msg("清算服务创建失败")
+		} else {
+			if err := liquidationService.Start(ctx); err != nil {
+				log.Main().Warn().Err(err).Msg("清算服务启动失败")
+				liquidationService = nil
+			} else {
+				log.Main().Info().
+					Bool("dry_run", cfg.Liquidation.DryRun).
+					Float64("watch_threshold", cfg.Liquidation.WatchThreshold).
+					Msg("✅ 清算机器人已启动")
+			}
+		}
+	} else {
+		log.Main().Info().Msg("清算机器人未启用（需要配置 liquidation.enabled 和 aave_lending_pool）")
+	}
+
+	// 13b-2. Compound V3 清算监控（Arbitrum 上 4 个 Comet 市场）
+	var compoundV3Monitor *liquidation.CompoundV3Monitor
+	if cfg.Liquidation.Enabled {
+		markets := liquidation.DefaultArbitrumMarkets()
+		var monErr error
+		compoundV3Monitor, monErr = liquidation.NewCompoundV3Monitor(
+			web3Client,
+			markets,
+			time.Duration(cfg.Liquidation.ScanIntervalSec)*time.Second,
+		)
+		if monErr != nil {
+			log.Main().Warn().Err(monErr).Msg("Compound V3 监控创建失败")
+		} else {
+			if err := compoundV3Monitor.Start(ctx); err != nil {
+				log.Main().Warn().Err(err).Msg("Compound V3 监控启动失败")
+				compoundV3Monitor = nil
+			} else {
+				log.Main().Info().Int("markets", len(markets)).Msg("✅ Compound V3 清算监控已启动")
+			}
+		}
+	}
+
+	// 13b-3. Silo Finance V1 清算监控（隔离借贷市场，内置闪电清算）
+	var siloV1Monitor *liquidation.SiloV1Monitor
+	if cfg.Liquidation.Enabled {
+		var siloErr error
+		siloV1Monitor, siloErr = liquidation.NewSiloV1Monitor(
+			web3Client,
+			time.Duration(cfg.Liquidation.ScanIntervalSec)*time.Second,
+		)
+		if siloErr != nil {
+			log.Main().Warn().Err(siloErr).Msg("Silo V1 监控创建失败")
+		} else {
+			if err := siloV1Monitor.Start(ctx); err != nil {
+				log.Main().Warn().Err(err).Msg("Silo V1 监控启动失败")
+				siloV1Monitor = nil
+			} else {
+				log.Main().Info().Msg("✅ Silo V1 清算监控已启动")
+			}
+		}
+	}
+
+	// 13c. Binance 交易客户端 + CEX-DEX 执行器
+	var binanceTrader *cex.BinanceTrader
+	var cexdexExecutor *cexdex.CEXDEXExecutor
+	if cfg.Cex.Enabled && cfg.Cex.Binance.Enabled &&
+		cfg.Cex.Binance.APIKey != "" && cfg.Cex.Binance.APISecret != "" {
+		log.Main().Info().Msg("初始化 Binance 交易客户端...")
+		binanceTrader = cex.NewBinanceTrader(&cex.BinanceConfig{
+			APIEndpoint: cfg.Cex.Binance.APIEndpoint,
+			APIKey:      cfg.Cex.Binance.APIKey,
+			APISecret:   cfg.Cex.Binance.APISecret,
+			RateLimit:   cfg.Cex.Binance.RateLimit,
+		})
+		log.Main().Info().Msg("✅ Binance 交易客户端已创建")
+
+		// 创建 CEX-DEX 执行器（连接 Binance 交易 + DEX on-chain 交易）
+		if cfg.Keeper.PrivateKey != "" && cexdexDetector != nil {
+			txMgrForCEXDEX := executor.NewTxManager(
+				web3Client.GetClient(),
+				big.NewInt(int64(cfg.Blockchain.ChainID)),
+				executor.DefaultTxManagerConfig(),
+			)
+			execConfig := cexdex.DefaultCEXDEXExecutorConfig()
+			execConfig.PrivateKey = cfg.Keeper.PrivateKey
+			execConfig.KeeperAddress = common.HexToAddress(cfg.Keeper.Address)
+
+			cexdexExecutor = cexdex.NewCEXDEXExecutor(execConfig, txMgrForCEXDEX, web3Client.GetClient(), binanceTrader)
+			if err := cexdexExecutor.Start(ctx); err != nil {
+				log.Main().Warn().Err(err).Msg("CEX-DEX 执行器启动失败")
+			} else {
+				log.Main().Info().Msg("✅ CEX-DEX 执行器已启动")
+
+				// 消费执行结果日志
+				go func() {
+					for result := range cexdexExecutor.GetResultChan() {
+						if result.Success {
+							log.Main().Info().
+								Str("id", result.OpportunityID).
+								Float64("profit_usd", result.ActualProfit).
+								Float64("gas_usd", result.GasCost).
+								Str("dex_tx", result.DEXTxHash.Hex()).
+								Int64("cex_order", result.CEXOrderID).
+								Dur("duration", result.ExecutionTime).
+								Msg("✅ CEX-DEX 执行成功")
+						} else {
+							log.Main().Warn().
+								Str("id", result.OpportunityID).
+								Str("error", result.Error).
+								Msg("❌ CEX-DEX 执行失败")
+						}
+					}
+				}()
+			}
+		}
+	}
+
+	// 13d. DEX 聚合器客户端（1inch + ParaSwap + 0x → MultiAggregator 竞价）
+	var oneInchClient *aggregator.OneInchClient
+	oneInchClient = aggregator.NewOneInchClient(&aggregator.OneInchConfig{
+		ChainID: int64(cfg.Blockchain.ChainID),
+	})
+
+	paraSwapClient := aggregator.NewParaSwapClient(&aggregator.ParaSwapConfig{
+		ChainID: int64(cfg.Blockchain.ChainID),
+	})
+
+	// 0x 需要 API key，没有则跳过
+	var zeroXClient *aggregator.ZeroXClient
+	// 可通过环境变量 ZEROX_API_KEY 配置
+	// if zeroXKey := os.Getenv("ZEROX_API_KEY"); zeroXKey != "" {
+	//     zeroXClient = aggregator.NewZeroXClient(&aggregator.ZeroXConfig{
+	//         ChainID: int64(cfg.Blockchain.ChainID),
+	//         APIKey:  zeroXKey,
+	//     })
+	// }
+
+	multiAggregator := aggregator.NewMultiAggregator(oneInchClient, paraSwapClient, zeroXClient)
+	_ = multiAggregator
+
+	log.Main().Info().
+		Int64("chain_id", int64(cfg.Blockchain.ChainID)).
+		Bool("1inch", oneInchClient != nil).
+		Bool("paraswap", paraSwapClient != nil).
+		Bool("0x", zeroXClient != nil).
+		Msg("✅ DEX 聚合器已创建")
+
+	// 13e. UniswapX Filler — 当前已禁用
+	// 原因：2026-03-13 测试发现 Arbitrum 和以太坊主网均无 open orders，UniswapX 订单量极低
+	// 代码保留在 internal/solver/uniswapx_filler.go，待 UniswapX 在 L2 活跃后可快速启用
+	// 启用方式：取消下方注释，确保 Keeper 私钥和 1inch 客户端已配置
+	var uniswapxFiller *solver.UniswapXFiller
+	_ = uniswapxFiller
+	/*
+	if cfg.Keeper.PrivateKey != "" && oneInchClient != nil {
+		txMgr := executor.NewTxManager(web3Client.GetClient(), big.NewInt(int64(cfg.Blockchain.ChainID)), executor.DefaultTxManagerConfig())
+		fillerConfig := solver.DefaultFillerConfig()
+		fillerConfig.ChainID = int64(cfg.Blockchain.ChainID)
+		fillerConfig.PrivateKey = cfg.Keeper.PrivateKey
+		fillerConfig.KeeperAddress = common.HexToAddress(cfg.Keeper.Address)
+
+		uniswapxFiller = solver.NewUniswapXFiller(fillerConfig, oneInchClient, txMgr, web3Client.GetClient())
+		go func() {
+			if err := uniswapxFiller.Start(ctx); err != nil {
+				log.Main().Warn().Err(err).Msg("UniswapX Filler 启动失败")
+			}
+		}()
+		log.Main().Info().Msg("✅ UniswapX Filler 已启动")
+	}
+	*/
+
+	// Suppress unused warnings
+	_ = binanceTrader
+	_ = oneInchClient
+	_ = cexdexExecutor
+
 	// 14. 启动 API 服务器
 	apiPort := cfg.Server.APIPort
 	if apiPort == 0 {
@@ -616,6 +897,25 @@ func main() {
 	// 15. 优雅关闭
 	log.Main().Info().Msg("正在关闭服务...")
 	ctxCancel() // 取消全局 context，通知所有 goroutine 退出
+	if discoveryService != nil {
+		discoveryService.Stop()
+	}
+	if cexdexExecutor != nil {
+		cexdexExecutor.Stop()
+	}
+	// UniswapX Filler 已禁用，无需 Stop
+	// if uniswapxFiller != nil {
+	// 	uniswapxFiller.Stop()
+	// }
+	if liquidationService != nil {
+		liquidationService.Stop()
+	}
+	if compoundV3Monitor != nil {
+		compoundV3Monitor.Stop()
+	}
+	if siloV1Monitor != nil {
+		siloV1Monitor.Stop()
+	}
 	if cexMonitor != nil {
 		cexMonitor.Stop()
 	}

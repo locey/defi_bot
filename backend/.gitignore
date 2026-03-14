@@ -1,0 +1,25 @@
+# Compiled binaries
+bin/
+arb-once
+cexdex-exec
+cexdex-loop
+cexdex-rebalance
+test-binance
+test-dryrun
+
+# Environment
+.env
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+
+# Logs
+logs/
+*.log
+
+# Vendor (if not committed)
+# vendor/

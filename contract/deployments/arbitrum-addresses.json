@@ -10,15 +10,24 @@
     "vault": "0xB7e37Fb429795E10A8D25752fFC69Fbab71df677",
     "doubleRouterIntegration": "0x67d905Da6b09733f1695db12A962066Ca85A95cC",
     "uniswapV2Integration": "0xf9680677Da105F3B10538A55F6e214F9c72AA120",
-    "flashLoanRouter": "0x4A89d8B8B0376Fc8c7e2119445c828719BeC019E",
+    "flashLoanRouter": "0x3D88345CAa5B059534839C14cA64B471cCFC73e3",
     "spotArbitrage": "0x7e9eC412aF1f8657b99Df8f419c5D98F11F41bd5",
     "arbitrageCore": "0x27ea15F931328474d75BE5B0a493278ba7041C74",
-    "flashLoanArbitrage": "0x8dbcdA14888b48CF3b6484e6aeb870B19563C01D"
+    "flashLoanArbitrage": "0x63EeA22E5b8191A98490E55B0dF4b3A459430179",
+    "flashLoanLiquidator": "0xc9bC59dCdf24071203053719CE5276e84e2158d4",
+    "balancerLiquidator": "0x06BF1025c00f11FF7fb53aFC7bb398FCBafA7646",
+    "compoundV3Liquidator": "0xaae7a162398F3Dd8CB5633B6d90dd4807Af75E90",
+    "siloLiquidator": "0x1C276AC9369dDfd276859b873f3D20562af434Cf"
   },
   "routers": {
     "uniswapV2": "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24",
     "uniswapV3": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
     "sushiswap": "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506"
   },
-  "flashLoanDeployTimestamp": "2026-03-09T19:13:59.048Z"
+  "flashLoanDeployTimestamp": "2026-03-09T19:13:59.048Z",
+  "liquidatorDeployTimestamp": "2026-03-12T15:47:54.096Z",
+  "flashLoanRedeployTimestamp": "2026-03-11T14:42:32.528Z",
+  "balancerLiquidatorDeployTimestamp": "2026-03-13T15:44:54.290Z",
+  "compoundV3LiquidatorDeployTimestamp": "2026-03-13T15:45:36.024Z",
+  "siloLiquidatorDeployTimestamp": "2026-03-13T15:45:55.647Z"
 }

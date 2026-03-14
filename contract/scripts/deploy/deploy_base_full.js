@@ -23,6 +23,12 @@ async function main() {
 
     const balance = await hre.ethers.provider.getBalance(deployer.address);
     console.log("Balance:", hre.ethers.formatEther(balance), "ETH");
+
+    if (balance < hre.ethers.parseEther("0.003")) {
+        console.error("❌ Insufficient balance. Need at least 0.003 ETH for deployment gas.");
+        console.error("   Send ETH to", deployer.address, "on Base network.");
+        process.exit(1);
+    }
     console.log("");
 
     // ============ Base 主网地址常量 ============
@@ -84,8 +90,9 @@ async function main() {
     console.log("  ✅ FlashLoanRouter:", deployed.flashLoanRouter);
 
     // 配置 Aave V3 lending pool
-    // FlashLoanRouter.LendingPlatForm.Aave_V2 = 0 (enum)
-    await flashLoanRouter.setLendingPool(0, AAVE_LENDING_POOL);
+    // FlashLoanRouter.setConfig(platform, lendingPool, referralCode, maxLoanRatio)
+    // LendingPlatForm.Aave_V2 = 0 (enum value, despite the name, works for Aave V3)
+    await flashLoanRouter.setConfig(0, AAVE_LENDING_POOL, 0, 5000);
     console.log("  ✅ Aave V3 LendingPool configured");
 
     // ============ 5. SpotArbitrage (UUPS) ============
@@ -156,6 +163,15 @@ async function main() {
     tx = await doubleRouter.setSpotArbitrage(spotArbitrage.target);
     await tx.wait();
     console.log("  ✅ DoubleRouter.spotArbitrage set");
+
+    // FlashLoan 授权链（Arbitrum 经验教训）
+    tx = await flashLoanRouter.setAuthorizedCaller(flashLoanArbitrage.target, true);
+    await tx.wait();
+    console.log("  ✅ FlashLoanRouter.setAuthorizedCaller(FLA) = true");
+
+    tx = await spotArbitrage.setBackendCaller(flashLoanArbitrage.target);
+    await tx.wait();
+    console.log("  ✅ SpotArbitrage.setBackendCaller = FlashLoanArbitrage");
 
     // ============ 保存部署地址 ============
     const deploymentInfo = {

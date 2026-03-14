@@ -216,8 +216,8 @@ func (d *Detector) checkOpportunity(cexPrice *CEXPrice) {
 	// 方向2: CEX -> DEX (在 CEX 买，在 DEX 卖)
 	spread2 := (dexPrice-cexPrice.AskPrice)/cexPrice.AskPrice - totalFeeRate
 
-	// 输出价格比较（周期性）
-	log.Info("CEX-DEX 价格比较: symbol=%s cex_bid=%.4f cex_ask=%.4f dex=%.4f spread1=%.4f%% spread2=%.4f%% (min=%.4f%%)",
+	// 输出价格比较（周期性，Debug 避免日志刷屏）
+	log.Debug("CEX-DEX 价格比较: symbol=%s cex_bid=%.4f cex_ask=%.4f dex=%.4f spread1=%.4f%% spread2=%.4f%% (min=%.4f%%)",
 		cexPrice.Symbol, cexPrice.BidPrice, cexPrice.AskPrice, dexPrice, spread1*100, spread2*100, d.config.MinProfitRate*100)
 
 	if spread1 > d.config.MinProfitRate {
