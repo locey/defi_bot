@@ -464,6 +464,7 @@ func main() {
 	// 13. CEX-DEX 套利检测器（如果配置了 Binance 且 CEXDEX 启用）
 	var cexMonitor *cexdex.PriceMonitor
 	var cexdexDetector *cexdex.Detector
+	var cexdexExecutor *cexdex.CEXDEXExecutor // 前向声明，13c 中赋值
 	if cfg.CEXDEX.Enabled && cfg.Cex.Enabled && cfg.Cex.Binance.Enabled {
 		log.Main().Info().Msg("初始化 CEX-DEX 套利检测器...")
 
@@ -667,16 +668,28 @@ func main() {
 					Float64("net_profit_usd", opp.NetProfit).
 					Msg("CEX-DEX opportunity detected")
 
-				// 非跨 DEX 时：尝试真正的 CEX-DEX 执行（需要 CEXDEXExecutor）
+				// 非跨 DEX 时：通过 CEXDEXExecutor 做单方向套利（DEX买+CEX卖 或 CEX买+DEX卖）
 				if !crossDEX {
-					// CEXDEXExecutor 会在 13c 中创建（需要 Binance API key + 余额）
-					// 这里只记录，执行在后续 goroutine 中处理
-					log.Main().Info().
-						Str("id", opp.ID).
-						Str("direction", opp.Direction).
-						Float64("spread_pct", opp.ProfitRate*100).
-						Float64("net_profit_usd", opp.NetProfit).
-						Msg("📊 CEX-DEX spread detected (needs CEX funds to execute)")
+					if cexdexExecutor != nil {
+						go func(o *cexdex.CEXDEXOpportunity) {
+							execCtx, execCancel := context.WithTimeout(ctx, 30*time.Second)
+							defer execCancel()
+							result, err := cexdexExecutor.Execute(execCtx, o)
+							if err != nil {
+								log.Main().Warn().Err(err).Str("id", o.ID).Msg("CEX-DEX execution failed")
+							} else if result != nil && result.Success {
+								log.Main().Info().
+									Str("id", o.ID).
+									Float64("profit_usd", result.ActualProfit).
+									Msg("✅ CEX-DEX execution succeeded")
+							}
+						}(opp)
+					} else {
+						log.Main().Info().
+							Str("id", opp.ID).
+							Float64("spread_pct", opp.ProfitRate*100).
+							Msg("📊 CEX-DEX spread detected (executor not ready)")
+					}
 					continue
 				}
 
@@ -809,7 +822,6 @@ func main() {
 
 	// 13c. Binance 交易客户端 + CEX-DEX 执行器
 	var binanceTrader *cex.BinanceTrader
-	var cexdexExecutor *cexdex.CEXDEXExecutor
 	if cfg.Cex.Enabled && cfg.Cex.Binance.Enabled &&
 		cfg.Cex.Binance.APIKey != "" && cfg.Cex.Binance.APISecret != "" {
 		log.Main().Info().Msg("初始化 Binance 交易客户端...")

@@ -176,7 +176,6 @@ func (d *Detector) checkOpportunity(cexPrice *CEXPrice) {
 	// 获取 DEX 价格
 	dexPrice, err := d.dexProvider.GetPrice(cexPrice.Symbol)
 	if err != nil {
-		log.Debug("CEX-DEX: GetPrice error for %s: %v", cexPrice.Symbol, err)
 		return
 	}
 
