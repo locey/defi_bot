@@ -45,6 +45,16 @@ export interface RevenueFlow {
   status: "success" | "pending" | "failed";
 }
 
+// 根据 dex_path 判断是否为 CEX-DEX 交易 (USDT 6位精度)
+function isCexDexExecution(exec: Execution): boolean {
+  try {
+    const dexPath = JSON.parse(exec.dex_path || "[]");
+    return dexPath.includes("Binance");
+  } catch {
+    return false;
+  }
+}
+
 // Convert API execution to RevenueFlow
 function executionToRevenueFlow(exec: Execution): RevenueFlow {
   let protocol = "Unknown";
@@ -56,6 +66,11 @@ function executionToRevenueFlow(exec: Execution): RevenueFlow {
       protocol = dexPath[0];
       strategy = dexPath.length > 1 ? "跨DEX套利" : "交易所内套利";
     }
+    // CEX-DEX 特殊处理
+    if (dexPath.includes("Binance")) {
+      protocol = "UniswapV3 + Binance";
+      strategy = "CEX-DEX套利";
+    }
   } catch {
     // Keep defaults
   }
@@ -66,9 +81,10 @@ function executionToRevenueFlow(exec: Execution): RevenueFlow {
     day: "numeric",
   });
 
-  // Convert from wei to ETH (assuming 18 decimals)
-  const amountIn = parseFloat(exec.amount_in) / 1e18;
-  const profit = parseFloat(exec.actual_profit) / 1e18;
+  // CEX-DEX 交易金额用 USDT 精度 (6位), 其他用 ETH 精度 (18位)
+  const divisor = isCexDexExecution(exec) ? 1e6 : 1e18;
+  const amountIn = parseFloat(exec.amount_in) / divisor;
+  const profit = parseFloat(exec.actual_profit) / divisor;
 
   return {
     id: exec.id.toString(),
@@ -92,7 +108,7 @@ function dailyStatsToRevenuePoints(dailyStats: DailyStats[]): DailyRevenuePoint[
   return dailyStats
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     .map((stat) => {
-      const daily = parseFloat(stat.profit) / 1e18;
+      const daily = smartDivide(stat.profit);
       cumulative += daily;
       
       return {
@@ -106,22 +122,31 @@ function dailyStatsToRevenuePoints(dailyStats: DailyStats[]): DailyRevenuePoint[
     });
 }
 
+// 智能单位转换: 如果值 < 1e12 认为是 USDT (1e6 精度), 否则是 ETH (1e18 精度)
+function smartDivide(raw: string): number {
+  const val = parseFloat(raw || "0");
+  if (Math.abs(val) < 1e12) {
+    return val / 1e6; // USDT 精度 (CEX-DEX 数据)
+  }
+  return val / 1e18; // ETH 精度 (旧 DEX-DEX 数据)
+}
+
 // Calculate APY from stats
 function calculateAPY(stats: StatsData): number {
-  const profit24h = parseFloat(stats.last_24h_profit || "0") / 1e18;
-  const totalProfit = parseFloat(stats.total_profit || "0") / 1e18;
-  
+  const profit24h = smartDivide(stats.last_24h_profit || "0");
+  const totalProfit = smartDivide(stats.total_profit || "0");
+
   // If we have 24h profit, use it to estimate APY
   if (profit24h > 0) {
-    // Assume 1 ETH principal for calculation
-    return profit24h * 365 * 100;
+    // Assume $200 principal for CEX-DEX calculation
+    return (profit24h / 200) * 365 * 100;
   }
-  
+
   // Otherwise use total profit over 30 days
   if (totalProfit > 0) {
-    return (totalProfit / 30) * 365 * 100;
+    return (totalProfit / 200 / 30) * 365 * 100;
   }
-  
+
   return 0;
 }
 
@@ -157,11 +182,11 @@ export const useArbitrageStats = () => {
 
       // Process stats
       if (statsData) {
-        const totalProfit = parseFloat(statsData.total_profit || "0") / 1e18;
-        const totalGasSpent = parseFloat(statsData.total_gas_spent || "0") / 1e18;
-        const netProfit = parseFloat(statsData.net_profit || "0") / 1e18;
-        const profit24h = parseFloat(statsData.last_24h_profit || "0") / 1e18;
-        const gas24h = parseFloat(statsData.last_24h_gas_spent || "0") / 1e18;
+        const totalProfit = smartDivide(statsData.total_profit || "0");
+        const totalGasSpent = smartDivide(statsData.total_gas_spent || "0");
+        const netProfit = smartDivide(statsData.net_profit || "0");
+        const profit24h = smartDivide(statsData.last_24h_profit || "0");
+        const gas24h = smartDivide(statsData.last_24h_gas_spent || "0");
         const apy = calculateAPY(statsData);
 
         setStats({
@@ -208,11 +233,11 @@ export const useArbitrageStats = () => {
       // Only refresh stats, not full data
       apiClient.getStats()
         .then((statsData) => {
-          const totalProfit = parseFloat(statsData.total_profit || "0") / 1e18;
-          const totalGasSpent = parseFloat(statsData.total_gas_spent || "0") / 1e18;
-          const netProfit = parseFloat(statsData.net_profit || "0") / 1e18;
-          const profit24h = parseFloat(statsData.last_24h_profit || "0") / 1e18;
-          const gas24h = parseFloat(statsData.last_24h_gas_spent || "0") / 1e18;
+          const totalProfit = smartDivide(statsData.total_profit || "0");
+          const totalGasSpent = smartDivide(statsData.total_gas_spent || "0");
+          const netProfit = smartDivide(statsData.net_profit || "0");
+          const profit24h = smartDivide(statsData.last_24h_profit || "0");
+          const gas24h = smartDivide(statsData.last_24h_gas_spent || "0");
           const apy = calculateAPY(statsData);
 
           setStats((prev) => ({

@@ -28,6 +28,10 @@ func GetOpportunities(db *gorm.DB) gin.HandlerFunc {
 		// 状态过滤
 		if status != "" && status != "all" {
 			query = query.Where("status = ?", status)
+			// 只对 pending 状态过滤过期
+			if status == "pending" {
+				query = query.Where("expires_at > ?", time.Now())
+			}
 		}
 
 		// 类型过滤
@@ -35,15 +39,12 @@ func GetOpportunities(db *gorm.DB) gin.HandlerFunc {
 			query = query.Where("arbitrage_type = ?", arbType)
 		}
 
-		// 只返回未过期的
-		query = query.Where("expires_at > ?", time.Now())
-
 		// 获取总数
 		var total int64
 		query.Count(&total)
 
-		// 按利润率降序，分页
-		if err := query.Order("profit_rate DESC").
+		// 按创建时间降序，分页
+		if err := query.Order("created_at DESC").
 			Offset(offset).Limit(limit).
 			Preload("TokenIn").Preload("TokenOut").
 			Find(&opps).Error; err != nil {

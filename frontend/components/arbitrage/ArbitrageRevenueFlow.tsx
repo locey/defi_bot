@@ -23,6 +23,8 @@ interface ArbitrageRevenueFlowProps {
 const protocolColors: Record<string, string> = {
   Aave: "bg-purple-500/10 text-purple-300 border-purple-500/20",
   Uniswap: "bg-pink-500/10 text-pink-300 border-pink-500/20",
+  UniswapV3: "bg-pink-500/10 text-pink-300 border-pink-500/20",
+  "UniswapV3 + Binance": "bg-yellow-500/10 text-yellow-300 border-yellow-500/20",
   Curve: "bg-blue-500/10 text-blue-300 border-blue-500/20",
   Compound: "bg-cyan-500/10 text-cyan-300 border-cyan-500/20",
 };
@@ -30,6 +32,8 @@ const protocolColors: Record<string, string> = {
 const strategyLabels: Record<string, string> = {
   交易所内套利: "DEX 内",
   跨交易所套利: "跨交易",
+  "CEX-DEX套利": "CEX-DEX",
+  跨DEX套利: "跨DEX",
   闪电贷套利: "闪电贷",
   "LP 费用": "LP",
   借贷收益: "借贷",
@@ -73,6 +77,19 @@ export function ArbitrageRevenueFlow({ flows }: ArbitrageRevenueFlowProps) {
     .reduce((sum, f) => sum + f.profit, 0);
 
   const formatEth = (val: number) => val.toFixed(6);
+  // CEX-DEX 交易用 USD 显示
+  const formatProfit = (flow: RevenueFlow) => {
+    if (flow.strategy === "CEX-DEX套利") {
+      return `$${flow.profit >= 0 ? "+" : ""}${flow.profit.toFixed(4)}`;
+    }
+    return `+${formatEth(flow.profit)} ETH`;
+  };
+  const formatFlowAmount = (flow: RevenueFlow) => {
+    if (flow.strategy === "CEX-DEX套利") {
+      return `$${flow.amount.toFixed(2)}`;
+    }
+    return `${formatEth(flow.amount)} ETH`;
+  };
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp);
     return date.toLocaleTimeString("zh-CN", {
@@ -93,7 +110,7 @@ export function ArbitrageRevenueFlow({ flows }: ArbitrageRevenueFlowProps) {
           <div className="text-sm text-slate-400">
             总收益:{" "}
             <span className="text-green-400 font-mono font-bold">
-              {formatEth(totalProfit)} ETH
+              ${totalProfit.toFixed(4)} USD
             </span>
           </div>
         </div>
@@ -218,7 +235,7 @@ export function ArbitrageRevenueFlow({ flows }: ArbitrageRevenueFlowProps) {
                       </div>
                     </td>
                     <td className="py-3 px-3 font-mono text-green-400 font-semibold">
-                      +{formatEth(flow.profit)} ETH
+                      {formatProfit(flow)}
                     </td>
                     <td className="py-3 px-3">
                       <span className="text-green-400 font-mono text-sm">
@@ -236,7 +253,7 @@ export function ArbitrageRevenueFlow({ flows }: ArbitrageRevenueFlowProps) {
                     <td className="py-3 px-3">
                       {flow.txHash && (
                         <a
-                          href={`https://etherscan.io/tx/${flow.txHash}`}
+                          href={`https://arbiscan.io/tx/${flow.txHash}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-blue-400 hover:text-blue-300 transition-colors"

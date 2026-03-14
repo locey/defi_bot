@@ -25,9 +25,17 @@ function OpportunityCard({ opportunity }: OpportunityCardProps) {
     // Keep empty arrays
   }
 
-  // Format amount (wei to ETH)
+  // CEX-DEX 用 USDT 精度 (6位), 其他用 ETH 精度 (18位)
+  const isCexDex = opportunity.arbitrage_type === "cex_dex";
+  const divisor = isCexDex ? 1e6 : 1e18;
+  const unit = isCexDex ? "USDT" : "ETH";
+
+  // Format amount
   const formatAmount = (amount: string) => {
-    const num = parseFloat(amount) / 1e18;
+    const num = parseFloat(amount) / divisor;
+    if (isCexDex) {
+      return `$${num.toFixed(4)}`;
+    }
     if (num < 0.0001) return "<0.0001";
     return num.toFixed(6);
   };
@@ -129,10 +137,10 @@ function OpportunityCard({ opportunity }: OpportunityCardProps) {
         {/* Right: Amounts */}
         <div className="text-right shrink-0">
           <p className={`text-lg font-bold ${isExpired ? "text-slate-500" : "text-green-400"}`}>
-            +{formatAmount(opportunity.expected_profit)} ETH
+            +{formatAmount(opportunity.expected_profit)} {isCexDex ? "" : unit}
           </p>
           <p className="text-xs text-slate-500">
-            投入: {formatAmount(opportunity.amount_in)} ETH
+            投入: {formatAmount(opportunity.amount_in)} {isCexDex ? "" : unit}
           </p>
           <p className={`text-xs mt-1 ${isExpired ? "text-red-400" : "text-orange-400"}`}>
             ⏱️ {timeLeft}
@@ -152,9 +160,9 @@ export function OpportunityList() {
   const fetchOpportunities = useCallback(async () => {
     try {
       setError(null);
-      const data = await apiClient.getOpportunities({ 
-        status: "pending", 
-        limit: 20 
+      const data = await apiClient.getOpportunities({
+        status: "all",
+        limit: 20
       });
       setOpportunities(data || []);
       setLastUpdate(new Date());
